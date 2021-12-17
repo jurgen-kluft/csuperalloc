@@ -8,11 +8,11 @@
 #include "xunittest/xunittest.h"
 #include "xunittest/private/ut_ReportAssert.h"
 
-UNITTEST_SUITE_LIST(xVMemUnitTest);
+UNITTEST_SUITE_LIST(xSuperAllocUnitTest);
 
-UNITTEST_SUITE_DECLARE(xVMemUnitTest, doubly_linked_list);
-UNITTEST_SUITE_DECLARE(xVMemUnitTest, binmap);
-UNITTEST_SUITE_DECLARE(xVMemUnitTest, main_allocator);
+UNITTEST_SUITE_DECLARE(xSuperAllocUnitTest, doubly_linked_list);
+UNITTEST_SUITE_DECLARE(xSuperAllocUnitTest, binmap);
+UNITTEST_SUITE_DECLARE(xSuperAllocUnitTest, main_allocator);
 
 namespace xcore
 {
@@ -104,7 +104,7 @@ bool gRunUnitTest(UnitTest::TestReporter& reporter)
     }
     else
     {
-        int r = UNITTEST_SUITE_RUN(reporter, xVMemUnitTest);
+        int r = UNITTEST_SUITE_RUN(reporter, xSuperAllocUnitTest);
         if (UnitTest::GetNumAllocations() != 0)
         {
             reporter.reportFailure(__FILE__, __LINE__, "xunittest", "memory leaks detected!");

@@ -42,32 +42,38 @@ Build {
 			Name = "xunittest",
 			Config = "*-*-*-test",
 			Sources = { SourceGlobCommon("../xunittest/source/main/cpp"), SourceGlobPlatform("../xunittest/source/main/cpp") },
-			Includes = { "..//xunittest/source/main/include" },
+			Includes = { "../xunittest/source/main/include" },
 		}
 		local xentry_library = StaticLibrary {
 			Name = "xentry",
 			Config = "*-*-*-*",
 			Sources = { SourceGlobCommon("../xentry/source/main/cpp"), SourceGlobPlatform("../xentry/source/main/cpp") },
-			Includes = { "..//xentry/source/main/include" },
+			Includes = { "../xentry/source/main/include" },
 		}
 		local xbase_library = StaticLibrary {
 			Name = "xbase",
 			Config = "*-*-*-*",
 			Sources = { SourceGlobCommon("../xbase/source/main/cpp"), SourceGlobPlatform("../xbase/source/main/cpp") },
-			Includes = { "..//xbase/source/main/include","..//xunittest/source/main/include" },
+			Includes = { "../xbase/source/main/include","../xunittest/source/main/include" },
 		}
 		local xvmem_library = StaticLibrary {
 			Name = "xvmem",
 			Config = "*-*-*-*",
 			Sources = { SourceGlobCommon("source/main/cpp"), SourceGlobPlatform("source/main/cpp") },
-			Includes = { "..//xvmem/source/main/include","..//xbase/source/main/include" },
+			Includes = { "../xvmem/source/main/include","../xbase/source/main/include" },
+		}
+		local xsuperalloc_library = StaticLibrary {
+			Name = "xsuperalloc",
+			Config = "*-*-*-*",
+			Sources = { SourceGlobCommon("source/main/cpp"), SourceGlobPlatform("source/main/cpp") },
+			Includes = { "../xsuperalloc/source/main/include","../xbase/source/main/include" },
 		}
 		local unittest = Program {
-			Name = "xvmem_test",
+			Name = "xsuperalloc_test",
 			Config = "*-*-*-test",
 			Sources = { SourceGlobCommon("source/test/cpp"), SourceGlobPlatform("source/test/cpp") },
-			Includes = { "source/main/include","source/test/include","..//xunittest/source/main/include","..//xentry/source/main/include","..//xbase/source/main/include","..//xvmem/source/main/include" },
-			Depends = { xunittest_library,xentry_library,xbase_library,xvmem_library },
+			Includes = { "source/main/include","source/test/include","../xunittest/source/main/include","../xentry/source/main/include","../xbase/source/main/include","../xvmem/source/main/include","../xsuperalloc/source/main/include" },
+			Depends = { xunittest_library,xentry_library,xbase_library,xvmem_library,xsuperalloc_library },
 		}
 		Default(unittest)
 	end,
@@ -79,6 +85,7 @@ Build {
 			CXXOPTS = {
 				"-std=c++11",
 				"-arch x86_64",
+				"-g",
 				"-Wno-new-returns-null",
 				"-Wno-missing-braces",
 				"-Wno-unused-function",
