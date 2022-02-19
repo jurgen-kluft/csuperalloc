@@ -20,7 +20,6 @@ tags
 !*.pdf
 
 !*.go
-!*.lua
 
 !*.cs
 !*.csproj
