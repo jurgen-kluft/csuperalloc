@@ -5,7 +5,7 @@
 
 #include "xvmem/private/x_binmap.h"
 
-using namespace xcore;
+using namespace ncore;
 
 extern alloc_t* gTestAllocator;
 

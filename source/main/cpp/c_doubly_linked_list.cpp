@@ -5,7 +5,7 @@
 
 #include "xsuperalloc/private/x_doubly_linked_list.h"
 
-namespace xcore
+namespace ncore
 {
     void llist_t::initialize(lldata_t& data, u16 start, u16 size, u16 max_size)
     {

@@ -5,7 +5,7 @@
 #pragma once
 #endif
 
-namespace xcore
+namespace ncore
 {
     // Forward declares
     class alloc_t;
@@ -27,6 +27,6 @@ namespace xcore
     // A virtual memory allocator, suitable for CPU as well as GPU memory
     extern alloc_t* gCreateVmAllocator(alloc_t* main_heap, xvmem* vmem, xvmem_config const* const cfg);
 
-}; // namespace xcore
+}; // namespace ncore
 
 #endif // __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__

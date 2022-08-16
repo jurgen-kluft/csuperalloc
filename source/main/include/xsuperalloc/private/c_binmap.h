@@ -7,7 +7,7 @@
 
 #include "xbase/x_debug.h"
 
-namespace xcore
+namespace ncore
 {
     struct binmap_t
     {
@@ -24,6 +24,6 @@ namespace xcore
         u32 m_l2_offset;
     };
 
-} // namespace xcore
+} // namespace ncore
 
 #endif // _X_XVMEM_BINMAP_H_
