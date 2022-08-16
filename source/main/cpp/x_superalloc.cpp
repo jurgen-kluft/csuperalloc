@@ -7,7 +7,7 @@
 #include "xsuperalloc/private/x_binmap.h"
 #include "xvmem/x_virtual_memory.h"
 
-namespace xcore
+namespace ncore
 {
     // @TODO: We could also include an index to an array of superchunks_t.
     //        An index in superalloc_t to a superchunks_t object.
@@ -111,7 +111,7 @@ namespace xcore
         inline bool is_full() const { return m_item_count == m_item_max; }
         inline bool is_empty() const { return m_item_count == 0; }
         inline u32  ptr2idx(void* const ptr, void* const elem) const { return (u32)(((u64)elem - (u64)ptr) / m_item_size); }
-        inline u32* idx2ptr(void* const ptr, u32 const index) const { return (u32*)((xbyte*)ptr + ((u64)index * m_item_size)); }
+        inline u32* idx2ptr(void* const ptr, u32 const index) const { return (u32*)((u8*)ptr + ((u64)index * m_item_size)); }
 
         u16 iallocate(void* page_address)
         {
@@ -1368,7 +1368,7 @@ namespace xcore
         ASSERT(size <= m_config.m_asuperbins[sbinindex].m_alloc_size);
         ASSERT(m_config.m_asuperbins[sbinindex].m_alloc_bin_index == sbinindex);
         void* ptr = m_allocators[sallocindex].allocate(m_internal_fsa, size, m_config.m_asuperbins[sbinindex]);
-        ASSERT(ptr >= m_superchunks[schunkindex].m_address_base && ptr < ((xbyte*)m_superchunks[schunkindex].m_address_base + m_superchunks[schunkindex].m_address_range));
+        ASSERT(ptr >= m_superchunks[schunkindex].m_address_base && ptr < ((u8*)m_superchunks[schunkindex].m_address_base + m_superchunks[schunkindex].m_address_range));
         return ptr;
     }
 
@@ -1377,7 +1377,7 @@ namespace xcore
         if (ptr == nullptr)
             return 0;
         superchunks_t* schunks = get_superchunks(ptr);
-        ASSERT(ptr >= schunks->m_address_base && ptr < ((xbyte*)schunks->m_address_base + schunks->m_address_range));
+        ASSERT(ptr >= schunks->m_address_base && ptr < ((u8*)schunks->m_address_base + schunks->m_address_range));
         u32 const               page_index  = schunks->address_to_page_index(ptr);
         superchunks_t::chain_t  chain       = schunks->page_index_to_chunk_info(page_index);
         superchunks_t::chunk_t* chunk       = (superchunks_t::chunk_t*)m_internal_fsa.idx2ptr(chain.m_chunk_index);
@@ -1393,7 +1393,7 @@ namespace xcore
         if (ptr == nullptr)
         {
             superchunks_t* schunks = get_superchunks(ptr);
-            ASSERT(ptr >= schunks->m_address_base && ptr < ((xbyte*)schunks->m_address_base + schunks->m_address_range));
+            ASSERT(ptr >= schunks->m_address_base && ptr < ((u8*)schunks->m_address_base + schunks->m_address_range));
             u32 const               page_index  = schunks->address_to_page_index(ptr);
             superchunks_t::chain_t  chain       = schunks->page_index_to_chunk_info(page_index);
             superchunks_t::chunk_t* chunk       = (superchunks_t::chunk_t*)m_internal_fsa.idx2ptr(chain.m_chunk_index);
@@ -1408,7 +1408,7 @@ namespace xcore
         if (ptr == nullptr)
             return 0xffffffff;
         superchunks_t* schunks = get_superchunks(ptr);
-        ASSERT(ptr >= schunks->m_address_base && ptr < ((xbyte*)schunks->m_address_base + schunks->m_address_range));
+        ASSERT(ptr >= schunks->m_address_base && ptr < ((u8*)schunks->m_address_base + schunks->m_address_range));
         u32 const               page_index  = schunks->address_to_page_index(ptr);
         superchunks_t::chain_t  chain       = schunks->page_index_to_chunk_info(page_index);
         superchunks_t::chunk_t* chunk       = (superchunks_t::chunk_t*)m_internal_fsa.idx2ptr(chain.m_chunk_index);
@@ -1436,4 +1436,4 @@ namespace xcore
             return block->m_chunks_physical_pages[chain.m_block_chunk_index] * schunks->m_page_size;
         }
     }
-} // namespace xcore
+} // namespace ncore

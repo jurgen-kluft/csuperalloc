@@ -6,7 +6,7 @@
 
 #include "xunittest/xunittest.h"
 
-using namespace xcore;
+using namespace ncore;
 
 extern alloc_t* gTestAllocator;
 class xalloc_with_stats : public alloc_t
@@ -47,7 +47,7 @@ public:
     virtual void v_release()
     {
         mAllocator->release();
-        mAllocator = NULL;
+        mAllocator = nullptr;
     }
 };
 

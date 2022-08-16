@@ -7,7 +7,7 @@
 
 #include "xbase/x_debug.h"
 
-namespace xcore
+namespace ncore
 {
     typedef u32      llindex_t;
 
@@ -54,15 +54,15 @@ namespace xcore
         {
             if (i == llnode_t::NIL)
                 return nullptr;
-            return (llnode_t*)((uptr)m_data + ((uptr)m_pagesize * (i >> 16)) + ((uptr)m_itemsize * (i & 0xFFFF)));
+            return (llnode_t*)((ptr_t)m_data + ((ptr_t)m_pagesize * (i >> 16)) + ((ptr_t)m_itemsize * (i & 0xFFFF)));
         }
 
         llindex_t node2idx(llnode_t* node)
         {
             if (node == nullptr)
                 return llindex_t();
-            u32 const page_index = (u32)(((uptr)node - (uptr)m_data) / m_pagesize);
-            u32 const item_index = (u32)(((uptr)node - (uptr)m_data) & (m_pagesize - 1)) / m_itemsize;
+            u32 const page_index = (u32)(((ptr_t)node - (ptr_t)m_data) / m_pagesize);
+            u32 const item_index = (u32)(((ptr_t)node - (ptr_t)m_data) & (m_pagesize - 1)) / m_itemsize;
             return (page_index << 16) | item_index;
         }
     };
@@ -117,6 +117,6 @@ namespace xcore
         llhead_t m_head;
     };
 
-} // namespace xcore
+} // namespace ncore
 
 #endif // _X_XVMEM_DOUBLY_LINKED_LIST_H_

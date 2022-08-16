@@ -6,7 +6,7 @@
 
 #include "xsuperalloc/private/x_binmap.h"
 
-namespace xcore
+namespace ncore
 {
     u32 resetarray(u32 count, u32 len, u16* data, u16 df = 0)
     {
@@ -186,4 +186,4 @@ namespace xcore
         }
     }
 
-} // namespace xcore
+} // namespace ncore
