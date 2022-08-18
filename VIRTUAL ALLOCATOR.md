@@ -133,7 +133,7 @@ public:
     virtual void  deallocate(void* addr);
 
 protected:
-    struct xentry
+    struct centry
     {
         void* m_address;
         u32   m_size;
@@ -146,7 +146,7 @@ protected:
     u32              m_entry_write;
     u32              m_entry_read;
     u32              m_entry_max;
-    xentry*          m_entry_array;
+    centry*          m_entry_array;
 };
 ```
 

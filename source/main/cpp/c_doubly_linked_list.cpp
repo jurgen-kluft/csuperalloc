@@ -1,7 +1,7 @@
-#include "xbase/x_target.h"
-#include "xbase/x_debug.h"
-#include "xbase/x_allocator.h"
-#include "xbase/x_integer.h"
+#include "cbase/x_target.h"
+#include "cbase/x_debug.h"
+#include "cbase/x_allocator.h"
+#include "cbase/x_integer.h"
 
 #include "xsuperalloc/private/x_doubly_linked_list.h"
 

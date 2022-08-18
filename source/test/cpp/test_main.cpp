@@ -1,12 +1,12 @@
-#include "xbase/x_base.h"
-#include "xbase/x_allocator.h"
-#include "xbase/x_console.h"
-#include "xbase/x_context.h"
+#include "cbase/x_base.h"
+#include "cbase/x_allocator.h"
+#include "cbase/x_console.h"
+#include "cbase/x_context.h"
 
 #include "xvmem/x_virtual_memory.h"
 
-#include "xunittest/xunittest.h"
-#include "xunittest/private/ut_ReportAssert.h"
+#include "cunittest/cunittest.h"
+#include "cunittest/private/ut_ReportAssert.h"
 
 UNITTEST_SUITE_LIST(xSuperAllocUnitTest);
 
@@ -52,7 +52,7 @@ namespace ncore
         {
         }
 
-        virtual const char* name() const { return "xbase unittest test heap allocator"; }
+        virtual const char* name() const { return "cbase unittest test heap allocator"; }
 
         virtual void* v_allocate(u32 size, u32 alignment)
         {
@@ -78,7 +78,7 @@ ncore::UnitTestAssertHandler gAssertHandler;
 
 bool gRunUnitTest(UnitTest::TestReporter& reporter)
 {
-	xbase::init();
+	cbase::init();
 
 #ifdef TARGET_DEBUG
 	ncore::context_t::set_assert_handler(&gAssertHandler);
@@ -99,7 +99,7 @@ bool gRunUnitTest(UnitTest::TestReporter& reporter)
     int r = 0;
     if (!ncore::gInitVirtualMemory())
     {
-        reporter.reportFailure(__FILE__, __LINE__, "xunittest", "Virtual memory initialization failed!");
+        reporter.reportFailure(__FILE__, __LINE__, "cunittest", "Virtual memory initialization failed!");
         r = -1;
     }
     else
@@ -107,7 +107,7 @@ bool gRunUnitTest(UnitTest::TestReporter& reporter)
         int r = UNITTEST_SUITE_RUN(reporter, xSuperAllocUnitTest);
         if (UnitTest::GetNumAllocations() != 0)
         {
-            reporter.reportFailure(__FILE__, __LINE__, "xunittest", "memory leaks detected!");
+            reporter.reportFailure(__FILE__, __LINE__, "cunittest", "memory leaks detected!");
             r = -1;
         }
     }
@@ -117,6 +117,6 @@ bool gRunUnitTest(UnitTest::TestReporter& reporter)
 	UnitTest::SetAllocator(nullptr);
 	ncore::context_t::set_system_alloc(systemAllocator);
 
-	xbase::exit();
+	cbase::exit();
 	return r==0;
 }

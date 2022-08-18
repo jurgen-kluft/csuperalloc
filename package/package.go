@@ -1,38 +1,38 @@
-package xsuperalloc
+package csuperalloc
 
 import (
-	xbase "github.com/jurgen-kluft/xbase/package"
+	cbase "github.com/jurgen-kluft/cbase/package"
+	centry "github.com/jurgen-kluft/centry/package"
+	cunittest "github.com/jurgen-kluft/cunittest/package"
+	cvmem "github.com/jurgen-kluft/cvmem/package"
 	"github.com/jurgen-kluft/xcode/denv"
-	xentry "github.com/jurgen-kluft/xentry/package"
-	xunittest "github.com/jurgen-kluft/xunittest/package"
-	xvmem "github.com/jurgen-kluft/xvmem/package"
 )
 
-// GetPackage returns the package object of 'xsuperalloc'
+// GetPackage returns the package object of 'csuperalloc'
 func GetPackage() *denv.Package {
 	// Dependencies
-	xunittestpkg := xunittest.GetPackage()
-	xentrypkg := xentry.GetPackage()
-	xvmempkg := xvmem.GetPackage()
-	xbasepkg := xbase.GetPackage()
+	cunittestpkg := cunittest.GetPackage()
+	centrypkg := centry.GetPackage()
+	cvmempkg := cvmem.GetPackage()
+	cbasepkg := cbase.GetPackage()
 
-	// The main (xsuperalloc) package
-	mainpkg := denv.NewPackage("xsuperalloc")
-	mainpkg.AddPackage(xunittestpkg)
-	mainpkg.AddPackage(xentrypkg)
-	mainpkg.AddPackage(xvmempkg)
-	mainpkg.AddPackage(xbasepkg)
+	// The main (csuperalloc) package
+	mainpkg := denv.NewPackage("csuperalloc")
+	mainpkg.AddPackage(cunittestpkg)
+	mainpkg.AddPackage(centrypkg)
+	mainpkg.AddPackage(cvmempkg)
+	mainpkg.AddPackage(cbasepkg)
 
-	// 'xsuperalloc' library
-	mainlib := denv.SetupDefaultCppLibProject("xsuperalloc", "github.com\\jurgen-kluft\\xsuperalloc")
-	mainlib.Dependencies = append(mainlib.Dependencies, xvmempkg.GetMainLib(), xbasepkg.GetMainLib())
+	// 'csuperalloc' library
+	mainlib := denv.SetupDefaultCppLibProject("csuperalloc", "github.com\\jurgen-kluft\\csuperalloc")
+	mainlib.Dependencies = append(mainlib.Dependencies, cvmempkg.GetMainLib(), cbasepkg.GetMainLib())
 
-	// 'xsuperalloc' unittest project
-	maintest := denv.SetupDefaultCppTestProject("xsuperalloc_test", "github.com\\jurgen-kluft\\xsuperalloc")
-	maintest.Dependencies = append(maintest.Dependencies, xunittestpkg.GetMainLib())
-	maintest.Dependencies = append(maintest.Dependencies, xentrypkg.GetMainLib())
-	maintest.Dependencies = append(maintest.Dependencies, xbasepkg.GetMainLib())
-	maintest.Dependencies = append(maintest.Dependencies, xvmempkg.GetMainLib())
+	// 'csuperalloc' unittest project
+	maintest := denv.SetupDefaultCppTestProject("csuperalloc_test", "github.com\\jurgen-kluft\\csuperalloc")
+	maintest.Dependencies = append(maintest.Dependencies, cunittestpkg.GetMainLib())
+	maintest.Dependencies = append(maintest.Dependencies, centrypkg.GetMainLib())
+	maintest.Dependencies = append(maintest.Dependencies, cbasepkg.GetMainLib())
+	maintest.Dependencies = append(maintest.Dependencies, cvmempkg.GetMainLib())
 	maintest.Dependencies = append(maintest.Dependencies, mainlib)
 
 	mainpkg.AddMainLib(mainlib)

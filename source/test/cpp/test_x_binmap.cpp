@@ -1,7 +1,7 @@
-#include "xbase/x_allocator.h"
-#include "xbase/x_integer.h"
+#include "cbase/x_allocator.h"
+#include "cbase/x_integer.h"
 
-#include "xunittest/xunittest.h"
+#include "cunittest/cunittest.h"
 
 #include "xvmem/private/x_binmap.h"
 
