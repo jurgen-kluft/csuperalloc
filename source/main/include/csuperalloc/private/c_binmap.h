@@ -1,11 +1,11 @@
 #ifndef _X_XVMEM_BINMAP_H_
 #define _X_XVMEM_BINMAP_H_
-#include "cbase/x_target.h"
+#include "cbase/c_target.h"
 #ifdef USE_PRAGMA_ONCE
 #pragma once
 #endif
 
-#include "cbase/x_debug.h"
+#include "cbase/c_debug.h"
 
 namespace ncore
 {

@@ -1,9 +1,9 @@
-#include "cbase/x_base.h"
-#include "cbase/x_allocator.h"
-#include "cbase/x_console.h"
-#include "cbase/x_context.h"
+#include "cbase/c_base.h"
+#include "cbase/c_allocator.h"
+#include "cbase/c_console.h"
+#include "cbase/c_context.h"
 
-#include "xvmem/x_virtual_memory.h"
+#include "cvmem/c_virtual_memory.h"
 
 #include "cunittest/cunittest.h"
 #include "cunittest/private/ut_ReportAssert.h"

@@ -1,8 +1,8 @@
-#include "cbase/x_target.h"
-#include "cbase/x_debug.h"
-#include "cbase/x_allocator.h"
-#include "cbase/x_memory.h"
-#include "cbase/x_integer.h"
+#include "cbase/c_target.h"
+#include "cbase/c_debug.h"
+#include "cbase/c_allocator.h"
+#include "cbase/c_memory.h"
+#include "cbase/c_integer.h"
 
 #include "xsuperalloc/private/x_binmap.h"
 

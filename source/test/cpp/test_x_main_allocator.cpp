@@ -1,8 +1,8 @@
-#include "cbase/x_allocator.h"
-#include "cbase/x_integer.h"
+#include "cbase/c_allocator.h"
+#include "cbase/c_integer.h"
 
-#include "xvmem/x_virtual_main_allocator.h"
-#include "xvmem/x_virtual_memory.h"
+#include "cvmem/c_virtual_main_allocator.h"
+#include "cvmem/c_virtual_memory.h"
 
 #include "cunittest/cunittest.h"
 

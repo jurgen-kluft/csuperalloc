@@ -1,6 +1,6 @@
 #ifndef __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
 #define __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
-#include "cbase/x_target.h"
+#include "cbase/c_target.h"
 #ifdef USE_PRAGMA_ONCE
 #pragma once
 #endif

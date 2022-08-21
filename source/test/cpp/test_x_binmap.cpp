@@ -1,5 +1,5 @@
-#include "cbase/x_allocator.h"
-#include "cbase/x_integer.h"
+#include "cbase/c_allocator.h"
+#include "cbase/c_integer.h"
 
 #include "cunittest/cunittest.h"
 
