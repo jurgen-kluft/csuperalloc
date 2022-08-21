@@ -1,5 +1,5 @@
-#ifndef __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
-#define __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
+#ifndef __C_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
+#define __C_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
 #include "cbase/c_target.h"
 #ifdef USE_PRAGMA_ONCE
 #pragma once
@@ -29,4 +29,4 @@ namespace ncore
 
 }; // namespace ncore
 
-#endif // __X_ALLOCATOR_VIRTUAL_ALLOCATOR_H__
+#endif // __C_ALLOCATOR_VIRTUAL_ALLOCATOR_H__

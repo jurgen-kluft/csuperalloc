@@ -4,7 +4,7 @@
 #include "cbase/c_memory.h"
 #include "cbase/c_integer.h"
 
-#include "xsuperalloc/private/x_binmap.h"
+#include "csuperalloc/private/c_binmap.h"
 
 namespace ncore
 {

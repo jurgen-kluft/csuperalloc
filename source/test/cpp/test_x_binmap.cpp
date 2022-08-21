@@ -3,7 +3,7 @@
 
 #include "cunittest/cunittest.h"
 
-#include "xvmem/private/x_binmap.h"
+#include "cvmem/private/c_binmap.h"
 
 using namespace ncore;
 
