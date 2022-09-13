@@ -210,4 +210,4 @@ namespace ncore
         return node2idx(data, node);
     }
 
-} // namespace xcore
+} // namespace ncore
