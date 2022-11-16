@@ -52,7 +52,7 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * High utilisation
 * Configurable
 * Support many platforms (PC, Mac, Linux, Playstation, Xbox, Nintendo)
-* Support GPU and texture streaming
+* Support GPU and other 'types' of memory
 * Debugging support
 
 ---
