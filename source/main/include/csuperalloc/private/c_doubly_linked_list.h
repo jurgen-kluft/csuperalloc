@@ -1,21 +1,21 @@
-#ifndef _X_XVMEM_DOUBLY_LINKED_LIST_H_
-#define _X_XVMEM_DOUBLY_LINKED_LIST_H_
+#ifndef __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
+#define __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
 #include "ccore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
-#pragma once
+#    pragma once
 #endif
 
 #include "ccore/c_debug.h"
 
 namespace ncore
 {
-    typedef u32      llindex_t;
+    typedef u32 llindex_t;
 
     struct llnode_t
     {
         static const u32 NIL = 0xFFFFFFFF;
-        inline bool is_linked() const { return m_prev != NIL && m_next != NIL; }
-        llindex_t m_prev, m_next;
+        inline bool      is_linked() const { return m_prev != NIL && m_next != NIL; }
+        llindex_t        m_prev, m_next;
     };
 
     struct lldata_t;
@@ -47,8 +47,8 @@ namespace ncore
     struct lldata_t
     {
         void* m_data;
-        u32 m_pagesize;
-        u32 m_itemsize;
+        u32   m_pagesize;
+        u32   m_itemsize;
 
         llnode_t* idx2node(llindex_t i)
         {
@@ -119,4 +119,4 @@ namespace ncore
 
 } // namespace ncore
 
-#endif // _X_XVMEM_DOUBLY_LINKED_LIST_H_
+#endif // __CSUPERALLOC_DOUBLY_LINKED_LIST_H_

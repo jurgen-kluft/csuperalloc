@@ -1,15 +1,15 @@
 #include "cbase/c_allocator.h"
 #include "cbase/c_integer.h"
 
-#include "cvmem/c_virtual_main_allocator.h"
+#include "csuperalloc/c_virtual_main_allocator.h"
+#include "csuperalloc/test_allocator.h"
 #include "cvmem/c_virtual_memory.h"
 
 #include "cunittest/cunittest.h"
 
 using namespace ncore;
 
-extern alloc_t* gTestAllocator;
-class xalloc_with_stats : public alloc_t
+class alloc_with_stats_t : public alloc_t
 {
     alloc_t* mAllocator;
     u32     mNumAllocs;
@@ -18,7 +18,7 @@ class xalloc_with_stats : public alloc_t
     u64     mMemoryDeallocated;
 
 public:
-    xalloc_with_stats()
+    alloc_with_stats_t()
         : mAllocator(nullptr)
     {
         mNumAllocs         = 0;
@@ -55,11 +55,12 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 {
     UNITTEST_FIXTURE(main)
     {
-        xalloc_with_stats s_alloc;
+        alloc_with_stats_t s_alloc;
+        UNITTEST_ALLOCATOR;
 
         UNITTEST_FIXTURE_SETUP()
         {
-            s_alloc.init(gTestAllocator);
+            s_alloc.init(Allocator);
         }
 
         UNITTEST_FIXTURE_TEARDOWN()

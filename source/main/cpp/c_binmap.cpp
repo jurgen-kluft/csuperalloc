@@ -14,12 +14,12 @@ namespace ncore
         for (u32 i = 0; i < wi2; i++)
             data[i] = df;
 
-        u32 w = wi2;
-        u32 const r = ((count&(16-1)) + (16-1)) >> 4;
+        u32       w = wi2;
+        u32 const r = ((count & (16 - 1)) + (16 - 1)) >> 4;
         if (r == 1)
         {
             u16 const m = 0xffff << (count & (16 - 1));
-            data[w++] = m | (df & ~m);
+            data[w++]   = m | (df & ~m);
         }
         while (w < len)
             data[w++] = 0xffff;
@@ -33,7 +33,7 @@ namespace ncore
         {
             u32 const c2 = resetarray(count, l2len, l2);
             u32 const c1 = resetarray(c2, l1len, l1);
-            count = c1;
+            count        = c1;
         }
         if (count == 32)
             m_l0 = 0;
@@ -48,7 +48,7 @@ namespace ncore
         {
             u32 const c2 = resetarray(count, l2len, l2, 0xffff);
             u32 const c1 = resetarray(c2, l1len, l1, 0xffff);
-            count = c1;
+            count        = c1;
         }
         m_l0 = 0xffffffff;
     }
@@ -131,14 +131,14 @@ namespace ncore
 
     s32 binmap_t::find(u32 count, u16 const* l1, u16 const* l2) const
     {
-        s32 const bi0 = xfindFirstBit(~m_l0);
+        s32 const bi0 = math::findFirstBit(~m_l0);
         if (bi0 >= 0 && count > 32)
         {
             u32 const wi1 = bi0 * 16;
-            s32 const bi1 = xfindFirstBit((u16)~l1[wi1]);
+            s32 const bi1 = math::findFirstBit((u16)~l1[wi1]);
             ASSERT(bi1 >= 0);
             u32 const wi2 = wi1 * 16 + bi1;
-            s32 const bi2 = xfindFirstBit((u16)~l2[wi2]);
+            s32 const bi2 = math::findFirstBit((u16)~l2[wi2]);
             ASSERT(bi2 >= 0);
             return bi2 + wi2 * 16;
         }
@@ -147,7 +147,7 @@ namespace ncore
 
     s32 binmap_t::findandset(u32 count, u16* l1, u16* l2)
     {
-        s32 const bi0 = xfindFirstBit(~m_l0);
+        s32 const bi0 = math::findFirstBit(~m_l0);
         if (bi0 < 0)
             return -1;
 
@@ -161,12 +161,12 @@ namespace ncore
         else
         {
             u32 const wi1 = bi0;
-            s32 const bi1 = xfindFirstBit((u16)~l1[wi1]);
+            s32 const bi1 = math::findFirstBit((u16)~l1[wi1]);
             ASSERT(bi1 >= 0);
             u32 const wi2 = (wi1 * 16) + bi1;
-            s32 const bi2 = xfindFirstBit((u16)~l2[wi2]);
+            s32 const bi2 = math::findFirstBit((u16)~l2[wi2]);
             ASSERT(bi2 >= 0);
-            u32 const k   = (wi2 * 16) + bi2;
+            u32 const k = (wi2 * 16) + bi2;
             ASSERT(get(count, l2, k) == false);
 
             u16 const wd2 = l2[wi2] | (1 << bi2);

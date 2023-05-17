@@ -5,6 +5,7 @@
 
 #include "csuperalloc/private/c_doubly_linked_list.h"
 #include "csuperalloc/private/c_binmap.h"
+
 #include "cvmem/c_virtual_memory.h"
 
 namespace ncore
@@ -27,21 +28,21 @@ namespace ncore
     class superheap_t
     {
     public:
-        void  initialize(xvmem* vmem, u64 memory_range, u64 size_to_pre_allocate);
+        void  initialize(vmem_t* vmem, u64 memory_range, u64 size_to_pre_allocate);
         void  deinitialize();
         void* allocate(u32 size);
 
-        void*  m_address;
-        u64    m_address_range;
-        xvmem* m_vmem;
-        u32    m_size_alignment;
-        u32    m_page_size;
-        u32    m_page_count_current;
-        u32    m_page_count_maximum;
-        u64    m_ptr;
+        void*   m_address;
+        u64     m_address_range;
+        vmem_t* m_vmem;
+        u32     m_size_alignment;
+        u32     m_page_size;
+        u32     m_page_count_current;
+        u32     m_page_count_maximum;
+        u64     m_ptr;
     };
 
-    void superheap_t::initialize(xvmem* vmem, u64 memory_range, u64 size_to_pre_allocate)
+    void superheap_t::initialize(vmem_t* vmem, u64 memory_range, u64 size_to_pre_allocate)
     {
         u32 attributes  = 0;
         m_vmem          = vmem;
@@ -54,7 +55,7 @@ namespace ncore
 
         if (size_to_pre_allocate > 0)
         {
-            u32 const pages_to_commit = (u32)(xalignUp(size_to_pre_allocate, (u64)m_page_size) / m_page_size);
+            u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, (u64)m_page_size) / m_page_size);
             m_vmem->commit(m_address, m_page_size, pages_to_commit);
             m_page_count_current = pages_to_commit;
         }
@@ -75,12 +76,12 @@ namespace ncore
 
     void* superheap_t::allocate(u32 size)
     {
-        size        = xalignUp(size, m_size_alignment);
+        size        = math::alignUp(size, m_size_alignment);
         u64 ptr_max = ((u64)m_page_count_current * m_page_size);
         if ((m_ptr + size) > ptr_max)
         {
             // add more pages
-            u32 const page_count           = (u32)(xalignUp(m_ptr + size, (u64)m_page_size) / (u64)m_page_size);
+            u32 const page_count           = (u32)(math::alignUp(m_ptr + size, (u64)m_page_size) / (u64)m_page_size);
             u32 const page_count_to_commit = page_count - m_page_count_current;
             u64       commit_base          = ((u64)m_page_count_current * m_page_size);
             m_vmem->commit(toaddress(m_address, commit_base), m_page_size, page_count_to_commit);
@@ -138,7 +139,7 @@ namespace ncore
             ASSERT(item_index < m_item_max);
             u16* const pelem = (u16*)idx2ptr(page_address, item_index);
 #ifdef SUPERALLOC_DEBUG
-            x_memset(pelem, 0xFEFEFEFE, m_item_size);
+            nmem::memset(pelem, 0xFEFEFEFE, m_item_size);
 #endif
             pelem[0]        = m_item_freelist;
             m_item_freelist = item_index;
@@ -148,7 +149,7 @@ namespace ncore
 
     struct superpages_t
     {
-        void  initialize(superheap_t& heap, xvmem* vmem, u64 address_range, u32 size_to_pre_allocate);
+        void  initialize(superheap_t& heap, vmem_t* vmem, u64 address_range, u32 size_to_pre_allocate);
         void  deinitialize(superheap_t& heap);
         u32   checkout_page(u32 const alloc_size);
         void  release_page(u32 index);
@@ -176,7 +177,7 @@ namespace ncore
             return (pageindex << 16) | (itemindex & 0xFFFF);
         }
 
-        xvmem*       m_vmem;
+        vmem_t*      m_vmem;
         void*        m_address;
         u64          m_address_range;
         u32          m_page_count;
@@ -187,7 +188,7 @@ namespace ncore
         llist_t      m_cached_page_list;
     };
 
-    void superpages_t::initialize(superheap_t& heap, xvmem* vmem, u64 address_range, u32 size_to_pre_allocate)
+    void superpages_t::initialize(superheap_t& heap, vmem_t* vmem, u64 address_range, u32 size_to_pre_allocate)
     {
         m_vmem         = vmem;
         u32 attributes = 0;
@@ -197,14 +198,14 @@ namespace ncore
         m_page_count = (u32)(address_range / (u64)m_page_size);
         m_page_array = (superpage_t*)heap.allocate(m_page_count * sizeof(superpage_t));
 #ifdef SUPERALLOC_DEBUG
-        x_memset(m_page_array, 0xCDCDCDCD, m_page_count * sizeof(superpage_t));
+        nmem::memset(m_page_array, 0xCDCDCDCD, m_page_count * sizeof(superpage_t));
 #endif
 
         m_page_list_data.m_data     = heap.allocate(m_page_count * sizeof(llnode_t));
         m_page_list_data.m_itemsize = sizeof(llnode_t);
         m_page_list_data.m_pagesize = m_page_count * sizeof(llnode_t);
 
-        u32 const num_pages_to_cache = xalignUp(size_to_pre_allocate, m_page_size) / m_page_size;
+        u32 const num_pages_to_cache = math::alignUp(size_to_pre_allocate, m_page_size) / m_page_size;
         ASSERT(num_pages_to_cache <= m_page_count);
         m_free_page_list.initialize(m_page_list_data, num_pages_to_cache, m_page_count - num_pages_to_cache, m_page_count);
         if (num_pages_to_cache > 0)
@@ -236,7 +237,7 @@ namespace ncore
         }
 #ifdef SUPERALLOC_DEBUG
         u64* apage = (u64*)address_of_page(ipage);
-        x_memset(apage, 0xCDCDCDCD, m_page_size);
+        nmem::memset(apage, 0xCDCDCDCD, m_page_size);
 #endif
         superpage_t* ppage = &m_page_array[ipage];
         ppage->initialize(alloc_size, m_page_size);
@@ -247,7 +248,7 @@ namespace ncore
     {
         superpage_t* const ppage = &m_page_array[pageindex];
 #ifdef SUPERALLOC_DEBUG
-        x_memset(ppage, 0xFEFEFEFE, sizeof(superpage_t));
+        nmem::memset(ppage, 0xFEFEFEFE, sizeof(superpage_t));
 #endif
         if (!m_cached_page_list.is_full())
         {
@@ -268,7 +269,7 @@ namespace ncore
     public:
         static const u32 NIL = 0xffffffff;
 
-        void initialize(superheap_t& heap, xvmem* vmem, u64 address_range, u32 size_to_pre_allocate);
+        void initialize(superheap_t& heap, vmem_t* vmem, u64 address_range, u32 size_to_pre_allocate);
         void deinitialize(superheap_t& heap);
 
         u32  alloc(u32 size);
@@ -287,7 +288,7 @@ namespace ncore
         llhead_t         m_used_page_list_per_size[c_max_num_sizes];
     };
 
-    void superfsa_t::initialize(superheap_t& heap, xvmem* vmem, u64 address_range, u32 size_to_pre_allocate)
+    void superfsa_t::initialize(superheap_t& heap, vmem_t* vmem, u64 address_range, u32 size_to_pre_allocate)
     {
         m_pages.initialize(heap, vmem, address_range, size_to_pre_allocate);
         for (u32 i = 0; i < c_max_num_sizes; i++)
@@ -298,8 +299,8 @@ namespace ncore
 
     u32 superfsa_t::alloc(u32 alloc_size)
     {
-        alloc_size      = xceilpo2(alloc_size);
-        s32 const c     = xcountTrailingZeros(alloc_size);
+        alloc_size      = math::ceilpo2(alloc_size);
+        s32 const c     = math::countTrailingZeros(alloc_size);
         u32       ipage = 0xffffffff;
         ASSERT(c >= 0 && c < c_max_num_sizes);
         if (m_used_page_list_per_size[c].is_nil())
@@ -330,7 +331,7 @@ namespace ncore
         }
     }
 
-    u32 superfsa_t::allocsizeof(u32 alloc_size) const { return xceilpo2(alloc_size); }
+    u32 superfsa_t::allocsizeof(u32 alloc_size) const { return math::ceilpo2(alloc_size); }
 
     void superfsa_t::dealloc(u32 i)
     {
@@ -341,7 +342,7 @@ namespace ncore
         ppage->deallocate(paddr, itemindex);
         if (ppage->is_empty())
         {
-            s32 const c = xcountTrailingZeros(ppage->m_item_size);
+            s32 const c = math::countTrailingZeros(ppage->m_item_size);
             ASSERT(c >= 0 && c < c_max_num_sizes);
             m_used_page_list_per_size[c].remove_item(m_pages.m_page_list_data, pageindex);
             m_pages.release_page(pageindex);
@@ -351,7 +352,7 @@ namespace ncore
     struct superbin_t
     {
         inline superbin_t(u32 allocsize_mb, u32 allocsize_kb, u32 allocsize_b, u8 binidx, u8 allocindex, u8 schunksindex, u8 use_binmap, u16 count, u16 l1len, u16 l2len)
-            : m_alloc_size((xMB * allocsize_mb) + (xKB * allocsize_kb) + (allocsize_b))
+            : m_alloc_size((cMB * allocsize_mb) + (cKB * allocsize_kb) + (allocsize_b))
             , m_alloc_bin_index(binidx)
             , m_alloc_index(allocindex)
             , m_schunks_index(schunksindex)
@@ -453,18 +454,18 @@ namespace ncore
             config_t(32, 25, 0, 0),        config_t(16, 26, 0, 0),     config_t(8, 27, 0, 0),      config_t(4, 28, 0, 0),     config_t(2, 29, 0, 0),          config_t(0, 0, 0, 0),     config_t(0, 0, 0, 0),
         };
 
-        void initialize(xvmem* vmem, u64 address_range, u64 block_range, superheap_t* heap, superfsa_t* fsa)
+        void initialize(vmem_t* vmem, u64 address_range, u64 block_range, superheap_t* heap, superfsa_t* fsa)
         {
             m_vmem          = vmem;
             m_address_range = address_range;
             u32 const attrs = 0;
             m_vmem->reserve(address_range, m_page_size, attrs, m_address_base);
-            m_page_shift = xcountTrailingZeros(m_page_size);
+            m_page_shift = math::countTrailingZeros(m_page_size);
             m_page_count = 0;
 
             m_fsa = fsa;
 
-            m_blocks_shift                = xcountTrailingZeros(block_range);
+            m_blocks_shift                = math::countTrailingZeros(block_range);
             u32 const num_blocks          = (u32)(m_address_range >> m_blocks_shift);
             m_blocks_array                = (block_t*)heap->allocate(num_blocks * sizeof(block_t));
             m_blocks_list_data.m_data     = m_blocks_array;
@@ -600,8 +601,8 @@ namespace ncore
                 ASSERT(false);
             }
 
-            u32* const chunk_tracking_array = (u32*)m_fsa->alloc(bin.m_alloc_count);
-            u32 const  chunk_tracking_index = m_fsa->ptr2idx(chunk_tracking_array);
+            u32 const  chunk_tracking_index = m_fsa->alloc(bin.m_alloc_count);
+            u32* const chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk_tracking_index);
 
             block->m_chunks_alloc_tracking_array[block_chunk_index] = chunk_tracking_index;
             block->m_chunks_array[block_chunk_index]                = chunk_index;
@@ -765,7 +766,7 @@ namespace ncore
 
         superfsa_t* m_fsa;
         llhead_t    m_block_per_group_list_active[32];
-        xvmem*      m_vmem;
+        vmem_t*     m_vmem;
         void*       m_address_base;
         u64         m_address_range;
         u32         m_page_count;
@@ -1094,9 +1095,9 @@ namespace ncore
     {
         static const s32                  c_num_schunks             = 8;
         static const superchunks_config_t c_aschunks[c_num_schunks] = {
-            superchunks_config_t(xGB * 64, xGB * 1, 64 * xKB, 0, 0),
-            superchunks_config_t(xGB * 64, xGB * 1, 16 * xKB, 0, 0),
-            superchunks_config_t(xGB * 64, xGB * 1, 4 * xKB, 0, 0),
+            superchunks_config_t(cGB * 64, cGB * 1, 64 * cKB, 0, 0),
+            superchunks_config_t(cGB * 64, cGB * 1, 16 * cKB, 0, 0),
+            superchunks_config_t(cGB * 64, cGB * 1, 4 * cKB, 0, 0),
             superchunks_config_t(),
             superchunks_config_t(),
             superchunks_config_t(),
@@ -1137,10 +1138,17 @@ namespace ncore
             superbin_t(256, 0, 0, 108, 28, 0, 0, 1, 0, 0),     superbin_t(320, 0, 0, 109, 29, 0, 0, 1, 0, 0),     superbin_t(384, 0, 0, 110, 29, 0, 0, 1, 0, 0),     superbin_t(448, 0, 0, 111, 29, 0, 0, 1, 0, 0),
         };
 
-        static const u32 c_internal_heap_address_range = 16 * xMB;
-        static const u32 c_internal_heap_pre_size      = 2 * xMB;
-        static const u32 c_internal_fsa_address_range  = 16 * xMB;
-        static const u32 c_internal_fsa_pre_size       = 2 * xMB;
+        static const u32 c_internal_heap_address_range = 16 * cMB;
+        static const u32 c_internal_heap_pre_size      = 2 * cMB;
+        static const u32 c_internal_fsa_address_range  = 16 * cMB;
+        static const u32 c_internal_fsa_pre_size       = 2 * cMB;
+
+        // NOTE: Is this correct ?
+        static const s32    c_num_allocators               = 14;
+        static superalloc_t c_allocators[c_num_allocators] = {
+            superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
+            superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
+        };
 
         static superallocator_config_t get_config()
         {
@@ -1149,7 +1157,7 @@ namespace ncore
 
         static inline s32 size2bin(u32 size)
         {
-            s32 w = xcountLeadingZeros(size);
+            s32 w = math::countLeadingZeros(size);
             u32 f = (u32)0x80000000 >> w;
             u32 r = 0xFFFFFFFF << (29 - w);
             u32 t = ((f - 1) >> 2);
@@ -1164,7 +1172,7 @@ namespace ncore
     {
         // 10% allocation waste
         static const s32                  c_num_schunks             = 2;
-        static const superchunks_config_t c_aschunks[c_num_schunks] = {superchunks_config_t(xGB * 128, xGB * 1, 64 * xKB, 0, 0), superchunks_config_t(xGB * 128, xGB * 1, 4 * xKB, 0, 0)};
+        static const superchunks_config_t c_aschunks[c_num_schunks] = {superchunks_config_t(cGB * 128, cGB * 1, 64 * cKB, 0, 0), superchunks_config_t(cGB * 128, cGB * 1, 4 * cKB, 0, 0)};
 
         static const s32        c_num_bins           = 216;
         static const superbin_t c_asbins[c_num_bins] = {
@@ -1223,16 +1231,17 @@ namespace ncore
             superbin_t(256, 0, 0, 208, 12, 0, 0, 1, 0, 0),    superbin_t(288, 0, 0, 209, 13, 0, 0, 1, 0, 0),    superbin_t(320, 0, 0, 210, 13, 0, 0, 1, 0, 0),    superbin_t(352, 0, 0, 211, 13, 0, 0, 1, 0, 0),
             superbin_t(384, 0, 0, 212, 13, 0, 0, 1, 0, 0),    superbin_t(416, 0, 0, 213, 13, 0, 0, 1, 0, 0),    superbin_t(448, 0, 0, 214, 13, 0, 0, 1, 0, 0),    superbin_t(480, 0, 0, 215, 13, 0, 0, 1, 0, 0),
         };
+
         static const s32    c_num_allocators               = 14;
         static superalloc_t c_allocators[c_num_allocators] = {
             superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
             superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
         };
 
-        static const u32 c_internal_heap_address_range = 16 * xMB;
-        static const u32 c_internal_heap_pre_size      = 2 * xMB;
-        static const u32 c_internal_fsa_address_range  = 16 * xMB;
-        static const u32 c_internal_fsa_pre_size       = 2 * xMB;
+        static const u32 c_internal_heap_address_range = 16 * cMB;
+        static const u32 c_internal_heap_pre_size      = 2 * cMB;
+        static const u32 c_internal_fsa_address_range  = 16 * cMB;
+        static const u32 c_internal_fsa_pre_size       = 2 * cMB;
 
         static superallocator_config_t get_config()
         {
@@ -1241,7 +1250,7 @@ namespace ncore
 
         static inline s32 size2bin(u32 size)
         {
-            s32 w = xcountLeadingZeros(size);
+            s32 w = math::countLeadingZeros(size);
             u32 f = (u32)0x80000000 >> w;
             u32 r = 0xFFFFFFFF << (28 - w);
             u32 t = ((f - 1) >> 3);
@@ -1267,7 +1276,7 @@ namespace ncore
         {
         }
 
-        void initialize(xvmem* vmem, superallocator_config_t const& config);
+        void initialize(vmem_t* vmem, superallocator_config_t const& config);
         void deinitialize();
 
         void* allocate(u32 size, u32 alignment);
@@ -1298,12 +1307,12 @@ namespace ncore
         u64            m_superchunks_memrange;
         u8*            m_superchunks_map; // (m_vmemtotal_memrange (1 TB) / m_superchunks_memrange) = 8 entries
         superalloc_t*  m_allocators;
-        xvmem*         m_vmem;
+        vmem_t*        m_vmem;
         superheap_t    m_internal_heap;
         superfsa_t     m_internal_fsa;
     };
 
-    void superallocator_t::initialize(xvmem* vmem, superallocator_config_t const& config)
+    void superallocator_t::initialize(vmem_t* vmem, superallocator_config_t const& config)
     {
         m_config = config;
         m_vmem   = vmem;
@@ -1336,13 +1345,13 @@ namespace ncore
 
 #ifdef SUPERALLOC_DEBUG
         // sanity check on the superbin_t config
-        for (s32 s = 0; s < m_config.m_num_bins; s++)
+        for (s32 s = 0; s < m_config.m_num_superbins; s++)
         {
-            u32 const rs            = m_config.m_asbins[s].m_alloc_bin_index;
-            u32 const size          = m_config.m_asbins[rs].m_alloc_size;
+            u32 const rs            = m_config.m_asuperbins[s].m_alloc_bin_index;
+            u32 const size          = m_config.m_asuperbins[rs].m_alloc_size;
             u32 const bin_index     = superallocator_config::size2bin(size);
-            u32 const bin_reindex   = m_config.m_asbins[bin_index].m_alloc_bin_index;
-            u32 const bin_allocsize = m_config.m_asbins[bin_reindex].m_alloc_size;
+            u32 const bin_reindex   = m_config.m_asuperbins[bin_index].m_alloc_bin_index;
+            u32 const bin_allocsize = m_config.m_asuperbins[bin_reindex].m_alloc_size;
             ASSERT(size <= bin_allocsize);
         }
 #endif
@@ -1361,7 +1370,7 @@ namespace ncore
 
     void* superallocator_t::allocate(u32 size, u32 alignment)
     {
-        size                  = xalignUp(size, alignment);
+        size                  = math::alignUp(size, alignment);
         u32 const sbinindex   = m_config.m_asuperbins[superallocator_config::size2bin(size)].m_alloc_bin_index;
         u32 const schunkindex = m_config.m_asuperbins[sbinindex].m_schunks_index;
         s32 const sallocindex = m_config.m_asuperbins[sbinindex].m_alloc_index;

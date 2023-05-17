@@ -20,16 +20,15 @@ namespace ncore
         {
             u32 const t    = start + i;
             llnode_t* node = idx2node(data, t);
-            node->m_prev = (t - 1);
-            node->m_next = (t + 1);
+            node->m_prev   = (t - 1);
+            node->m_next   = (t + 1);
         }
         llnode_t* snode = idx2node(data, start);
-        snode->m_prev = end - 1;
-        snode->m_next = start + 1;
+        snode->m_prev   = end - 1;
+        snode->m_next   = start + 1;
         llnode_t* enode = idx2node(data, end - 1);
-        enode->m_prev = end - 2;
-        enode->m_next = start;
-
+        enode->m_prev   = end - 2;
+        enode->m_next   = start;
     }
 
     void llhead_t::insert(lldata_t& data, llindex_t item)
@@ -46,10 +45,10 @@ namespace ncore
             llnode_t* const pnext = data.idx2node(inext);
             llindex_t const iprev = pnext->m_prev;
             llnode_t* const pprev = data.idx2node(iprev);
-            pitem->m_prev = iprev;
-            pitem->m_next = inext;
-            pnext->m_prev = item;
-            pprev->m_next = item;
+            pitem->m_prev         = iprev;
+            pitem->m_next         = inext;
+            pnext->m_prev         = item;
+            pprev->m_next         = item;
         }
         m_index = item;
     }
@@ -61,7 +60,7 @@ namespace ncore
         {
             pitem->m_prev = item;
             pitem->m_next = item;
-            m_index = item;
+            m_index       = item;
         }
         else
         {
@@ -69,10 +68,10 @@ namespace ncore
             llnode_t* const pnext = data.idx2node(inext);
             llindex_t const iprev = pnext->m_prev;
             llnode_t* const pprev = data.idx2node(iprev);
-            pitem->m_prev = iprev;
-            pitem->m_next = inext;
-            pnext->m_prev = item;
-            pprev->m_next = item;
+            pitem->m_prev         = iprev;
+            pitem->m_next         = inext;
+            pnext->m_prev         = item;
+            pprev->m_next         = item;
         }
     }
 
@@ -104,7 +103,7 @@ namespace ncore
         if (head.is_nil())
             return 0;
         llnode_t* const phead = data.idx2node(head.m_index);
-        llindex_t tail = phead->m_prev;
+        llindex_t       tail  = phead->m_prev;
         s_remove_item(head, data, tail, out_node);
         return 1;
     }
@@ -171,7 +170,8 @@ namespace ncore
     {
         llnode_t* node = nullptr;
         ASSERT(m_size > 0);
-        m_size -= s_remove_item(m_head, data, item, node);
+        s_remove_item(m_head, data, item, node);
+        m_size -= 1;
         return node;
     }
 
@@ -180,7 +180,8 @@ namespace ncore
         llnode_t* node = nullptr;
         ASSERT(m_size > 0);
         llindex_t item = m_head.m_index;
-        m_size -= s_remove_item(m_head, data, item, node);
+        m_size -= 1;
+        s_remove_item(m_head, data, item, node);
         return node;
     }
 

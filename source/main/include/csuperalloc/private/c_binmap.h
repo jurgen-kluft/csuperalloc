@@ -1,8 +1,8 @@
-#ifndef _X_XVMEM_BINMAP_H_
-#define _X_XVMEM_BINMAP_H_
+#ifndef __CSUPERALLOC_BINMAP_H_
+#define __CSUPERALLOC_BINMAP_H_
 #include "ccore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
-#pragma once
+#    pragma once
 #endif
 
 #include "ccore/c_debug.h"
@@ -26,4 +26,4 @@ namespace ncore
 
 } // namespace ncore
 
-#endif // _X_XVMEM_BINMAP_H_
+#endif // __CSUPERALLOC_BINMAP_H_

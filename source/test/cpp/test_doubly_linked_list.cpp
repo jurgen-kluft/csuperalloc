@@ -1,26 +1,25 @@
 #include "cbase/c_allocator.h"
 #include "cbase/c_integer.h"
 
-#include "cvmem/private/c_doubly_linked_list.h"
+#include "csuperalloc/private/c_doubly_linked_list.h"
+#include "csuperalloc/test_allocator.h"
 
 #include "cunittest/cunittest.h"
 
 using namespace ncore;
 
-extern alloc_t* gTestAllocator;
-
-llnode_t* gCreateList(u32 count, lldata_t& lldata)
+llnode_t* gCreateList(alloc_t* alloc, u32 count, lldata_t& lldata)
 {
-	llnode_t* list = (llnode_t*)gTestAllocator->allocate(sizeof(llnode_t) * count);
+	llnode_t* list = (llnode_t*)alloc->allocate(sizeof(llnode_t) * count);
 	lldata.m_data = list;
 	lldata.m_itemsize = sizeof(llnode_t);
 	lldata.m_pagesize = sizeof(llnode_t) * count;
 	return list;
 }
 
-void gDestroyList(llnode_t* list)
+void gDestroyList(alloc_t* alloc, llnode_t* list)
 {
-	gTestAllocator->deallocate(list);
+	alloc->deallocate(list);
 }
 
 UNITTEST_SUITE_BEGIN(doubly_linked_list)
@@ -28,26 +27,27 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
     UNITTEST_FIXTURE(main)
     {
         UNITTEST_FIXTURE_SETUP() {}
-
         UNITTEST_FIXTURE_TEARDOWN() {}
+
+		UNITTEST_ALLOCATOR;
 
         UNITTEST_TEST(init) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
 			CHECK_EQUAL(0, list.size());
 			CHECK_TRUE(list.m_head.is_nil());
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
         UNITTEST_TEST(insert_1) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -64,13 +64,13 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 			CHECK_EQUAL(0, node->m_next);
 			CHECK_EQUAL(0, node->m_prev);
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
         UNITTEST_TEST(insert_1_remove_head) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -92,13 +92,13 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 			CHECK_TRUE(node->m_next==llnode_t::NIL);
 			CHECK_TRUE(node->m_prev==llnode_t::NIL);
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
         UNITTEST_TEST(insert_N_remove_head) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -127,13 +127,13 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 			CHECK_EQUAL(0, list.size());
 			CHECK_TRUE(list.m_head.is_nil());
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
         UNITTEST_TEST(insert_N_remove_tail) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -162,13 +162,13 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 			CHECK_EQUAL(0, list.size());
 			CHECK_TRUE(list.m_head.is_nil());
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
         UNITTEST_TEST(insert_N_remove_item) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(1024, lldata);
+			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -197,7 +197,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 			CHECK_EQUAL(0, list.size());
 			CHECK_TRUE(list.m_head.is_nil());
 
-			gDestroyList(list_data);
+			gDestroyList(Allocator, list_data);
 		}
 
     }

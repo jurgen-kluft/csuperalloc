@@ -1,20 +1,17 @@
-#include "cbase/c_allocator.h"
+#include "ccore/c_allocator.h"
 #include "cbase/c_integer.h"
+
+#include "csuperalloc/private/c_binmap.h"
 
 #include "cunittest/cunittest.h"
 
-#include "cvmem/private/c_binmap.h"
-
 using namespace ncore;
-
-extern alloc_t* gTestAllocator;
 
 UNITTEST_SUITE_BEGIN(binmap)
 {
     UNITTEST_FIXTURE(main)
     {
         UNITTEST_FIXTURE_SETUP() {}
-
         UNITTEST_FIXTURE_TEARDOWN() {}
 
         UNITTEST_TEST(set_get) 
