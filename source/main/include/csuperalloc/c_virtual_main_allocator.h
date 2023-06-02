@@ -11,21 +11,8 @@ namespace ncore
     class alloc_t;
     class vmem_t;
 
-    struct vmem_config_t
-    {
-        static inline u32 KB(u32 value) { return value * (u32)1024; }
-        static inline u32 MB(u32 value) { return value * (u32)1024 * (u32)1024; }
-        static inline u64 MBx(u64 value) { return value * (u64)1024 * (u64)1024; }
-        static inline u64 GBx(u64 value) { return value * (u64)1024 * (u64)1024 * (u64)1024; }
-
-        vmem_config_t()
-        {
-        }
-
-    };
-
     // A virtual memory allocator, suitable for CPU as well as GPU memory
-    extern alloc_t* gCreateVmAllocator(alloc_t* main_heap, vmem_t* vmem, vmem_config_t const* const cfg);
+    extern alloc_t* gCreateVmAllocator(alloc_t* main_heap, vmem_t* vmem
 
 }; // namespace ncore
 
