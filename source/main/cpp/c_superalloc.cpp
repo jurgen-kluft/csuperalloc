@@ -364,10 +364,10 @@ namespace ncore
         }
 
         u32 m_alloc_size;
-        u32 m_alloc_bin_index : 8; // Only one indirection is allowed
-        u32 m_alloc_index : 8;     // The index of the allocator for this alloc size
-        u32 m_schunks_index : 8;   // The index of the superchunks that is used
-        u32 m_use_binmap : 1;      // How do we manage a chunk (binmap or page-count)
+        u32 m_alloc_bin_index : 8;  // Only one indirection is allowed
+        u32 m_alloc_index : 8;      // The index of the allocator for this alloc size
+        u32 m_schunks_index : 8;    // The index of the superchunks that is used
+        u32 m_use_binmap : 1;       // How do we manage a chunk (binmap or page-count)
         u32 m_alloc_count;
         u16 m_binmap_l1len;
         u16 m_binmap_l2len;
@@ -444,14 +444,14 @@ namespace ncore
 
         static const s32 c_num_configs            = 32;
         const config_t   c_configs[c_num_configs] = {
-            config_t(0, 0, 0, 0),          config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),      config_t(0, 0, 0, 0),           config_t(0, 0, 0, 0),     config_t(0, 0, 0, 0),    config_t(0, 0, 0, 0),
-            config_t(0, 0, 0, 0),          config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),      config_t(32768, 12, 128, 2048), // 4KB
-            config_t(16384, 13, 64, 1024),                                                                                                                    // 8KB
-            config_t(8192, 14, 32, 512),                                                                                                                      // 16KB
-            config_t(4096, 15, 16, 256),                                                                                                                      // 32KB
-            config_t(2048, 16, 8, 128),                                                                                                                       // 64KB
-            config_t(2048, 17, 8, 128),    config_t(2048, 18, 8, 128), config_t(2048, 19, 8, 128), config_t(1024, 20, 4, 64), config_t(512, 21, 2, 32),       config_t(256, 22, 2, 16), config_t(128, 23, 2, 8), config_t(64, 24, 2, 4),
-            config_t(32, 25, 0, 0),        config_t(16, 26, 0, 0),     config_t(8, 27, 0, 0),      config_t(4, 28, 0, 0),     config_t(2, 29, 0, 0),          config_t(0, 0, 0, 0),     config_t(0, 0, 0, 0),
+          config_t(0, 0, 0, 0),          config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),      config_t(0, 0, 0, 0),           config_t(0, 0, 0, 0),     config_t(0, 0, 0, 0),    config_t(0, 0, 0, 0),
+          config_t(0, 0, 0, 0),          config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),      config_t(32768, 12, 128, 2048),  // 4KB
+          config_t(16384, 13, 64, 1024),                                                                                                                     // 8KB
+          config_t(8192, 14, 32, 512),                                                                                                                       // 16KB
+          config_t(4096, 15, 16, 256),                                                                                                                       // 32KB
+          config_t(2048, 16, 8, 128),                                                                                                                        // 64KB
+          config_t(2048, 17, 8, 128),    config_t(2048, 18, 8, 128), config_t(2048, 19, 8, 128), config_t(1024, 20, 4, 64), config_t(512, 21, 2, 32),       config_t(256, 22, 2, 16), config_t(128, 23, 2, 8), config_t(64, 24, 2, 4),
+          config_t(32, 25, 0, 0),        config_t(16, 26, 0, 0),     config_t(8, 27, 0, 0),      config_t(4, 28, 0, 0),     config_t(2, 29, 0, 0),          config_t(0, 0, 0, 0),     config_t(0, 0, 0, 0),
         };
 
         void initialize(vmem_t* vmem, u64 address_range, u64 block_range, superheap_t* heap, superfsa_t* fsa)
@@ -771,8 +771,8 @@ namespace ncore
         u64         m_address_range;
         u32         m_page_count;
         u32         m_page_size;
-        u32         m_page_shift;   // e.g. 16 (1<<16 = 64 KB)
-        s16         m_blocks_shift; // e.g. 25 (1<<30 =  1 GB)
+        u32         m_page_shift;    // e.g. 16 (1<<16 = 64 KB)
+        s16         m_blocks_shift;  // e.g. 25 (1<<30 =  1 GB)
         block_t*    m_blocks_array;
         lldata_t    m_blocks_list_data;
         llist_t     m_blocks_list_free;
@@ -842,7 +842,7 @@ namespace ncore
 
         bool        chunk_is_now_full = false;
         void* const ptr               = allocate_from_chunk(sfsa, chain, alloc_size, bin, chunk_is_now_full);
-        if (chunk_is_now_full) // Chunk is full, no more allocations possible
+        if (chunk_is_now_full)  // Chunk is full, no more allocations possible
         {
             m_used_chunk_list_per_size[c].remove_item(m_chunk_list_data, chunk_index);
         }
@@ -1000,15 +1000,15 @@ namespace ncore
     struct superchunks_config_t
     {
         superchunks_config_t()
+            : c_address_range(0)
+            , c_block_range(0)
         {
-            c_address_range = 0;
-            c_block_range   = 0;
         }
 
-        superchunks_config_t(u64 const address_range, u64 const block_range, u32 pagesize, u32 memtype, u32 protect)
+        superchunks_config_t(u64 const address_range, u64 const block_range, u32 pagesize, u16 memtype, u16 protect)
+            : c_address_range(address_range)
+            , c_block_range(block_range)
         {
-            c_address_range = address_range;
-            c_block_range   = block_range;
         }
 
         struct config_t
@@ -1020,24 +1020,26 @@ namespace ncore
                 , m_binmap_l2(l2_len)
             {
             }
-            u16 m_chunks_shift;
-            u16 m_chunks_max;
-            u16 m_binmap_l1;
-            u16 m_binmap_l2;
+            const u16 m_chunks_shift;
+            const u16 m_chunks_max;
+            const u16 m_binmap_l1;
+            const u16 m_binmap_l2;
         };
 
-        u64 c_address_range;
-        u64 c_block_range;
+        const u64 c_address_range;
+        const u64 c_block_range;
 
         static const s32 c_num_configs            = 16;
         const config_t   c_configs[c_num_configs] = {
-            config_t(2048, 16, 8, 128), config_t(2048, 17, 8, 128), config_t(2048, 18, 8, 128), config_t(2048, 19, 8, 128), //
-            config_t(1024, 20, 4, 64),  config_t(512, 21, 2, 32),   config_t(256, 22, 2, 16),   config_t(128, 23, 2, 8),    //
-            config_t(64, 24, 2, 4),     config_t(32, 25, 0, 0),     config_t(16, 26, 0, 0),     config_t(8, 27, 0, 0),      //
-            config_t(4, 28, 0, 0),      config_t(2, 29, 0, 0),      config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),       //
+          config_t(2048, 16, 8, 128), config_t(2048, 17, 8, 128), config_t(2048, 18, 8, 128), config_t(2048, 19, 8, 128),  //
+          config_t(1024, 20, 4, 64),  config_t(512, 21, 2, 32),   config_t(256, 22, 2, 16),   config_t(128, 23, 2, 8),     //
+          config_t(64, 24, 2, 4),     config_t(32, 25, 0, 0),     config_t(16, 26, 0, 0),     config_t(8, 27, 0, 0),       //
+          config_t(4, 28, 0, 0),      config_t(2, 29, 0, 0),      config_t(0, 0, 0, 0),       config_t(0, 0, 0, 0),        //
         };
 
-        u32 m_pagesize;
+        //u32 m_pagesize;
+        //u16 m_memtype;
+        //u16 m_protect;
     };
 
     struct superallocator_config_t
@@ -1097,75 +1099,75 @@ namespace ncore
     {
         static const s32                  c_num_schunks             = 8;
         static const superchunks_config_t c_aschunks[c_num_schunks] = {
-            superchunks_config_t(cGB * 64, cGB * 1, 64 * cKB, 0, 0),
-            superchunks_config_t(cGB * 64, cGB * 1, 16 * cKB, 0, 0),
-            superchunks_config_t(cGB * 64, cGB * 1, 4 * cKB, 0, 0),
-            superchunks_config_t(),
-            superchunks_config_t(),
-            superchunks_config_t(),
-            superchunks_config_t(),
-            superchunks_config_t(),
+          superchunks_config_t(cGB * 64, cGB * 1, 64 * cKB, 0, 0),
+          superchunks_config_t(cGB * 64, cGB * 1, 16 * cKB, 0, 0),
+          superchunks_config_t(cGB * 64, cGB * 1, 4 * cKB, 0, 0),
+          superchunks_config_t(),
+          superchunks_config_t(),
+          superchunks_config_t(),
+          superchunks_config_t(),
+          superchunks_config_t(),
         };
 
         // superbin_t(allocation size MB, KB, B, bin redir index, allocator index, super chunk index, use binmap?, maximum allocation count, binmap level 1 length (u16), binmap level 2 length (u16))
         static const s32        c_num_bins           = 112;
         static const superbin_t c_asbins[c_num_bins] = {
-            superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 10, 10, 16, 0, 1, 6553, 32, 512), //
-            superbin_t(0, 0, 12, 10, 16, 0, 1, 5461, 32, 512), superbin_t(0, 0, 14, 12, 16, 0, 1, 4681, 32, 512), //
-            superbin_t(0, 0, 16, 12, 16, 0, 1, 4096, 16, 256), superbin_t(0, 0, 20, 13, 16, 0, 1, 3276, 16, 256), //
-            superbin_t(0, 0, 24, 14, 16, 0, 1, 2730, 16, 256), superbin_t(0, 0, 28, 15, 16, 0, 1, 2340, 16, 256), //
-            superbin_t(0, 0, 32, 16, 14, 2, 1, 128, 1, 8),     superbin_t(0, 0, 40, 17, 16, 0, 1, 1638, 8, 128),  //
-            superbin_t(0, 0, 48, 18, 16, 0, 1, 1365, 8, 128),  superbin_t(0, 0, 56, 19, 16, 0, 1, 1170, 8, 128),  //
-            superbin_t(0, 0, 64, 20, 16, 0, 1, 1024, 4, 64),   superbin_t(0, 0, 80, 21, 16, 0, 1, 819, 4, 64),    //
-            superbin_t(0, 0, 96, 22, 16, 0, 1, 682, 4, 64),    superbin_t(0, 0, 112, 23, 16, 0, 1, 585, 4, 64),   //
-            superbin_t(0, 0, 128, 24, 16, 0, 1, 512, 2, 32),   superbin_t(0, 0, 160, 25, 16, 0, 1, 409, 2, 32),   //
-            superbin_t(0, 0, 192, 26, 16, 0, 1, 341, 2, 32),   superbin_t(0, 0, 224, 27, 16, 0, 1, 292, 2, 32),   //
-            superbin_t(0, 0, 256, 28, 16, 0, 1, 256, 2, 16),   superbin_t(0, 0, 320, 29, 16, 0, 1, 204, 2, 16),   //
-            superbin_t(0, 0, 384, 30, 16, 0, 1, 170, 2, 16),   superbin_t(0, 0, 448, 31, 16, 0, 1, 146, 2, 16),   //
-            superbin_t(0, 0, 512, 32, 16, 0, 1, 128, 2, 8),    superbin_t(0, 0, 640, 33, 16, 0, 1, 102, 2, 8),    //
-            superbin_t(0, 0, 768, 34, 16, 0, 1, 85, 2, 8),     superbin_t(0, 0, 896, 35, 16, 0, 1, 73, 2, 8),     //
-            superbin_t(0, 1, 0, 36, 16, 0, 1, 64, 2, 4),       superbin_t(0, 1, 256, 37, 16, 0, 1, 51, 2, 4),     //
-            superbin_t(0, 1, 512, 38, 17, 0, 1, 85, 2, 8),     superbin_t(0, 1, 768, 39, 17, 0, 1, 73, 2, 8),     //
-            superbin_t(0, 2, 0, 40, 16, 0, 1, 32, 0, 0),       superbin_t(0, 2, 512, 41, 17, 0, 1, 51, 2, 4),     //
-            superbin_t(0, 3, 0, 42, 18, 0, 1, 85, 2, 8),       superbin_t(0, 3, 512, 43, 18, 0, 1, 73, 2, 8),     //
-            superbin_t(0, 4, 0, 44, 16, 0, 1, 16, 0, 0),       superbin_t(0, 5, 0, 45, 18, 0, 1, 51, 2, 4),       //
-            superbin_t(0, 6, 0, 46, 18, 0, 1, 32, 2, 4),       superbin_t(0, 7, 0, 47, 19, 0, 1, 73, 2, 8),       //
-            superbin_t(0, 8, 0, 48, 16, 0, 1, 8, 0, 0),        superbin_t(0, 10, 0, 49, 19, 0, 1, 51, 2, 4),      //
-            superbin_t(0, 12, 0, 50, 18, 0, 1, 16, 0, 0),      superbin_t(0, 14, 0, 51, 19, 0, 1, 32, 2, 4),      //
-            superbin_t(0, 16, 0, 52, 16, 0, 1, 4, 0, 0),       superbin_t(0, 20, 0, 53, 19, 0, 1, 16, 0, 0),      //
-            superbin_t(0, 24, 0, 54, 18, 0, 1, 8, 0, 0),       superbin_t(0, 28, 0, 55, 19, 0, 1, 16, 0, 0),      //
-            superbin_t(0, 32, 0, 56, 18, 0, 1, 2, 0, 0),       superbin_t(0, 40, 0, 57, 19, 0, 1, 8, 0, 0),       //
-            superbin_t(0, 48, 0, 58, 18, 0, 1, 4, 0, 0),       superbin_t(0, 56, 0, 59, 19, 0, 1, 8, 0, 0),       //
-            superbin_t(0, 64, 0, 60, 16, 0, 0, 1, 0, 0),       superbin_t(0, 80, 0, 61, 19, 0, 1, 4, 0, 0),       //
-            superbin_t(0, 96, 0, 62, 18, 0, 1, 2, 0, 0),       superbin_t(0, 112, 0, 63, 19, 0, 1, 4, 0, 0),      //
-            superbin_t(0, 128, 0, 64, 17, 0, 0, 1, 0, 0),      superbin_t(0, 160, 0, 65, 19, 0, 1, 2, 0, 0),      //
-            superbin_t(0, 192, 0, 66, 18, 0, 0, 1, 0, 0),      superbin_t(0, 224, 0, 67, 19, 0, 1, 2, 0, 0),      //
-            superbin_t(0, 256, 0, 68, 18, 0, 0, 1, 0, 0),      superbin_t(0, 320, 0, 69, 19, 0, 0, 1, 0, 0),      //
-            superbin_t(0, 384, 0, 70, 19, 0, 0, 1, 0, 0),      superbin_t(0, 448, 0, 71, 19, 0, 0, 1, 0, 0),      //
-            superbin_t(0, 512, 0, 72, 19, 0, 0, 1, 0, 0),      superbin_t(0, 640, 0, 73, 20, 0, 0, 1, 0, 0),      //
-            superbin_t(0, 768, 0, 74, 20, 0, 0, 1, 0, 0),      superbin_t(0, 896, 0, 75, 20, 0, 0, 1, 0, 0),      //
-            superbin_t(1, 0, 0, 76, 20, 0, 0, 1, 0, 0),        superbin_t(1, 256, 0, 77, 21, 0, 0, 1, 0, 0),      //
-            superbin_t(1, 512, 0, 78, 21, 0, 0, 1, 0, 0),      superbin_t(1, 768, 0, 79, 21, 0, 0, 1, 0, 0),      //
-            superbin_t(2, 0, 0, 80, 21, 0, 0, 1, 0, 0),        superbin_t(2, 512, 0, 81, 22, 0, 0, 1, 0, 0),      //
-            superbin_t(3, 0, 0, 82, 22, 0, 0, 1, 0, 0),        superbin_t(3, 512, 0, 83, 22, 0, 0, 1, 0, 0),      //
-            superbin_t(4, 0, 0, 84, 22, 0, 0, 1, 0, 0),        superbin_t(5, 0, 0, 85, 23, 0, 0, 1, 0, 0),        //
-            superbin_t(6, 0, 0, 86, 23, 0, 0, 1, 0, 0),        superbin_t(7, 0, 0, 87, 23, 0, 0, 1, 0, 0),        //
-            superbin_t(8, 0, 0, 88, 23, 0, 0, 1, 0, 0),        superbin_t(10, 0, 0, 89, 24, 0, 0, 1, 0, 0),       //
-            superbin_t(12, 0, 0, 90, 24, 0, 0, 1, 0, 0),       superbin_t(14, 0, 0, 91, 24, 0, 0, 1, 0, 0),       //
-            superbin_t(16, 0, 0, 92, 24, 0, 0, 1, 0, 0),       superbin_t(20, 0, 0, 93, 25, 0, 0, 1, 0, 0),       //
-            superbin_t(24, 0, 0, 94, 25, 0, 0, 1, 0, 0),       superbin_t(28, 0, 0, 95, 25, 0, 0, 1, 0, 0),       //
-            superbin_t(32, 0, 0, 96, 25, 0, 0, 1, 0, 0),       superbin_t(40, 0, 0, 97, 26, 0, 0, 1, 0, 0),       //
-            superbin_t(48, 0, 0, 98, 26, 0, 0, 1, 0, 0),       superbin_t(56, 0, 0, 99, 26, 0, 0, 1, 0, 0),       //
-            superbin_t(64, 0, 0, 100, 26, 0, 0, 1, 0, 0),      superbin_t(80, 0, 0, 101, 27, 0, 0, 1, 0, 0),      //
-            superbin_t(96, 0, 0, 102, 27, 0, 0, 1, 0, 0),      superbin_t(112, 0, 0, 103, 27, 0, 0, 1, 0, 0),     //
-            superbin_t(128, 0, 0, 104, 27, 0, 0, 1, 0, 0),     superbin_t(160, 0, 0, 105, 28, 0, 0, 1, 0, 0),     //
-            superbin_t(192, 0, 0, 106, 28, 0, 0, 1, 0, 0),     superbin_t(224, 0, 0, 107, 28, 0, 0, 1, 0, 0),     //
-            superbin_t(256, 0, 0, 108, 28, 0, 0, 1, 0, 0),     superbin_t(320, 0, 0, 109, 29, 0, 0, 1, 0, 0),     //
-            superbin_t(384, 0, 0, 110, 29, 0, 0, 1, 0, 0),     superbin_t(448, 0, 0, 111, 29, 0, 0, 1, 0, 0),     //
+          superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 16, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 10, 10, 16, 0, 1, 6553, 32, 512),  //
+          superbin_t(0, 0, 12, 10, 16, 0, 1, 5461, 32, 512), superbin_t(0, 0, 14, 12, 16, 0, 1, 4681, 32, 512),  //
+          superbin_t(0, 0, 16, 12, 16, 0, 1, 4096, 16, 256), superbin_t(0, 0, 20, 13, 16, 0, 1, 3276, 16, 256),  //
+          superbin_t(0, 0, 24, 14, 16, 0, 1, 2730, 16, 256), superbin_t(0, 0, 28, 15, 16, 0, 1, 2340, 16, 256),  //
+          superbin_t(0, 0, 32, 16, 14, 2, 1, 128, 1, 8),     superbin_t(0, 0, 40, 17, 16, 0, 1, 1638, 8, 128),   //
+          superbin_t(0, 0, 48, 18, 16, 0, 1, 1365, 8, 128),  superbin_t(0, 0, 56, 19, 16, 0, 1, 1170, 8, 128),   //
+          superbin_t(0, 0, 64, 20, 16, 0, 1, 1024, 4, 64),   superbin_t(0, 0, 80, 21, 16, 0, 1, 819, 4, 64),     //
+          superbin_t(0, 0, 96, 22, 16, 0, 1, 682, 4, 64),    superbin_t(0, 0, 112, 23, 16, 0, 1, 585, 4, 64),    //
+          superbin_t(0, 0, 128, 24, 16, 0, 1, 512, 2, 32),   superbin_t(0, 0, 160, 25, 16, 0, 1, 409, 2, 32),    //
+          superbin_t(0, 0, 192, 26, 16, 0, 1, 341, 2, 32),   superbin_t(0, 0, 224, 27, 16, 0, 1, 292, 2, 32),    //
+          superbin_t(0, 0, 256, 28, 16, 0, 1, 256, 2, 16),   superbin_t(0, 0, 320, 29, 16, 0, 1, 204, 2, 16),    //
+          superbin_t(0, 0, 384, 30, 16, 0, 1, 170, 2, 16),   superbin_t(0, 0, 448, 31, 16, 0, 1, 146, 2, 16),    //
+          superbin_t(0, 0, 512, 32, 16, 0, 1, 128, 2, 8),    superbin_t(0, 0, 640, 33, 16, 0, 1, 102, 2, 8),     //
+          superbin_t(0, 0, 768, 34, 16, 0, 1, 85, 2, 8),     superbin_t(0, 0, 896, 35, 16, 0, 1, 73, 2, 8),      //
+          superbin_t(0, 1, 0, 36, 16, 0, 1, 64, 2, 4),       superbin_t(0, 1, 256, 37, 16, 0, 1, 51, 2, 4),      //
+          superbin_t(0, 1, 512, 38, 17, 0, 1, 85, 2, 8),     superbin_t(0, 1, 768, 39, 17, 0, 1, 73, 2, 8),      //
+          superbin_t(0, 2, 0, 40, 16, 0, 1, 32, 0, 0),       superbin_t(0, 2, 512, 41, 17, 0, 1, 51, 2, 4),      //
+          superbin_t(0, 3, 0, 42, 18, 0, 1, 85, 2, 8),       superbin_t(0, 3, 512, 43, 18, 0, 1, 73, 2, 8),      //
+          superbin_t(0, 4, 0, 44, 16, 0, 1, 16, 0, 0),       superbin_t(0, 5, 0, 45, 18, 0, 1, 51, 2, 4),        //
+          superbin_t(0, 6, 0, 46, 18, 0, 1, 32, 2, 4),       superbin_t(0, 7, 0, 47, 19, 0, 1, 73, 2, 8),        //
+          superbin_t(0, 8, 0, 48, 16, 0, 1, 8, 0, 0),        superbin_t(0, 10, 0, 49, 19, 0, 1, 51, 2, 4),       //
+          superbin_t(0, 12, 0, 50, 18, 0, 1, 16, 0, 0),      superbin_t(0, 14, 0, 51, 19, 0, 1, 32, 2, 4),       //
+          superbin_t(0, 16, 0, 52, 16, 0, 1, 4, 0, 0),       superbin_t(0, 20, 0, 53, 19, 0, 1, 16, 0, 0),       //
+          superbin_t(0, 24, 0, 54, 18, 0, 1, 8, 0, 0),       superbin_t(0, 28, 0, 55, 19, 0, 1, 16, 0, 0),       //
+          superbin_t(0, 32, 0, 56, 18, 0, 1, 2, 0, 0),       superbin_t(0, 40, 0, 57, 19, 0, 1, 8, 0, 0),        //
+          superbin_t(0, 48, 0, 58, 18, 0, 1, 4, 0, 0),       superbin_t(0, 56, 0, 59, 19, 0, 1, 8, 0, 0),        //
+          superbin_t(0, 64, 0, 60, 16, 0, 0, 1, 0, 0),       superbin_t(0, 80, 0, 61, 19, 0, 1, 4, 0, 0),        //
+          superbin_t(0, 96, 0, 62, 18, 0, 1, 2, 0, 0),       superbin_t(0, 112, 0, 63, 19, 0, 1, 4, 0, 0),       //
+          superbin_t(0, 128, 0, 64, 17, 0, 0, 1, 0, 0),      superbin_t(0, 160, 0, 65, 19, 0, 1, 2, 0, 0),       //
+          superbin_t(0, 192, 0, 66, 18, 0, 0, 1, 0, 0),      superbin_t(0, 224, 0, 67, 19, 0, 1, 2, 0, 0),       //
+          superbin_t(0, 256, 0, 68, 18, 0, 0, 1, 0, 0),      superbin_t(0, 320, 0, 69, 19, 0, 0, 1, 0, 0),       //
+          superbin_t(0, 384, 0, 70, 19, 0, 0, 1, 0, 0),      superbin_t(0, 448, 0, 71, 19, 0, 0, 1, 0, 0),       //
+          superbin_t(0, 512, 0, 72, 19, 0, 0, 1, 0, 0),      superbin_t(0, 640, 0, 73, 20, 0, 0, 1, 0, 0),       //
+          superbin_t(0, 768, 0, 74, 20, 0, 0, 1, 0, 0),      superbin_t(0, 896, 0, 75, 20, 0, 0, 1, 0, 0),       //
+          superbin_t(1, 0, 0, 76, 20, 0, 0, 1, 0, 0),        superbin_t(1, 256, 0, 77, 21, 0, 0, 1, 0, 0),       //
+          superbin_t(1, 512, 0, 78, 21, 0, 0, 1, 0, 0),      superbin_t(1, 768, 0, 79, 21, 0, 0, 1, 0, 0),       //
+          superbin_t(2, 0, 0, 80, 21, 0, 0, 1, 0, 0),        superbin_t(2, 512, 0, 81, 22, 0, 0, 1, 0, 0),       //
+          superbin_t(3, 0, 0, 82, 22, 0, 0, 1, 0, 0),        superbin_t(3, 512, 0, 83, 22, 0, 0, 1, 0, 0),       //
+          superbin_t(4, 0, 0, 84, 22, 0, 0, 1, 0, 0),        superbin_t(5, 0, 0, 85, 23, 0, 0, 1, 0, 0),         //
+          superbin_t(6, 0, 0, 86, 23, 0, 0, 1, 0, 0),        superbin_t(7, 0, 0, 87, 23, 0, 0, 1, 0, 0),         //
+          superbin_t(8, 0, 0, 88, 23, 0, 0, 1, 0, 0),        superbin_t(10, 0, 0, 89, 24, 0, 0, 1, 0, 0),        //
+          superbin_t(12, 0, 0, 90, 24, 0, 0, 1, 0, 0),       superbin_t(14, 0, 0, 91, 24, 0, 0, 1, 0, 0),        //
+          superbin_t(16, 0, 0, 92, 24, 0, 0, 1, 0, 0),       superbin_t(20, 0, 0, 93, 25, 0, 0, 1, 0, 0),        //
+          superbin_t(24, 0, 0, 94, 25, 0, 0, 1, 0, 0),       superbin_t(28, 0, 0, 95, 25, 0, 0, 1, 0, 0),        //
+          superbin_t(32, 0, 0, 96, 25, 0, 0, 1, 0, 0),       superbin_t(40, 0, 0, 97, 26, 0, 0, 1, 0, 0),        //
+          superbin_t(48, 0, 0, 98, 26, 0, 0, 1, 0, 0),       superbin_t(56, 0, 0, 99, 26, 0, 0, 1, 0, 0),        //
+          superbin_t(64, 0, 0, 100, 26, 0, 0, 1, 0, 0),      superbin_t(80, 0, 0, 101, 27, 0, 0, 1, 0, 0),       //
+          superbin_t(96, 0, 0, 102, 27, 0, 0, 1, 0, 0),      superbin_t(112, 0, 0, 103, 27, 0, 0, 1, 0, 0),      //
+          superbin_t(128, 0, 0, 104, 27, 0, 0, 1, 0, 0),     superbin_t(160, 0, 0, 105, 28, 0, 0, 1, 0, 0),      //
+          superbin_t(192, 0, 0, 106, 28, 0, 0, 1, 0, 0),     superbin_t(224, 0, 0, 107, 28, 0, 0, 1, 0, 0),      //
+          superbin_t(256, 0, 0, 108, 28, 0, 0, 1, 0, 0),     superbin_t(320, 0, 0, 109, 29, 0, 0, 1, 0, 0),      //
+          superbin_t(384, 0, 0, 110, 29, 0, 0, 1, 0, 0),     superbin_t(448, 0, 0, 111, 29, 0, 0, 1, 0, 0),      //
         };
 
         static const u32 c_internal_heap_address_range = 16 * cMB;
@@ -1176,8 +1178,8 @@ namespace ncore
         // NOTE: Is this correct ?
         static const s32    c_num_allocators               = 14;
         static superalloc_t c_allocators[c_num_allocators] = {
-            superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
-            superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
+          superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
+          superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
         };
 
         static superallocator_config_t get_config()
@@ -1196,133 +1198,133 @@ namespace ncore
             return i;
         }
 
-    }; // namespace superallocator_config_desktop_app_25p_t
+    };  // namespace superallocator_config_desktop_app_25p_t
 
     namespace superallocator_config_desktop_app_10p_t
     {
         // 10% allocation waste
         static const s32                  c_num_schunks             = 2;
         static const superchunks_config_t c_aschunks[c_num_schunks] = {
-            superchunks_config_t(cGB * 128, cGB * 1, 64 * cKB, 0, 0), //
-            superchunks_config_t(cGB * 128, cGB * 1, 4 * cKB, 0, 0)   //
+          superchunks_config_t(cGB * 128, cGB * 1, 64 * cKB, 0, 0),  //
+          superchunks_config_t(cGB * 128, cGB * 1, 4 * cKB, 0, 0)    //
         };
 
         static const s32        c_num_bins           = 216;
         static const superbin_t c_asbins[c_num_bins] = {
-            superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   //
-            superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 9, 12, 0, 0, 1, 7281, 32, 512),  //
-            superbin_t(0, 0, 10, 12, 0, 0, 1, 6553, 32, 512), superbin_t(0, 0, 11, 12, 0, 0, 1, 5957, 32, 512), //
-            superbin_t(0, 0, 12, 12, 0, 0, 1, 5461, 32, 512), superbin_t(0, 0, 13, 16, 0, 0, 1, 5041, 32, 512), //
-            superbin_t(0, 0, 14, 16, 0, 0, 1, 4681, 32, 512), superbin_t(0, 0, 15, 16, 0, 0, 1, 4369, 32, 512), //
-            superbin_t(0, 0, 16, 16, 0, 0, 1, 4096, 16, 256), superbin_t(0, 0, 18, 18, 0, 0, 1, 3640, 16, 256), //
-            superbin_t(0, 0, 20, 18, 0, 0, 1, 3276, 16, 256), superbin_t(0, 0, 22, 20, 0, 0, 1, 2978, 16, 256), //
-            superbin_t(0, 0, 24, 20, 0, 0, 1, 2730, 16, 256), superbin_t(0, 0, 26, 22, 0, 0, 1, 2520, 16, 256), //
-            superbin_t(0, 0, 28, 22, 0, 0, 1, 2340, 16, 256), superbin_t(0, 0, 30, 24, 0, 0, 1, 2184, 16, 256), //
-            superbin_t(0, 0, 32, 24, 0, 0, 1, 2048, 8, 128),  superbin_t(0, 0, 36, 25, 0, 0, 1, 1820, 8, 128),  //
-            superbin_t(0, 0, 40, 26, 0, 0, 1, 1638, 8, 128),  superbin_t(0, 0, 44, 27, 0, 0, 1, 1489, 8, 128),  //
-            superbin_t(0, 0, 48, 28, 0, 0, 1, 1365, 8, 128),  superbin_t(0, 0, 52, 29, 0, 0, 1, 1260, 8, 128),  //
-            superbin_t(0, 0, 56, 30, 0, 0, 1, 1170, 8, 128),  superbin_t(0, 0, 60, 31, 0, 0, 1, 1092, 8, 128),  //
-            superbin_t(0, 0, 64, 32, 0, 0, 1, 1024, 4, 64),   superbin_t(0, 0, 72, 33, 0, 0, 1, 910, 4, 64),    //
-            superbin_t(0, 0, 80, 34, 0, 0, 1, 819, 4, 64),    superbin_t(0, 0, 88, 35, 0, 0, 1, 744, 4, 64),    //
-            superbin_t(0, 0, 96, 36, 0, 0, 1, 682, 4, 64),    superbin_t(0, 0, 104, 37, 0, 0, 1, 630, 4, 64),   //
-            superbin_t(0, 0, 112, 38, 0, 0, 1, 585, 4, 64),   superbin_t(0, 0, 120, 39, 0, 0, 1, 546, 4, 64),   //
-            superbin_t(0, 0, 128, 40, 0, 0, 1, 512, 2, 32),   superbin_t(0, 0, 144, 41, 0, 0, 1, 455, 2, 32),   //
-            superbin_t(0, 0, 160, 42, 0, 0, 1, 409, 2, 32),   superbin_t(0, 0, 176, 43, 0, 0, 1, 372, 2, 32),   //
-            superbin_t(0, 0, 192, 44, 0, 0, 1, 341, 2, 32),   superbin_t(0, 0, 208, 45, 0, 0, 1, 315, 2, 32),   //
-            superbin_t(0, 0, 224, 46, 0, 0, 1, 292, 2, 32),   superbin_t(0, 0, 240, 47, 0, 0, 1, 273, 2, 32),   //
-            superbin_t(0, 0, 256, 48, 0, 0, 1, 256, 2, 16),   superbin_t(0, 0, 288, 49, 0, 0, 1, 227, 2, 16),   //
-            superbin_t(0, 0, 320, 50, 0, 0, 1, 204, 2, 16),   superbin_t(0, 0, 352, 51, 0, 0, 1, 186, 2, 16),   //
-            superbin_t(0, 0, 384, 52, 0, 0, 1, 170, 2, 16),   superbin_t(0, 0, 416, 53, 0, 0, 1, 157, 2, 16),   //
-            superbin_t(0, 0, 448, 54, 0, 0, 1, 146, 2, 16),   superbin_t(0, 0, 480, 55, 0, 0, 1, 136, 2, 16),   //
-            superbin_t(0, 0, 512, 56, 0, 0, 1, 128, 2, 8),    superbin_t(0, 0, 576, 57, 0, 0, 1, 113, 2, 8),    //
-            superbin_t(0, 0, 640, 58, 0, 0, 1, 102, 2, 8),    superbin_t(0, 0, 704, 59, 0, 0, 1, 93, 2, 8),     //
-            superbin_t(0, 0, 768, 60, 0, 0, 1, 85, 2, 8),     superbin_t(0, 0, 832, 61, 0, 0, 1, 78, 2, 8),     //
-            superbin_t(0, 0, 896, 62, 0, 0, 1, 73, 2, 8),     superbin_t(0, 0, 960, 63, 0, 0, 1, 68, 2, 8),     //
-            superbin_t(0, 1, 0, 64, 0, 0, 1, 64, 2, 4),       superbin_t(0, 1, 128, 65, 1, 0, 1, 113, 2, 8),    //
-            superbin_t(0, 1, 256, 66, 0, 0, 1, 51, 2, 4),     superbin_t(0, 1, 384, 67, 1, 0, 1, 93, 2, 8),     //
-            superbin_t(0, 1, 512, 68, 1, 0, 1, 85, 2, 8),     superbin_t(0, 1, 640, 69, 0, 0, 1, 39, 2, 4),     //
-            superbin_t(0, 1, 768, 70, 1, 0, 1, 73, 2, 8),     superbin_t(0, 1, 896, 71, 0, 0, 1, 34, 2, 4),     //
-            superbin_t(0, 2, 0, 72, 0, 0, 1, 32, 0, 0),       superbin_t(0, 2, 256, 73, 2, 0, 1, 113, 2, 8),    //
-            superbin_t(0, 2, 512, 74, 1, 0, 1, 51, 2, 4),     superbin_t(0, 2, 768, 75, 2, 0, 1, 93, 2, 8),     //
-            superbin_t(0, 3, 0, 76, 2, 0, 1, 85, 2, 8),       superbin_t(0, 3, 256, 77, 1, 0, 1, 39, 2, 4),     //
-            superbin_t(0, 3, 512, 78, 2, 0, 1, 73, 2, 8),     superbin_t(0, 3, 768, 79, 0, 0, 1, 17, 0, 0),     //
-            superbin_t(0, 4, 0, 80, 0, 0, 1, 16, 0, 0),       superbin_t(0, 4, 512, 81, 3, 0, 1, 113, 2, 8),    //
-            superbin_t(0, 5, 0, 82, 2, 0, 1, 51, 2, 4),       superbin_t(0, 5, 512, 83, 3, 0, 1, 93, 2, 8),     //
-            superbin_t(0, 6, 0, 84, 2, 0, 1, 32, 2, 4),       superbin_t(0, 6, 512, 85, 2, 0, 1, 39, 2, 4),     //
-            superbin_t(0, 7, 0, 86, 3, 0, 1, 73, 2, 8),       superbin_t(0, 7, 512, 87, 1, 0, 1, 17, 0, 0),     //
-            superbin_t(0, 8, 0, 88, 0, 0, 1, 8, 0, 0),        superbin_t(0, 9, 0, 89, 4, 0, 1, 113, 2, 8),      //
-            superbin_t(0, 10, 0, 90, 3, 0, 1, 51, 2, 4),      superbin_t(0, 11, 0, 91, 3, 0, 1, 29, 2, 4),      //
-            superbin_t(0, 12, 0, 92, 2, 0, 1, 16, 0, 0),      superbin_t(0, 13, 0, 93, 3, 0, 1, 39, 2, 4),      //
-            superbin_t(0, 14, 0, 94, 3, 0, 1, 32, 2, 4),      superbin_t(0, 15, 0, 95, 2, 0, 1, 17, 0, 0),      //
-            superbin_t(0, 16, 0, 96, 0, 0, 1, 4, 0, 0),       superbin_t(0, 18, 0, 97, 4, 0, 1, 53, 2, 4),      //
-            superbin_t(0, 20, 0, 98, 3, 0, 1, 16, 0, 0),      superbin_t(0, 22, 0, 99, 4, 0, 1, 32, 2, 4),      //
-            superbin_t(0, 24, 0, 100, 2, 0, 1, 8, 0, 0),      superbin_t(0, 26, 0, 101, 4, 0, 1, 39, 2, 4),     //
-            superbin_t(0, 28, 0, 102, 3, 0, 1, 16, 0, 0),     superbin_t(0, 30, 0, 103, 3, 0, 1, 17, 0, 0),     //
-            superbin_t(0, 32, 0, 104, 0, 0, 1, 2, 0, 0),      superbin_t(0, 36, 0, 105, 4, 0, 1, 23, 0, 0),     //
-            superbin_t(0, 40, 0, 106, 3, 0, 1, 8, 0, 0),      superbin_t(0, 44, 0, 107, 4, 0, 1, 16, 0, 0),     //
-            superbin_t(0, 48, 0, 108, 2, 0, 1, 4, 0, 0),      superbin_t(0, 52, 0, 109, 4, 0, 1, 16, 0, 0),     //
-            superbin_t(0, 56, 0, 110, 3, 0, 1, 8, 0, 0),      superbin_t(0, 60, 0, 111, 4, 0, 1, 17, 0, 0),     //
-            superbin_t(0, 64, 0, 112, 0, 0, 0, 1, 0, 0),      superbin_t(0, 72, 0, 113, 4, 0, 1, 8, 0, 0),      //
-            superbin_t(0, 80, 0, 114, 3, 0, 1, 4, 0, 0),      superbin_t(0, 88, 0, 115, 4, 0, 1, 8, 0, 0),      //
-            superbin_t(0, 96, 0, 116, 2, 0, 1, 2, 0, 0),      superbin_t(0, 104, 0, 117, 4, 0, 1, 8, 0, 0),     //
-            superbin_t(0, 112, 0, 118, 3, 0, 1, 4, 0, 0),     superbin_t(0, 120, 0, 119, 4, 0, 1, 8, 0, 0),     //
-            superbin_t(0, 128, 0, 120, 1, 0, 0, 1, 0, 0),     superbin_t(0, 144, 0, 121, 4, 0, 1, 4, 0, 0),     //
-            superbin_t(0, 160, 0, 122, 3, 0, 1, 2, 0, 0),     superbin_t(0, 176, 0, 123, 4, 0, 1, 4, 0, 0),     //
-            superbin_t(0, 192, 0, 124, 2, 0, 0, 1, 0, 0),     superbin_t(0, 208, 0, 125, 4, 0, 1, 4, 0, 0),     //
-            superbin_t(0, 224, 0, 126, 3, 0, 1, 2, 0, 0),     superbin_t(0, 240, 0, 127, 4, 0, 1, 4, 0, 0),     //
-            superbin_t(0, 256, 0, 128, 2, 0, 0, 1, 0, 0),     superbin_t(0, 288, 0, 129, 4, 0, 1, 2, 0, 0),     //
-            superbin_t(0, 320, 0, 130, 3, 0, 0, 1, 0, 0),     superbin_t(0, 352, 0, 131, 4, 0, 1, 2, 0, 0),     //
-            superbin_t(0, 384, 0, 132, 3, 0, 0, 1, 0, 0),     superbin_t(0, 416, 0, 133, 4, 0, 1, 2, 0, 0),     //
-            superbin_t(0, 448, 0, 134, 3, 0, 0, 1, 0, 0),     superbin_t(0, 480, 0, 135, 4, 0, 1, 2, 0, 0),     //
-            superbin_t(0, 512, 0, 136, 3, 0, 0, 1, 0, 0),     superbin_t(0, 576, 0, 137, 4, 0, 0, 1, 0, 0),     //
-            superbin_t(0, 640, 0, 138, 4, 0, 0, 1, 0, 0),     superbin_t(0, 704, 0, 139, 4, 0, 0, 1, 0, 0),     //
-            superbin_t(0, 768, 0, 140, 4, 0, 0, 1, 0, 0),     superbin_t(0, 832, 0, 141, 4, 0, 0, 1, 0, 0),     //
-            superbin_t(0, 896, 0, 142, 4, 0, 0, 1, 0, 0),     superbin_t(0, 960, 0, 143, 4, 0, 0, 1, 0, 0),     //
-            superbin_t(1, 0, 0, 144, 4, 0, 0, 1, 0, 0),       superbin_t(1, 128, 0, 145, 5, 0, 0, 1, 0, 0),     //
-            superbin_t(1, 256, 0, 146, 5, 0, 0, 1, 0, 0),     superbin_t(1, 384, 0, 147, 5, 0, 0, 1, 0, 0),     //
-            superbin_t(1, 512, 0, 148, 5, 0, 0, 1, 0, 0),     superbin_t(1, 640, 0, 149, 5, 0, 0, 1, 0, 0),     //
-            superbin_t(1, 768, 0, 150, 5, 0, 0, 1, 0, 0),     superbin_t(1, 896, 0, 151, 5, 0, 0, 1, 0, 0),     //
-            superbin_t(2, 0, 0, 152, 5, 0, 0, 1, 0, 0),       superbin_t(2, 256, 0, 153, 6, 0, 0, 1, 0, 0),     //
-            superbin_t(2, 512, 0, 154, 6, 0, 0, 1, 0, 0),     superbin_t(2, 768, 0, 155, 6, 0, 0, 1, 0, 0),     //
-            superbin_t(3, 0, 0, 156, 6, 0, 0, 1, 0, 0),       superbin_t(3, 256, 0, 157, 6, 0, 0, 1, 0, 0),     //
-            superbin_t(3, 512, 0, 158, 6, 0, 0, 1, 0, 0),     superbin_t(3, 768, 0, 159, 6, 0, 0, 1, 0, 0),     //
-            superbin_t(4, 0, 0, 160, 6, 0, 0, 1, 0, 0),       superbin_t(4, 512, 0, 161, 7, 0, 0, 1, 0, 0),     //
-            superbin_t(5, 0, 0, 162, 7, 0, 0, 1, 0, 0),       superbin_t(5, 512, 0, 163, 7, 0, 0, 1, 0, 0),     //
-            superbin_t(6, 0, 0, 164, 7, 0, 0, 1, 0, 0),       superbin_t(6, 512, 0, 165, 7, 0, 0, 1, 0, 0),     //
-            superbin_t(7, 0, 0, 166, 7, 0, 0, 1, 0, 0),       superbin_t(7, 512, 0, 167, 7, 0, 0, 1, 0, 0),     //
-            superbin_t(8, 0, 0, 168, 7, 0, 0, 1, 0, 0),       superbin_t(9, 0, 0, 169, 8, 0, 0, 1, 0, 0),       //
-            superbin_t(10, 0, 0, 170, 8, 0, 0, 1, 0, 0),      superbin_t(11, 0, 0, 171, 8, 0, 0, 1, 0, 0),      //
-            superbin_t(12, 0, 0, 172, 8, 0, 0, 1, 0, 0),      superbin_t(13, 0, 0, 173, 8, 0, 0, 1, 0, 0),      //
-            superbin_t(14, 0, 0, 174, 8, 0, 0, 1, 0, 0),      superbin_t(15, 0, 0, 175, 8, 0, 0, 1, 0, 0),      //
-            superbin_t(16, 0, 0, 176, 8, 0, 0, 1, 0, 0),      superbin_t(18, 0, 0, 177, 9, 0, 0, 1, 0, 0),      //
-            superbin_t(20, 0, 0, 178, 9, 0, 0, 1, 0, 0),      superbin_t(22, 0, 0, 179, 9, 0, 0, 1, 0, 0),      //
-            superbin_t(24, 0, 0, 180, 9, 0, 0, 1, 0, 0),      superbin_t(26, 0, 0, 181, 9, 0, 0, 1, 0, 0),      //
-            superbin_t(28, 0, 0, 182, 9, 0, 0, 1, 0, 0),      superbin_t(30, 0, 0, 183, 9, 0, 0, 1, 0, 0),      //
-            superbin_t(32, 0, 0, 184, 9, 0, 0, 1, 0, 0),      superbin_t(36, 0, 0, 185, 10, 0, 0, 1, 0, 0),     //
-            superbin_t(40, 0, 0, 186, 10, 0, 0, 1, 0, 0),     superbin_t(44, 0, 0, 187, 10, 0, 0, 1, 0, 0),     //
-            superbin_t(48, 0, 0, 188, 10, 0, 0, 1, 0, 0),     superbin_t(52, 0, 0, 189, 10, 0, 0, 1, 0, 0),     //
-            superbin_t(56, 0, 0, 190, 10, 0, 0, 1, 0, 0),     superbin_t(60, 0, 0, 191, 10, 0, 0, 1, 0, 0),     //
-            superbin_t(64, 0, 0, 192, 10, 0, 0, 1, 0, 0),     superbin_t(72, 0, 0, 193, 11, 0, 0, 1, 0, 0),     //
-            superbin_t(80, 0, 0, 194, 11, 0, 0, 1, 0, 0),     superbin_t(88, 0, 0, 195, 11, 0, 0, 1, 0, 0),     //
-            superbin_t(96, 0, 0, 196, 11, 0, 0, 1, 0, 0),     superbin_t(104, 0, 0, 197, 11, 0, 0, 1, 0, 0),    //
-            superbin_t(112, 0, 0, 198, 11, 0, 0, 1, 0, 0),    superbin_t(120, 0, 0, 199, 11, 0, 0, 1, 0, 0),    //
-            superbin_t(128, 0, 0, 200, 11, 0, 0, 1, 0, 0),    superbin_t(144, 0, 0, 201, 12, 0, 0, 1, 0, 0),    //
-            superbin_t(160, 0, 0, 202, 12, 0, 0, 1, 0, 0),    superbin_t(176, 0, 0, 203, 12, 0, 0, 1, 0, 0),    //
-            superbin_t(192, 0, 0, 204, 12, 0, 0, 1, 0, 0),    superbin_t(208, 0, 0, 205, 12, 0, 0, 1, 0, 0),    //
-            superbin_t(224, 0, 0, 206, 12, 0, 0, 1, 0, 0),    superbin_t(240, 0, 0, 207, 12, 0, 0, 1, 0, 0),    //
-            superbin_t(256, 0, 0, 208, 12, 0, 0, 1, 0, 0),    superbin_t(288, 0, 0, 209, 13, 0, 0, 1, 0, 0),    //
-            superbin_t(320, 0, 0, 210, 13, 0, 0, 1, 0, 0),    superbin_t(352, 0, 0, 211, 13, 0, 0, 1, 0, 0),    //
-            superbin_t(384, 0, 0, 212, 13, 0, 0, 1, 0, 0),    superbin_t(416, 0, 0, 213, 13, 0, 0, 1, 0, 0),    //
-            superbin_t(448, 0, 0, 214, 13, 0, 0, 1, 0, 0),    superbin_t(480, 0, 0, 215, 13, 0, 0, 1, 0, 0),    //
+          superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),    //
+          superbin_t(0, 0, 8, 8, 0, 0, 1, 8192, 32, 512),   superbin_t(0, 0, 9, 12, 0, 0, 1, 7281, 32, 512),   //
+          superbin_t(0, 0, 10, 12, 0, 0, 1, 6553, 32, 512), superbin_t(0, 0, 11, 12, 0, 0, 1, 5957, 32, 512),  //
+          superbin_t(0, 0, 12, 12, 0, 0, 1, 5461, 32, 512), superbin_t(0, 0, 13, 16, 0, 0, 1, 5041, 32, 512),  //
+          superbin_t(0, 0, 14, 16, 0, 0, 1, 4681, 32, 512), superbin_t(0, 0, 15, 16, 0, 0, 1, 4369, 32, 512),  //
+          superbin_t(0, 0, 16, 16, 0, 0, 1, 4096, 16, 256), superbin_t(0, 0, 18, 18, 0, 0, 1, 3640, 16, 256),  //
+          superbin_t(0, 0, 20, 18, 0, 0, 1, 3276, 16, 256), superbin_t(0, 0, 22, 20, 0, 0, 1, 2978, 16, 256),  //
+          superbin_t(0, 0, 24, 20, 0, 0, 1, 2730, 16, 256), superbin_t(0, 0, 26, 22, 0, 0, 1, 2520, 16, 256),  //
+          superbin_t(0, 0, 28, 22, 0, 0, 1, 2340, 16, 256), superbin_t(0, 0, 30, 24, 0, 0, 1, 2184, 16, 256),  //
+          superbin_t(0, 0, 32, 24, 0, 0, 1, 2048, 8, 128),  superbin_t(0, 0, 36, 25, 0, 0, 1, 1820, 8, 128),   //
+          superbin_t(0, 0, 40, 26, 0, 0, 1, 1638, 8, 128),  superbin_t(0, 0, 44, 27, 0, 0, 1, 1489, 8, 128),   //
+          superbin_t(0, 0, 48, 28, 0, 0, 1, 1365, 8, 128),  superbin_t(0, 0, 52, 29, 0, 0, 1, 1260, 8, 128),   //
+          superbin_t(0, 0, 56, 30, 0, 0, 1, 1170, 8, 128),  superbin_t(0, 0, 60, 31, 0, 0, 1, 1092, 8, 128),   //
+          superbin_t(0, 0, 64, 32, 0, 0, 1, 1024, 4, 64),   superbin_t(0, 0, 72, 33, 0, 0, 1, 910, 4, 64),     //
+          superbin_t(0, 0, 80, 34, 0, 0, 1, 819, 4, 64),    superbin_t(0, 0, 88, 35, 0, 0, 1, 744, 4, 64),     //
+          superbin_t(0, 0, 96, 36, 0, 0, 1, 682, 4, 64),    superbin_t(0, 0, 104, 37, 0, 0, 1, 630, 4, 64),    //
+          superbin_t(0, 0, 112, 38, 0, 0, 1, 585, 4, 64),   superbin_t(0, 0, 120, 39, 0, 0, 1, 546, 4, 64),    //
+          superbin_t(0, 0, 128, 40, 0, 0, 1, 512, 2, 32),   superbin_t(0, 0, 144, 41, 0, 0, 1, 455, 2, 32),    //
+          superbin_t(0, 0, 160, 42, 0, 0, 1, 409, 2, 32),   superbin_t(0, 0, 176, 43, 0, 0, 1, 372, 2, 32),    //
+          superbin_t(0, 0, 192, 44, 0, 0, 1, 341, 2, 32),   superbin_t(0, 0, 208, 45, 0, 0, 1, 315, 2, 32),    //
+          superbin_t(0, 0, 224, 46, 0, 0, 1, 292, 2, 32),   superbin_t(0, 0, 240, 47, 0, 0, 1, 273, 2, 32),    //
+          superbin_t(0, 0, 256, 48, 0, 0, 1, 256, 2, 16),   superbin_t(0, 0, 288, 49, 0, 0, 1, 227, 2, 16),    //
+          superbin_t(0, 0, 320, 50, 0, 0, 1, 204, 2, 16),   superbin_t(0, 0, 352, 51, 0, 0, 1, 186, 2, 16),    //
+          superbin_t(0, 0, 384, 52, 0, 0, 1, 170, 2, 16),   superbin_t(0, 0, 416, 53, 0, 0, 1, 157, 2, 16),    //
+          superbin_t(0, 0, 448, 54, 0, 0, 1, 146, 2, 16),   superbin_t(0, 0, 480, 55, 0, 0, 1, 136, 2, 16),    //
+          superbin_t(0, 0, 512, 56, 0, 0, 1, 128, 2, 8),    superbin_t(0, 0, 576, 57, 0, 0, 1, 113, 2, 8),     //
+          superbin_t(0, 0, 640, 58, 0, 0, 1, 102, 2, 8),    superbin_t(0, 0, 704, 59, 0, 0, 1, 93, 2, 8),      //
+          superbin_t(0, 0, 768, 60, 0, 0, 1, 85, 2, 8),     superbin_t(0, 0, 832, 61, 0, 0, 1, 78, 2, 8),      //
+          superbin_t(0, 0, 896, 62, 0, 0, 1, 73, 2, 8),     superbin_t(0, 0, 960, 63, 0, 0, 1, 68, 2, 8),      //
+          superbin_t(0, 1, 0, 64, 0, 0, 1, 64, 2, 4),       superbin_t(0, 1, 128, 65, 1, 0, 1, 113, 2, 8),     //
+          superbin_t(0, 1, 256, 66, 0, 0, 1, 51, 2, 4),     superbin_t(0, 1, 384, 67, 1, 0, 1, 93, 2, 8),      //
+          superbin_t(0, 1, 512, 68, 1, 0, 1, 85, 2, 8),     superbin_t(0, 1, 640, 69, 0, 0, 1, 39, 2, 4),      //
+          superbin_t(0, 1, 768, 70, 1, 0, 1, 73, 2, 8),     superbin_t(0, 1, 896, 71, 0, 0, 1, 34, 2, 4),      //
+          superbin_t(0, 2, 0, 72, 0, 0, 1, 32, 0, 0),       superbin_t(0, 2, 256, 73, 2, 0, 1, 113, 2, 8),     //
+          superbin_t(0, 2, 512, 74, 1, 0, 1, 51, 2, 4),     superbin_t(0, 2, 768, 75, 2, 0, 1, 93, 2, 8),      //
+          superbin_t(0, 3, 0, 76, 2, 0, 1, 85, 2, 8),       superbin_t(0, 3, 256, 77, 1, 0, 1, 39, 2, 4),      //
+          superbin_t(0, 3, 512, 78, 2, 0, 1, 73, 2, 8),     superbin_t(0, 3, 768, 79, 0, 0, 1, 17, 0, 0),      //
+          superbin_t(0, 4, 0, 80, 0, 0, 1, 16, 0, 0),       superbin_t(0, 4, 512, 81, 3, 0, 1, 113, 2, 8),     //
+          superbin_t(0, 5, 0, 82, 2, 0, 1, 51, 2, 4),       superbin_t(0, 5, 512, 83, 3, 0, 1, 93, 2, 8),      //
+          superbin_t(0, 6, 0, 84, 2, 0, 1, 32, 2, 4),       superbin_t(0, 6, 512, 85, 2, 0, 1, 39, 2, 4),      //
+          superbin_t(0, 7, 0, 86, 3, 0, 1, 73, 2, 8),       superbin_t(0, 7, 512, 87, 1, 0, 1, 17, 0, 0),      //
+          superbin_t(0, 8, 0, 88, 0, 0, 1, 8, 0, 0),        superbin_t(0, 9, 0, 89, 4, 0, 1, 113, 2, 8),       //
+          superbin_t(0, 10, 0, 90, 3, 0, 1, 51, 2, 4),      superbin_t(0, 11, 0, 91, 3, 0, 1, 29, 2, 4),       //
+          superbin_t(0, 12, 0, 92, 2, 0, 1, 16, 0, 0),      superbin_t(0, 13, 0, 93, 3, 0, 1, 39, 2, 4),       //
+          superbin_t(0, 14, 0, 94, 3, 0, 1, 32, 2, 4),      superbin_t(0, 15, 0, 95, 2, 0, 1, 17, 0, 0),       //
+          superbin_t(0, 16, 0, 96, 0, 0, 1, 4, 0, 0),       superbin_t(0, 18, 0, 97, 4, 0, 1, 53, 2, 4),       //
+          superbin_t(0, 20, 0, 98, 3, 0, 1, 16, 0, 0),      superbin_t(0, 22, 0, 99, 4, 0, 1, 32, 2, 4),       //
+          superbin_t(0, 24, 0, 100, 2, 0, 1, 8, 0, 0),      superbin_t(0, 26, 0, 101, 4, 0, 1, 39, 2, 4),      //
+          superbin_t(0, 28, 0, 102, 3, 0, 1, 16, 0, 0),     superbin_t(0, 30, 0, 103, 3, 0, 1, 17, 0, 0),      //
+          superbin_t(0, 32, 0, 104, 0, 0, 1, 2, 0, 0),      superbin_t(0, 36, 0, 105, 4, 0, 1, 23, 0, 0),      //
+          superbin_t(0, 40, 0, 106, 3, 0, 1, 8, 0, 0),      superbin_t(0, 44, 0, 107, 4, 0, 1, 16, 0, 0),      //
+          superbin_t(0, 48, 0, 108, 2, 0, 1, 4, 0, 0),      superbin_t(0, 52, 0, 109, 4, 0, 1, 16, 0, 0),      //
+          superbin_t(0, 56, 0, 110, 3, 0, 1, 8, 0, 0),      superbin_t(0, 60, 0, 111, 4, 0, 1, 17, 0, 0),      //
+          superbin_t(0, 64, 0, 112, 0, 0, 0, 1, 0, 0),      superbin_t(0, 72, 0, 113, 4, 0, 1, 8, 0, 0),       //
+          superbin_t(0, 80, 0, 114, 3, 0, 1, 4, 0, 0),      superbin_t(0, 88, 0, 115, 4, 0, 1, 8, 0, 0),       //
+          superbin_t(0, 96, 0, 116, 2, 0, 1, 2, 0, 0),      superbin_t(0, 104, 0, 117, 4, 0, 1, 8, 0, 0),      //
+          superbin_t(0, 112, 0, 118, 3, 0, 1, 4, 0, 0),     superbin_t(0, 120, 0, 119, 4, 0, 1, 8, 0, 0),      //
+          superbin_t(0, 128, 0, 120, 1, 0, 0, 1, 0, 0),     superbin_t(0, 144, 0, 121, 4, 0, 1, 4, 0, 0),      //
+          superbin_t(0, 160, 0, 122, 3, 0, 1, 2, 0, 0),     superbin_t(0, 176, 0, 123, 4, 0, 1, 4, 0, 0),      //
+          superbin_t(0, 192, 0, 124, 2, 0, 0, 1, 0, 0),     superbin_t(0, 208, 0, 125, 4, 0, 1, 4, 0, 0),      //
+          superbin_t(0, 224, 0, 126, 3, 0, 1, 2, 0, 0),     superbin_t(0, 240, 0, 127, 4, 0, 1, 4, 0, 0),      //
+          superbin_t(0, 256, 0, 128, 2, 0, 0, 1, 0, 0),     superbin_t(0, 288, 0, 129, 4, 0, 1, 2, 0, 0),      //
+          superbin_t(0, 320, 0, 130, 3, 0, 0, 1, 0, 0),     superbin_t(0, 352, 0, 131, 4, 0, 1, 2, 0, 0),      //
+          superbin_t(0, 384, 0, 132, 3, 0, 0, 1, 0, 0),     superbin_t(0, 416, 0, 133, 4, 0, 1, 2, 0, 0),      //
+          superbin_t(0, 448, 0, 134, 3, 0, 0, 1, 0, 0),     superbin_t(0, 480, 0, 135, 4, 0, 1, 2, 0, 0),      //
+          superbin_t(0, 512, 0, 136, 3, 0, 0, 1, 0, 0),     superbin_t(0, 576, 0, 137, 4, 0, 0, 1, 0, 0),      //
+          superbin_t(0, 640, 0, 138, 4, 0, 0, 1, 0, 0),     superbin_t(0, 704, 0, 139, 4, 0, 0, 1, 0, 0),      //
+          superbin_t(0, 768, 0, 140, 4, 0, 0, 1, 0, 0),     superbin_t(0, 832, 0, 141, 4, 0, 0, 1, 0, 0),      //
+          superbin_t(0, 896, 0, 142, 4, 0, 0, 1, 0, 0),     superbin_t(0, 960, 0, 143, 4, 0, 0, 1, 0, 0),      //
+          superbin_t(1, 0, 0, 144, 4, 0, 0, 1, 0, 0),       superbin_t(1, 128, 0, 145, 5, 0, 0, 1, 0, 0),      //
+          superbin_t(1, 256, 0, 146, 5, 0, 0, 1, 0, 0),     superbin_t(1, 384, 0, 147, 5, 0, 0, 1, 0, 0),      //
+          superbin_t(1, 512, 0, 148, 5, 0, 0, 1, 0, 0),     superbin_t(1, 640, 0, 149, 5, 0, 0, 1, 0, 0),      //
+          superbin_t(1, 768, 0, 150, 5, 0, 0, 1, 0, 0),     superbin_t(1, 896, 0, 151, 5, 0, 0, 1, 0, 0),      //
+          superbin_t(2, 0, 0, 152, 5, 0, 0, 1, 0, 0),       superbin_t(2, 256, 0, 153, 6, 0, 0, 1, 0, 0),      //
+          superbin_t(2, 512, 0, 154, 6, 0, 0, 1, 0, 0),     superbin_t(2, 768, 0, 155, 6, 0, 0, 1, 0, 0),      //
+          superbin_t(3, 0, 0, 156, 6, 0, 0, 1, 0, 0),       superbin_t(3, 256, 0, 157, 6, 0, 0, 1, 0, 0),      //
+          superbin_t(3, 512, 0, 158, 6, 0, 0, 1, 0, 0),     superbin_t(3, 768, 0, 159, 6, 0, 0, 1, 0, 0),      //
+          superbin_t(4, 0, 0, 160, 6, 0, 0, 1, 0, 0),       superbin_t(4, 512, 0, 161, 7, 0, 0, 1, 0, 0),      //
+          superbin_t(5, 0, 0, 162, 7, 0, 0, 1, 0, 0),       superbin_t(5, 512, 0, 163, 7, 0, 0, 1, 0, 0),      //
+          superbin_t(6, 0, 0, 164, 7, 0, 0, 1, 0, 0),       superbin_t(6, 512, 0, 165, 7, 0, 0, 1, 0, 0),      //
+          superbin_t(7, 0, 0, 166, 7, 0, 0, 1, 0, 0),       superbin_t(7, 512, 0, 167, 7, 0, 0, 1, 0, 0),      //
+          superbin_t(8, 0, 0, 168, 7, 0, 0, 1, 0, 0),       superbin_t(9, 0, 0, 169, 8, 0, 0, 1, 0, 0),        //
+          superbin_t(10, 0, 0, 170, 8, 0, 0, 1, 0, 0),      superbin_t(11, 0, 0, 171, 8, 0, 0, 1, 0, 0),       //
+          superbin_t(12, 0, 0, 172, 8, 0, 0, 1, 0, 0),      superbin_t(13, 0, 0, 173, 8, 0, 0, 1, 0, 0),       //
+          superbin_t(14, 0, 0, 174, 8, 0, 0, 1, 0, 0),      superbin_t(15, 0, 0, 175, 8, 0, 0, 1, 0, 0),       //
+          superbin_t(16, 0, 0, 176, 8, 0, 0, 1, 0, 0),      superbin_t(18, 0, 0, 177, 9, 0, 0, 1, 0, 0),       //
+          superbin_t(20, 0, 0, 178, 9, 0, 0, 1, 0, 0),      superbin_t(22, 0, 0, 179, 9, 0, 0, 1, 0, 0),       //
+          superbin_t(24, 0, 0, 180, 9, 0, 0, 1, 0, 0),      superbin_t(26, 0, 0, 181, 9, 0, 0, 1, 0, 0),       //
+          superbin_t(28, 0, 0, 182, 9, 0, 0, 1, 0, 0),      superbin_t(30, 0, 0, 183, 9, 0, 0, 1, 0, 0),       //
+          superbin_t(32, 0, 0, 184, 9, 0, 0, 1, 0, 0),      superbin_t(36, 0, 0, 185, 10, 0, 0, 1, 0, 0),      //
+          superbin_t(40, 0, 0, 186, 10, 0, 0, 1, 0, 0),     superbin_t(44, 0, 0, 187, 10, 0, 0, 1, 0, 0),      //
+          superbin_t(48, 0, 0, 188, 10, 0, 0, 1, 0, 0),     superbin_t(52, 0, 0, 189, 10, 0, 0, 1, 0, 0),      //
+          superbin_t(56, 0, 0, 190, 10, 0, 0, 1, 0, 0),     superbin_t(60, 0, 0, 191, 10, 0, 0, 1, 0, 0),      //
+          superbin_t(64, 0, 0, 192, 10, 0, 0, 1, 0, 0),     superbin_t(72, 0, 0, 193, 11, 0, 0, 1, 0, 0),      //
+          superbin_t(80, 0, 0, 194, 11, 0, 0, 1, 0, 0),     superbin_t(88, 0, 0, 195, 11, 0, 0, 1, 0, 0),      //
+          superbin_t(96, 0, 0, 196, 11, 0, 0, 1, 0, 0),     superbin_t(104, 0, 0, 197, 11, 0, 0, 1, 0, 0),     //
+          superbin_t(112, 0, 0, 198, 11, 0, 0, 1, 0, 0),    superbin_t(120, 0, 0, 199, 11, 0, 0, 1, 0, 0),     //
+          superbin_t(128, 0, 0, 200, 11, 0, 0, 1, 0, 0),    superbin_t(144, 0, 0, 201, 12, 0, 0, 1, 0, 0),     //
+          superbin_t(160, 0, 0, 202, 12, 0, 0, 1, 0, 0),    superbin_t(176, 0, 0, 203, 12, 0, 0, 1, 0, 0),     //
+          superbin_t(192, 0, 0, 204, 12, 0, 0, 1, 0, 0),    superbin_t(208, 0, 0, 205, 12, 0, 0, 1, 0, 0),     //
+          superbin_t(224, 0, 0, 206, 12, 0, 0, 1, 0, 0),    superbin_t(240, 0, 0, 207, 12, 0, 0, 1, 0, 0),     //
+          superbin_t(256, 0, 0, 208, 12, 0, 0, 1, 0, 0),    superbin_t(288, 0, 0, 209, 13, 0, 0, 1, 0, 0),     //
+          superbin_t(320, 0, 0, 210, 13, 0, 0, 1, 0, 0),    superbin_t(352, 0, 0, 211, 13, 0, 0, 1, 0, 0),     //
+          superbin_t(384, 0, 0, 212, 13, 0, 0, 1, 0, 0),    superbin_t(416, 0, 0, 213, 13, 0, 0, 1, 0, 0),     //
+          superbin_t(448, 0, 0, 214, 13, 0, 0, 1, 0, 0),    superbin_t(480, 0, 0, 215, 13, 0, 0, 1, 0, 0),     //
         };
 
         static const s32    c_num_allocators               = 14;
         static superalloc_t c_allocators[c_num_allocators] = {
-            superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
-            superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
+          superalloc_t(16), superalloc_t(17), superalloc_t(18), superalloc_t(19), superalloc_t(20), superalloc_t(21), superalloc_t(22),
+          superalloc_t(23), superalloc_t(24), superalloc_t(25), superalloc_t(26), superalloc_t(27), superalloc_t(28), superalloc_t(29),
         };
 
         static const u32 c_internal_heap_address_range = 16 * cMB;
@@ -1346,16 +1348,21 @@ namespace ncore
             return i;
         }
 
-    }; // namespace superallocator_config_desktop_app_10p_t
+    };  // namespace superallocator_config_desktop_app_10p_t
 
     namespace superallocator_config = superallocator_config_desktop_app_10p_t;
     // namespace superallocator_config = superallocator_config_desktop_app_25p_t;
 
-    class superallocator_t
+    class superallocator_t : public alloc_t
     {
     public:
         superallocator_t()
             : m_config()
+            , m_vmemtotal_memrange(0)
+            , m_superchunks(nullptr)
+            , m_superchunks_membase(nullptr)
+            , m_superchunks_memrange(0)
+            , m_superchunks_map(nullptr)
             , m_allocators(nullptr)
             , m_vmem(nullptr)
             , m_internal_heap()
@@ -1365,9 +1372,6 @@ namespace ncore
 
         void initialize(vmem_t* vmem, superallocator_config_t const& config);
         void deinitialize();
-
-        void* allocate(u32 size, u32 alignment);
-        u32   deallocate(void* ptr);
 
         void set_assoc(void* ptr, u32 assoc);
         u32  get_assoc(void* ptr) const;
@@ -1383,6 +1387,10 @@ namespace ncore
 
         superallocator_config_t m_config;
 
+        virtual void* v_allocate(u32 size, u32 align);
+        virtual u32   v_deallocate(void* p);
+        virtual void  v_release() { deinitialize(); }
+
         /*
         If the full address range is 1TB we could split it into N superchunks.
         Some superchunks can be setup to deal with different page sizes or even
@@ -1392,7 +1400,7 @@ namespace ncore
         superchunks_t* m_superchunks;
         void*          m_superchunks_membase;
         u64            m_superchunks_memrange;
-        u8*            m_superchunks_map; // (m_vmemtotal_memrange (1 TB) / m_superchunks_memrange) = 8 entries
+        u8*            m_superchunks_map;  // (m_vmemtotal_memrange (1 TB) / m_superchunks_memrange) = 8 entries
         superalloc_t*  m_allocators;
         vmem_t*        m_vmem;
         superheap_t    m_internal_heap;
@@ -1455,7 +1463,7 @@ namespace ncore
         m_vmem = nullptr;
     }
 
-    void* superallocator_t::allocate(u32 size, u32 alignment)
+    void* superallocator_t::v_allocate(u32 size, u32 alignment)
     {
         size                  = math::alignUp(size, alignment);
         u32 const sbinindex   = m_config.m_asuperbins[superallocator_config::size2bin(size)].m_alloc_bin_index;
@@ -1468,7 +1476,7 @@ namespace ncore
         return ptr;
     }
 
-    u32 superallocator_t::deallocate(void* ptr)
+    u32 superallocator_t::v_deallocate(void* ptr)
     {
         if (ptr == nullptr)
             return 0;
@@ -1540,4 +1548,4 @@ namespace ncore
         return superalloc;
     }
 
-} // namespace ncore
+}  // namespace ncore
