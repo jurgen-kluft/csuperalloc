@@ -8,7 +8,7 @@
 
 namespace ncore
 {
-    u32 resetarray(u32 count, u32 len, u16* data, u16 df = 0)
+    static u32 resetarray(u32 count, u32 len, u16* data, u16 df)
     {
         u32 const wi2 = count >> 4;
         for (u32 i = 0; i < wi2; i++)
@@ -31,8 +31,8 @@ namespace ncore
         // Set those bits that we never touch to '1' the rest to '0'
         if (count > 32)
         {
-            u32 const c2 = resetarray(count, l2len, l2);
-            u32 const c1 = resetarray(c2, l1len, l1);
+            u32 const c2 = resetarray(count, l2len, l2, 0x0000);
+            u32 const c1 = resetarray(c2, l1len, l1, 0x0000);
             count        = c1;
         }
         if (count == 32)
@@ -186,4 +186,4 @@ namespace ncore
         }
     }
 
-} // namespace ncore
+}  // namespace ncore
