@@ -373,8 +373,8 @@ namespace ncore
         u16 m_binmap_l2len;
     };
 
-    // Managing requests of different chunk-sizes but managed through first a division into blocks,
-    // where blocks are divided into segments. Segments contain chunks.
+    // Managing requests of different chunk-sizes but managed first through a division in blocks,
+    // where blocks are divided into segments, and segments contain chunks.
     //
     // Chunk-Sizes are all power-of-2 sizes
     //
@@ -1084,10 +1084,10 @@ namespace ncore
         }
 
         s32                         m_num_superbins;
-        superbin_t const*           m_asuperbins;
         s32                         m_num_superchunks;
-        superchunks_config_t const* m_asuperchunkconfigs;
         s32                         m_num_allocators;
+        superbin_t const*           m_asuperbins;
+        superchunks_config_t const* m_asuperchunkconfigs;
         superalloc_t const*         m_allocators;
         u32                         m_internal_heap_address_range;
         u32                         m_internal_heap_pre_size;
@@ -1397,10 +1397,10 @@ namespace ncore
         different flags (garlic/onion PS4). And some superchunks can be unused.
         */
         u64            m_vmemtotal_memrange;
-        superchunks_t* m_superchunks;
         void*          m_superchunks_membase;
         u64            m_superchunks_memrange;
         u8*            m_superchunks_map;  // (m_vmemtotal_memrange (1 TB) / m_superchunks_memrange) = 8 entries
+        superchunks_t* m_superchunks;
         superalloc_t*  m_allocators;
         vmem_t*        m_vmem;
         superheap_t    m_internal_heap;
@@ -1455,11 +1455,13 @@ namespace ncore
     void superallocator_t::deinitialize()
     {
         m_internal_fsa.deinitialize(m_internal_heap);
-        m_internal_heap.deinitialize();
         for (s32 i = 0; i < m_config.m_num_superchunks; ++i)
         {
             m_superchunks[i].deinitialize(m_internal_heap);
         }
+        m_internal_heap.deinitialize();
+        m_superchunks = nullptr;
+        m_allocators = nullptr;
         m_vmem = nullptr;
     }
 
