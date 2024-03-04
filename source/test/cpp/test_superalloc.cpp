@@ -1,7 +1,7 @@
 #include "cbase/c_allocator.h"
 #include "cbase/c_integer.h"
 
-#include "csuperalloc/c_virtual_main_allocator.h"
+#include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/test_allocator.h"
 #include "cvmem/c_virtual_memory.h"
 
