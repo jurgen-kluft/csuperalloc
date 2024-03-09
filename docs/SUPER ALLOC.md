@@ -128,12 +128,14 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 
 # SuperAllocator
 
-* Splits up large virtual address space into `blocks`
-* Every `block` is dedicated to one specific `chunk` size
+* Splits up large virtual address space into `segments`
+* Every `segment` is dedicated to one specific `chunk` size
+* Every `segment` is divided into `blocks`
+* Every `block` is divided into `chunks`
 * All bookkeeping data is outside of the managed memory
 * A superalloc allocator manages a range of allocation sizes
 * Only uses 2 data structures:
-  * Doubly Linked List (260 lines)
+  * Doubly Linked List using indices instead of pointers (260 lines)
   * BinMap (3 level hierarchical bitmap) (180 lines)
 * Number of code lines = 1200, excluding the 2 data structures
 
@@ -149,7 +151,7 @@ public:
     virtual u32   deallocate(void* ptr) = 0;
 
     virtual u32   get_size(void* ptr) = 0;      // Easy to add
-    virtual void* get_gpu(void* cpuptr) = 0;    // Requires some code to support this
+    virtual void* get_gpu(void* cpuptr) = 0;    // Requires some code to support this (supported through set_assoc() and get_assoc())
 };
 ```
 
@@ -157,10 +159,16 @@ public:
 
 # SuperAllocator Virtual Address Space
 
-Address space is divided into blocks of 1 GB.
+Example:
+
+Address space is divided into super segments of 64 GB, and each super segment is divided into blocks of 1 GB.
+Each block manages chunks and every chunk has the same size. There can be many segments where each segment 
+will be able to provide chunks of a specific size.
+
 (X = Used, F = Free)
 
 ```md
+Super Segment
                 -> Block 1 GB                                                                           
                /                                                                                      
               /                                                                                       
@@ -172,14 +180,13 @@ Address space is divided into blocks of 1 GB.
 
 ```
 
----
 
 # Block
 
 A block of 1 GB is divided into chunks of a specific size.
 
 ```md
-         Chunk (64 KB)
+         Chunk (2 MB, 64 KB or for example 4 KB)
          /
      +++/+++++++++++++++++++++++++++++++
 0 GB | X | F | F |                     | 1 GB
@@ -187,19 +194,19 @@ A block of 1 GB is divided into chunks of a specific size.
 
 ```
 
-Chunk size is a power-of-2 multiple of 64 KB, some chunk sizes are 64 KB, 128 KB, 256 KB, 512 KB, 1 MB, 2 MB, 4 MB, 8 MB ... 256 MB.
+Chunk size is a power-of-2 multiple of 64 KB, some possible chunk sizes are 4 KB, 16 KB, 64 KB, 128 KB, 256 KB, 512 KB, 1 MB, 2 MB, 4 MB.
 
 ---
 
 # Chunk
 
-The smallest chunk-size of 64 KB, handled by the first super alloc, is holding allocation sizes of 8 B to 256 B. The next super alloc has a chunk-size of 512 KB and handles allocation sizes between 256 B and 64 KB. Chunks are managed in two distinct ways, when the allocation size does not need to track the actual number of pages used for an allocation we can use a binmap. Otherwise a chunk is used for a single allocation and the actual number of physical pages committed is stored.
+The small chunk-size of 64 KB, handled by a super alloc instance, is holding allocation sizes of 8 B to 256 B. The next super alloc has a chunk-size of 512 KB and handles allocation sizes between 256 B and 64 KB. Chunks are managed in two distinct ways, when the allocation size does not need to track the actual number of pages used for an allocation we can use a binmap. Otherwise a chunk is used for a single allocation and the actual number of physical pages committed is stored.
 
 ---
 
 # Binmap
 
-The main purpose of Binmap is to quickly give you the index of a '0' bit. The implementation uses 3 levels of bit arrays. Binmap has a `findandset` function which can give you a 'free' element quickly.
+The main purpose of a binmap is to quickly give you the index of a '0' bit. The implementation uses 3 levels of bit arrays. Binmap has a `findandset` function which can give you a 'free' element quickly.
 
 ```md
                            +--------------------------------+                                                                                
