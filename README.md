@@ -1,10 +1,11 @@
 # A (virtual) memory allocator library
 
-A library that provides cross-platform usage of virtual memory.
+A library that provides cross-platform usage of a virtual memory allocator.
 
 ## Superalloc
 
-Currently this allocator 'superalloc' is implemented and is around 1200 lines of code for the core.
+Currently this allocator, called 'superalloc', is implemented in C++ and is around 1200 lines 
+of code for the core.
 This allocator is very configurable and all book-keeping data is outside of the managed memory
 making it very suitable for different kind of memory (read-only, GPU etc..).
 
@@ -15,15 +16,17 @@ It only uses the following data structures:
 * binmap; 3 layer bit array
 
 ```c++
-class alloc_t
+class valloc_t
 {
-      void* allocate(u32 size, u32 align) = 0;
-      u32   deallocate(void*) = 0;
-      u32   get_size() = 0;
+public:
+      void* allocate(u32 size, u32 align);
+      u32   deallocate(void*);
       
-      // You can tag an allocation, very useful for attaching debugging info to an allocation
-      void  set_tag(void*, u32) = 0;
-      u32   get_tag(void*) = 0;
+      // You can tag an allocation, very useful for attaching debugging info to an allocation or
+      // using it as a CPU/GPU handle.
+      void  set_tag(void*, u32);
+      u32   get_tag(void*);
+      u32   get_size(void*);
 };
 ```
 

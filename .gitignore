@@ -17,6 +17,7 @@ tags
 !*.inl
 
 !*.md
+!*.excalidraw
 !*.pdf
 
 !*.go

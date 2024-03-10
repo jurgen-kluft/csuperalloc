@@ -20,8 +20,8 @@ namespace ncore
         s32  findandset(u32 count, u16* l1, u16* l2);
 
         u32 m_l0;
-        u32 m_l1_offset;
-        u32 m_l2_offset;
+        u32 m_l1_offset_iptr;
+        u32 m_l2_offset_iptr;
     };
 
 } // namespace ncore
