@@ -438,45 +438,70 @@ namespace ncore
 
         struct config_t
         {
-            u16 m_blocks_shift;
-            u16 m_chunks_max;
-            u8  m_chunks_shift;
+            u16 m_blocks_shift;  // block-size = 1 << m_blocks_shift
+            u16 m_chunks_max;    // maximum number of chunks per block
+            u8  m_chunks_shift;  // chunk-size = 1 << m_chunks_shift
             u8  m_binmap_l1;
             u16 m_binmap_l2;
         };
 
         superfsa_t* m_fsa;
-        llhead_t    m_block_list_active;
         vmem_t*     m_vmem;
         void*       m_address_base;
         u64         m_address_range;
         u32         m_page_count;
         u32         m_page_size;
-        u32         m_page_shift;  // e.g. 16 (1<<16 = 64 KB)
+        u8          m_page_shift;
         config_t    m_config;
         block_t*    m_blocks_array;
         lldata_t    m_blocks_list_data;
         llist_t     m_blocks_list_free;
+        llhead_t    m_active_block_list;
 
-        void initialize(vmem_t* vmem, u64 address_range, u64 block_range, superheap_t* heap, superfsa_t* fsa)
+        supersegment_t()
+            : m_fsa(nullptr)
+            , m_vmem(nullptr)
+            , m_address_base(nullptr)
+            , m_address_range(0)
+            , m_page_count(0)
+            , m_page_size(0)
+            , m_page_shift(0)
+            , m_blocks_array(nullptr)
+            , m_blocks_list_data()
+            , m_blocks_list_free()
+            , m_active_block_list()
         {
+        }
+
+        void initialize(vmem_t* vmem, u64 address_range, u64 block_range, u32 chunk_size, superheap_t* heap, superfsa_t* fsa)
+        {
+            ASSERT(math::ispo2(address_range));
+            ASSERT(math::ispo2(block_range));
+            ASSERT(math::ispo2(chunk_size));
+            ASSERT((block_range / chunk_size) <= 65535);  // 16-bit index
+
             m_vmem          = vmem;
             m_address_range = address_range;
             u32 const attrs = 0;
             m_vmem->reserve(address_range, m_page_size, attrs, m_address_base);
-            m_page_shift = math::countTrailingZeros(m_page_size);
+            m_page_shift = math::ilog2(m_page_size);
             m_page_count = 0;
 
             m_fsa = fsa;
 
-            m_config.m_blocks_shift       = math::countTrailingZeros(block_range);
-            u32 const num_blocks          = (u32)(m_address_range >> m_config.m_blocks_shift);
+            u32 const blocks_shift        = math::ilog2(block_range);
+            u32 const num_blocks          = (u32)(m_address_range >> blocks_shift);
             m_blocks_array                = (block_t*)heap->allocate(num_blocks * sizeof(block_t));
             m_blocks_list_data.m_data     = m_blocks_array;
             m_blocks_list_data.m_itemsize = sizeof(block_t);
             m_blocks_list_free.initialize(m_blocks_list_data, 0, num_blocks, num_blocks);
+            m_active_block_list.reset();
 
-            m_block_list_active.reset();
+            m_config.m_chunks_shift = math::ilog2(chunk_size);
+            m_config.m_blocks_shift = blocks_shift;
+            m_config.m_chunks_max   = (u16)(block_range >> m_config.m_chunks_shift);
+            m_config.m_binmap_l2    = (m_config.m_chunks_max + 15) / 16;
+            m_config.m_binmap_l1    = (m_config.m_binmap_l2 + 15) / 16;
         }
 
         void deinitialize(superheap_t& heap) {}
@@ -556,14 +581,14 @@ namespace ncore
         chunkinfo_t checkout_chunk(u32 alloc_size, u32 pchunk_index, superbin_t const& bin)
         {
             u32 block_index = 0xffffffff;
-            if (m_block_list_active.is_nil())
+            if (m_active_block_list.is_nil())
             {
                 block_index = checkout_block();
-                m_block_list_active.insert(m_blocks_list_data, block_index);
+                m_active_block_list.insert(m_blocks_list_data, block_index);
             }
             else
             {
-                block_index = m_block_list_active.m_index;
+                block_index = m_active_block_list.m_index;
             }
 
             u32 const required_physical_pages = chunk_physical_pages(bin, alloc_size);
@@ -590,7 +615,7 @@ namespace ncore
             }
             else
             {
-                // Error, this block should have been removed from 'm_block_list_active'
+                // Error, this block should have been removed from 'm_active_block_list'
                 ASSERT(false);
             }
 
@@ -615,7 +640,7 @@ namespace ncore
             block->m_chunks_used += 1;
             if (block->m_chunks_used == m_config.m_chunks_max)
             {
-                m_block_list_active.remove_item(m_blocks_list_data, block_index);
+                m_active_block_list.remove_item(m_blocks_list_data, block_index);
             }
 
             // Return the chunk index
@@ -633,7 +658,7 @@ namespace ncore
             block_t* block = &m_blocks_array[chunkinfo.m_segment_block_index];
             if (block->m_chunks_used == m_config.m_chunks_max)
             {
-                m_block_list_active.insert(m_blocks_list_data, chunkinfo.m_segment_block_index);
+                m_active_block_list.insert(m_blocks_list_data, chunkinfo.m_segment_block_index);
             }
 
             m_page_count -= block->m_chunks_physical_pages[chunkinfo.m_block_chunk_index];
@@ -654,7 +679,7 @@ namespace ncore
             block->m_chunks_used -= 1;
             if (block->m_chunks_used == 0)
             {
-                m_block_list_active.remove_item(m_blocks_list_data, chunkinfo.m_segment_block_index);
+                m_active_block_list.remove_item(m_blocks_list_data, chunkinfo.m_segment_block_index);
 
                 // Maybe every size should cache at least one block otherwise single alloc/dealloc calls will
                 // checkout and release a block every time?
@@ -761,8 +786,16 @@ namespace ncore
         lldata_t        m_chunk_list_data;
         llhead_t*       m_used_chunk_list_per_size;
 
+        superalloc_t()
+            : m_ssegment(nullptr)
+            , m_chunk_list_data()
+            , m_used_chunk_list_per_size(nullptr)
+        {
+        }
+
         superalloc_t(supersegment_t* s, llhead_t* used_chunk_list_per_size)
             : m_ssegment(s)
+            , m_chunk_list_data()
             , m_used_chunk_list_per_size(used_chunk_list_per_size)
         {
         }
@@ -966,26 +999,24 @@ namespace ncore
     struct supersegment_config_t
     {
         supersegment_config_t()
-            : c_address_range(0)
-            , c_block_range(0)
-            , c_page_size(0)
+            : c_block_range(0)
+            , c_chunk_size(0)
             , c_memtype(0)
             , c_protect(0)
         {
         }
 
-        supersegment_config_t(u64 const address_range, u64 const block_range, u32 pagesize, u16 memtype, u16 protect)
-            : c_address_range(address_range)
-            , c_block_range(block_range)
-            , c_page_size(pagesize)
+        supersegment_config_t(u64 const block_range, u32 chunk_size, u16 memtype, u16 protect)
+            : c_block_range(block_range)
+            , c_chunk_size(chunk_size)
             , c_memtype(memtype)
             , c_protect(protect)
         {
+            // block-range / page-size must be a power of 2 and not larger than 65536 (16 bits)
         }
 
-        const u64 c_address_range;
         const u64 c_block_range;
-        const u32 c_page_size;
+        const u32 c_chunk_size;
         const u16 c_memtype;
         const u16 c_protect;
     };
@@ -993,7 +1024,9 @@ namespace ncore
     struct superallocator_config_t
     {
         superallocator_config_t()
-            : m_num_superbins(0)
+            : m_total_address_space(0)
+            , m_segment_address_range(0)
+            , m_num_superbins(0)
             , m_asuperbins(nullptr)
             , m_internal_heap_address_range(0)
             , m_internal_heap_pre_size(0)
@@ -1003,7 +1036,9 @@ namespace ncore
         }
 
         superallocator_config_t(const superallocator_config_t& other)
-            : m_num_superbins(other.m_num_superbins)
+            : m_total_address_space(other.m_total_address_space)
+            , m_segment_address_range(other.m_segment_address_range)
+            , m_num_superbins(other.m_num_superbins)
             , m_asuperbins(other.m_asuperbins)
             , m_internal_heap_address_range(other.m_internal_heap_address_range)
             , m_internal_heap_pre_size(other.m_internal_heap_pre_size)
@@ -1012,7 +1047,7 @@ namespace ncore
         {
         }
 
-        superallocator_config_t(s32 const num_superbins, superbin_t const* asuperbins, s32 const num_supersegment, supersegment_config_t const* asupersegment, u32 const internal_heap_address_range, u32 const internal_heap_pre_size,
+        superallocator_config_t(u64 total_address_space, u64 segment_address_range, s32 const num_superbins, superbin_t const* asuperbins, s32 const num_supersegment, supersegment_config_t const* asupersegment, u32 const internal_heap_address_range, u32 const internal_heap_pre_size,
                                 u32 const internal_fsa_address_range, u32 const internal_fsa_pre_size)
             : m_num_superbins(num_superbins)
             , m_asuperbins(asuperbins)
@@ -1025,23 +1060,27 @@ namespace ncore
         {
         }
 
-        s32                          m_num_superbins;
+        u64                          m_total_address_space;
+        u64                          m_segment_address_range;
         s32                          m_num_supersegments;
-        superbin_t const*            m_asuperbins;
+        s32                          m_num_superbins;
         supersegment_config_t const* m_asupersegmentconfigs;
+        superbin_t const*            m_asuperbins;
         u32                          m_internal_heap_address_range;
         u32                          m_internal_heap_pre_size;
         u32                          m_internal_fsa_address_range;
         u32                          m_internal_fsa_pre_size;
     };
 
+    // 25% allocation waste (based on empirical data)
     namespace superallocator_config_desktop_app_25p_t
     {
+        // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
         static const s32                   c_num_ssegments               = 3;
         static const supersegment_config_t c_assegments[c_num_ssegments] = {
-          supersegment_config_t(cGB * 64, cGB * 1, 64 * cKB, 0, 0),
-          supersegment_config_t(cGB * 64, cMB * 256, 16 * cKB, 0, 0),
-          supersegment_config_t(cGB * 64, cMB * 64, 4 * cKB, 0, 0),
+          supersegment_config_t(cGB * 1, 64 * cKB, 0, 0),    // cGB * 1 / 64 * cKB = 16 * cKB
+          supersegment_config_t(cMB * 256, 16 * cKB, 0, 0),  // cMB * 256 / 16 cKB = 16 * cKB
+          supersegment_config_t(cMB * 64, 4 * cKB, 0, 0),    // cMB * 64 / 4 * cKB = 16 * cKB
         };
 
         // superbin_t(alloc-size MB, KB, B, bin redir index, allocator / supersegment index, use binmap?, max alloc-count, binmap level 1 length (u16), binmap level 2 length (u16))
@@ -1105,12 +1144,16 @@ namespace ncore
           superbin_t(384, 0, 0, 110, 0, 0, 1, 0, 0),     superbin_t(448, 0, 0, 111, 0, 0, 1, 0, 0),      //
         };
 
-        static const u32 c_internal_heap_address_range = 16 * cMB;
-        static const u32 c_internal_heap_pre_size      = 2 * cMB;
-        static const u32 c_internal_fsa_address_range  = 16 * cMB;
-        static const u32 c_internal_fsa_pre_size       = 2 * cMB;
-
-        static superallocator_config_t get_config() { return superallocator_config_t(c_num_bins, c_asbins, c_num_ssegments, c_assegments, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size); }
+        static superallocator_config_t get_config()
+        {
+            const u64 c_total_address_space         = 64 * cGB;
+            const u64 c_segment_address_range       = 4 * cGB;
+            const u32 c_internal_heap_address_range = 16 * cMB;
+            const u32 c_internal_heap_pre_size      = 2 * cMB;
+            const u32 c_internal_fsa_address_range  = 16 * cMB;
+            const u32 c_internal_fsa_pre_size       = 2 * cMB;
+            return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_num_ssegments, c_assegments, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size);
+        }
 
         static inline s32 size2bin(u32 size)
         {
@@ -1125,13 +1168,14 @@ namespace ncore
 
     };  // namespace superallocator_config_desktop_app_25p_t
 
+    // 10% allocation waste (based on empirical data)
     namespace superallocator_config_desktop_app_10p_t
     {
-        // 10% allocation waste
+        // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
         static const s32                   c_num_ssegments               = 2;
         static const supersegment_config_t c_assegments[c_num_ssegments] = {
-          supersegment_config_t(cGB * 128, cGB * 1, 64 * cKB, 0, 0),  //
-          supersegment_config_t(cGB * 128, cGB * 1, 4 * cKB, 0, 0)    //
+          supersegment_config_t(cGB * 1, 64 * cKB, 0, 0),  //
+          supersegment_config_t(cGB * 1, 4 * cKB, 0, 0)    //
         };
 
         // superbin_t(alloc-size MB, KB, B, bin redir index, allocator / supersegment index, use binmap?, max alloc-count, binmap level 1 length (u16), binmap level 2 length (u16))
@@ -1247,12 +1291,16 @@ namespace ncore
           superbin_t(448, 0, 0, 214, 0, 0, 1, 0, 0),     superbin_t(480, 0, 0, 215, 0, 0, 1, 0, 0),      //
         };
 
-        static const u32 c_internal_heap_address_range = 16 * cMB;
-        static const u32 c_internal_heap_pre_size      = 2 * cMB;
-        static const u32 c_internal_fsa_address_range  = 16 * cMB;
-        static const u32 c_internal_fsa_pre_size       = 2 * cMB;
-
-        static superallocator_config_t get_config() { return superallocator_config_t(c_num_bins, c_asbins, c_num_ssegments, c_assegments, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size); }
+        static superallocator_config_t get_config()
+        {
+            const u64 c_total_address_space         = 64 * cGB;
+            const u64 c_segment_address_range       = 4 * cGB;
+            const u32 c_internal_heap_address_range = 16 * cMB;
+            const u32 c_internal_heap_pre_size      = 2 * cMB;
+            const u32 c_internal_fsa_address_range  = 16 * cMB;
+            const u32 c_internal_fsa_pre_size       = 2 * cMB;
+            return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_num_ssegments, c_assegments, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size);
+        }
 
         static inline s32 size2bin(u32 size)
         {
@@ -1272,18 +1320,32 @@ namespace ncore
 
     class superallocator_t : public alloc_t
     {
+        // If the full address range is 1TB we split it into N supersegments.
+        // A supersegment can be setup to deal with a specific page size and even
+        // memory protection flags (garlic/onion PS4).
+        // Furthermore not all super segments need to be unused.
+
+        u64                     m_vmemtotal_memrange;
+        void*                   m_supersegments_membase;
+        u64                     m_supersegments_memrange;
+        supersegment_t*         m_asupersegments;
+        superalloc_t*           m_aallocators;  // Total Address Space / Supersegment Address Space = Size of m_aallocators
+        vmem_t*                 m_vmem;
+        superheap_t             m_internal_heap;
+        superfsa_t              m_internal_fsa;
+        superallocator_config_t m_config;
+
     public:
         superallocator_t()
-            : m_config()
-            , m_vmemtotal_memrange(0)
+            : m_vmemtotal_memrange(0)
             , m_asupersegments(nullptr)
             , m_supersegments_membase(nullptr)
             , m_supersegments_memrange(0)
-            , m_asupersegments_map(nullptr)
             , m_aallocators(nullptr)
             , m_vmem(nullptr)
             , m_internal_heap()
             , m_internal_fsa()
+            , m_config()
         {
         }
 
@@ -1295,33 +1357,16 @@ namespace ncore
 
         u32 get_size(void* ptr) const;
 
-        supersegment_t* get_supersegment(void* ptr) const
+        inline supersegment_t* get_supersegment(void* ptr) const
         {
             u64 const dist = todistance(m_supersegments_membase, ptr);
-            u32 const spci = (u32)(dist / m_supersegments_memrange);
-            return &m_asupersegments[spci];
+            u32 const ssai = (u32)(dist / m_supersegments_memrange);
+            return &m_asupersegments[ssai];
         }
-
-        superallocator_config_t m_config;
 
         virtual void* v_allocate(u32 size, u32 align);
         virtual u32   v_deallocate(void* p);
         virtual void  v_release() { deinitialize(); }
-
-        /*
-        If the full address range is 1TB we could split it into N supersegments.
-        A supersegment can be setup to deal with different page size or even
-        different flags (garlic/onion PS4). And some supersegment may be unused.
-        */
-        u64             m_vmemtotal_memrange;
-        void*           m_supersegments_membase;
-        u64             m_supersegments_memrange;
-        u8*             m_asupersegments_map;  // (m_vmemtotal_memrange (1 TB) / m_supersegments_memrange) = 8 entries
-        supersegment_t* m_asupersegments;
-        superalloc_t*   m_aallocators;
-        vmem_t*         m_vmem;
-        superheap_t     m_internal_heap;
-        superfsa_t      m_internal_fsa;
     };
 
     void superallocator_t::initialize(vmem_t* vmem, superallocator_config_t const& config)
@@ -1331,29 +1376,23 @@ namespace ncore
         m_internal_heap.initialize(m_vmem, m_config.m_internal_heap_address_range, m_config.m_internal_heap_pre_size);
         m_internal_fsa.initialize(m_internal_heap, m_vmem, m_config.m_internal_fsa_address_range, m_config.m_internal_fsa_pre_size);
 
-        m_asupersegments = (supersegment_t*)m_internal_heap.allocate(sizeof(supersegment_t) * m_config.m_num_supersegments);
-        for (s32 i = 0; i < m_config.m_num_supersegments; ++i)
-        {
-            m_asupersegments[i].initialize(vmem, m_config.m_asupersegmentconfigs[i].c_address_range, m_config.m_asupersegmentconfigs[i].c_block_range, &m_internal_heap, &m_internal_fsa);
-        }
-
         llhead_t* used_chunk_list_per_size = (llhead_t*)m_internal_heap.allocate(sizeof(llhead_t) * m_config.m_num_superbins);
         for (s32 i = 0; i < m_config.m_num_superbins; ++i)
         {
             used_chunk_list_per_size[i].reset();
         }
 
-        // superalloc instances should be created for each supersegment
-
-        m_aallocators = (superalloc_t*)m_internal_heap.allocate(sizeof(superalloc_t) * m_config.m_num_supersegments);
-        for (s32 i = 0; i < m_config.m_num_supersegments; ++i)
+        const s32 num_segments = config.m_total_address_space / config.m_segment_address_range;
+        m_asupersegments       = (supersegment_t*)m_internal_heap.allocate(sizeof(supersegment_t) * num_segments);
+        for (s32 i = 0; i < num_segments; ++i)
         {
-            m_aallocators[i] = superalloc_t(&m_asupersegments[i], used_chunk_list_per_size);
+            m_asupersegments[i] = supersegment_t();
+            m_aallocators[i] = superalloc_t();
         }
-
         for (s32 i = 0; i < m_config.m_num_supersegments; ++i)
         {
-            s32 const c = m_config.m_asuperbins[i].m_alloc_index;
+            m_asupersegments[i].initialize(vmem, config.m_segment_address_range, m_config.m_asupersegmentconfigs[i].c_block_range, m_config.m_asupersegmentconfigs[i].c_chunk_size, &m_internal_heap, &m_internal_fsa);
+            m_aallocators[i] = superalloc_t(&m_asupersegments[i], used_chunk_list_per_size);
             m_aallocators[i].initialize(m_internal_heap, m_internal_fsa);
         }
 
@@ -1445,7 +1484,8 @@ namespace ncore
     {
         if (ptr == nullptr)
             return 0;
-        supersegment_t*             ssegment   = get_supersegment(ptr);
+        supersegment_t* ssegment = get_supersegment(ptr);
+        ASSERT(ptr >= ssegment->m_address_base && ptr < ((u8*)ssegment->m_address_base + ssegment->m_address_range));
         u32 const                   page_index = ssegment->address_to_page_index(ptr);
         supersegment_t::chunkinfo_t chunkinfo  = ssegment->page_index_to_chunk_info(page_index);
         supersegment_t::chunk_t*    chunk      = (supersegment_t::chunk_t*)m_internal_fsa.idx2ptr(chunkinfo.m_pchunk_index);

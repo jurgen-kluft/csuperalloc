@@ -50,6 +50,13 @@ namespace ncore
         u32   m_pagesize;
         u32   m_itemsize;
 
+        lldata_t()
+            : m_data(nullptr)
+            , m_pagesize(0)
+            , m_itemsize(0)
+        {
+        }
+
         llnode_t* idx2node(llindex_t i)
         {
             if (i == llnode_t::NIL)
