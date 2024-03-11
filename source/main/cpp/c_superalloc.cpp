@@ -10,24 +10,7 @@
 
 namespace ncore
 {
-    // @TODO: We could also include an index to an array of supersegment_t.
-    //        An index in superalloc_t to a supersegment_t object.
-    //        In this way we could create multiple regions with different page-size or other attributes.
     // @TODO: Deal with jittering between block checkout/release
-
-    /* Markdown
-
-        ## supersegment_t
-
-        We will have a couple of different supersegment_t, each with a different page-size.
-
-        The whole memory address space will be divided into
-
-        ## superalloc_t
-
-
-
-    */
 
 #define SUPERALLOC_DEBUG
 
@@ -124,7 +107,7 @@ namespace ncore
             m_item_freelist = NIL;
         }
 
-        inline bool is_full(u32 pagesize) const { return m_item_freelist == NIL && ((m_item_freepos + m_item_size) > pagesize); }
+        inline bool is_full(u32 pagesize) const { return m_item_freelist == NIL && (((u32)m_item_freepos + m_item_size) > pagesize); }
         inline bool is_empty() const { return m_item_count == 0; }
         inline u32  ptr2idx(void* const ptr, void* const elem) const { return (u32)(((u64)elem - (u64)ptr) / m_item_size); }
         inline u32* idx2ptr(void* const ptr, u32 const index) const { return (u32*)((u8*)ptr + ((u64)index * m_item_size)); }
@@ -139,7 +122,7 @@ namespace ncore
                 m_item_count++;
                 return iitem;
             }
-            else if ((m_item_freepos + m_item_size) <= pagesize)
+            else if (((u32)m_item_freepos + m_item_size) <= pagesize)
             {
                 u16 const ielem = m_item_freepos / m_item_size;
                 m_item_freepos += m_item_size;
@@ -421,12 +404,12 @@ namespace ncore
 
         struct chunk_t : llnode_t
         {
-            u32      m_chunk_iptr;
-            u16      m_elem_used;
-            u16      m_bin_index;
-            binmap_t m_binmap;
-            u32      m_physical_pages;
-            u32      m_alloc_tracking;
+            u32      m_chunk_index;     // The index of the chunk in the full segment
+            u16      m_elem_used;       // The number of elements used in this chunk
+            u16      m_bin_index;       // The index of the bin that this chunk belongs to
+            binmap_t m_binmap;          // The binmap for this chunk
+            u32      m_physical_pages;  // The number of physical pages that this chunk uses
+            u32      m_alloc_tracking;  // The index to the tracking array which we use for set_tag/get_tag
         };
 
         struct chunkinfo_t
@@ -733,7 +716,7 @@ namespace ncore
             u32 chunk_item_index = 0;
             if (bin.m_use_binmap == 1)
             {
-                void* const chunk_address = chunk_index_to_address(chunk->m_chunk_iptr);
+                void* const chunk_address = chunk_index_to_address(chunk->m_chunk_index);
                 chunk_item_index          = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             }
             chunk_tracking_array[chunk_item_index] = assoc;
@@ -750,7 +733,7 @@ namespace ncore
             u32 i = 0;
             if (bin.m_use_binmap == 1)
             {
-                void* const chunk_address = chunk_index_to_address(chunk->m_chunk_iptr);
+                void* const chunk_address = chunk_index_to_address(chunk->m_chunk_index);
                 i                         = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             }
             return chunk_tracking_array[i];
@@ -758,7 +741,7 @@ namespace ncore
 
         // When deallocating, call this to get the page-index which you can than use
         // to get the 'chunk_t*'.
-        u32 chunk_info_to_page_index(chunkinfo_t const& chunkinfo) const
+        inline u32 chunk_info_to_chunk_index(chunkinfo_t const& chunkinfo) const
         {
             block_t const* const block   = &m_blocks_array[chunkinfo.m_segment_block_index];
             u64 const            address = ((u64)chunkinfo.m_segment_block_index << m_config.m_blocks_shift) + ((u64)chunkinfo.m_block_chunk_index << m_config.m_chunks_shift);
@@ -770,12 +753,9 @@ namespace ncore
 
         chunkinfo_t chunk_index_to_chunk_info(u32 chunk_index) const
         {
-            u32 const chunk_index_to_block_index_shift       = (m_config.m_blocks_shift - m_config.m_chunks_shift);
-            u32 const block_index                            = chunk_index >> chunk_index_to_block_index_shift;
+            u32 const block_index                            = chunk_index >> (m_config.m_blocks_shift - m_config.m_chunks_shift);
             block_t*  block                                  = &m_blocks_array[block_index];
-            u32 const block_chunk_index                      = chunk_index & ((1 << chunk_index_to_block_index_shift) - 1);
-            u32 const block_chunk_index_to_chunk_index_shift = (m_config.m_chunks_shift - m_page_shift);
-            u32 const block_chunk_index                      = block_chunk_index >> block_chunk_index_to_chunk_index_shift;
+            u32 const block_chunk_index                      = chunk_index & ((1 << (m_config.m_blocks_shift - m_config.m_chunks_shift)) - 1);
             ASSERT(block_chunk_index < m_config.m_chunks_max);
             u32 const chunk_iptr = block->m_chunks_array[block_chunk_index];
             ASSERT(chunk_iptr != 0xffffffff);
@@ -844,7 +824,7 @@ namespace ncore
         else
         {
             supersegment_t::chunk_t* chunk      = (supersegment_t::chunk_t*)sfsa.idx2ptr(chunk_iptr);
-            u32 const                page_index = chunk->m_chunk_iptr;
+            u32 const                page_index = chunk->m_chunk_index;
             chunk_info                          = m_ssegment->chunk_index_to_chunk_info(page_index);
         }
 
@@ -887,7 +867,7 @@ namespace ncore
     void superalloc_t::initialize_chunk(superfsa_t& fsa, supersegment_t::chunkinfo_t const& info, u32 alloc_size, superbin_t const& bin)
     {
         supersegment_t::chunk_t* chunk = (supersegment_t::chunk_t*)fsa.idx2ptr(info.m_chunk_iptr);
-        chunk->m_chunk_iptr            = m_ssegment->chunk_info_to_page_index(info);
+        chunk->m_chunk_index           = m_ssegment->chunk_info_to_chunk_index(info);
         if (bin.m_use_binmap == 1)
         {
             binmap_t* binmap = (binmap_t*)&chunk->m_binmap;
@@ -947,7 +927,7 @@ namespace ncore
         supersegment_t::chunk_t* chunk = (supersegment_t::chunk_t*)fsa.idx2ptr(chunkinfo.m_chunk_iptr);
         ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
 
-        void* ptr = m_ssegment->chunk_index_to_address(chunk->m_chunk_iptr);
+        void* ptr = m_ssegment->chunk_index_to_address(chunk->m_chunk_index);
         if (bin.m_use_binmap == 1)
         {
             binmap_t* bm = (binmap_t*)&chunk->m_binmap;
@@ -981,7 +961,7 @@ namespace ncore
         u32 size;
         if (bin.m_use_binmap == 1)
         {
-            void* const chunk_address = m_ssegment->chunk_index_to_address(chunk->m_chunk_iptr);
+            void* const chunk_address = m_ssegment->chunk_index_to_address(chunk->m_chunk_index);
             u32 const   i             = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(i < bin.m_max_alloc_count);
             binmap_t* binmap = (binmap_t*)&chunk->m_binmap;
@@ -1073,8 +1053,8 @@ namespace ncore
         u64                          m_total_address_space;
         u64                          m_segment_address_range;
         s16                          m_segment_address_range_shift;
-        s16                          m_num_supersegments;
-        s32                          m_num_superbins;
+        u16                          m_num_supersegments;
+        u32                          m_num_superbins;
         supersegment_config_t const* m_asupersegmentconfigs;
         superbin_t const*            m_asuperbins;
         u32                          m_internal_heap_address_range;
@@ -1379,19 +1359,19 @@ namespace ncore
         m_internal_fsa.initialize(m_internal_heap, m_vmem, m_config.m_internal_fsa_address_range, m_config.m_internal_fsa_pre_size);
 
         llhead_t* used_chunk_list_per_size = (llhead_t*)m_internal_heap.allocate(sizeof(llhead_t) * m_config.m_num_superbins);
-        for (s32 i = 0; i < m_config.m_num_superbins; ++i)
+        for (u32 i = 0; i < m_config.m_num_superbins; ++i)
         {
             used_chunk_list_per_size[i].reset();
         }
 
-        const s32 num_segments = config.m_total_address_space / config.m_segment_address_range;
+        const u32 num_segments = (u32)(config.m_total_address_space / config.m_segment_address_range);
         m_asupersegments       = (supersegment_t*)m_internal_heap.allocate(sizeof(supersegment_t) * num_segments);
-        for (s32 i = 0; i < num_segments; ++i)
+        for (u32 i = 0; i < num_segments; ++i)
         {
             m_asupersegments[i] = supersegment_t();
             m_aallocators[i]    = superalloc_t();
         }
-        for (s32 i = 0; i < m_config.m_num_supersegments; ++i)
+        for (u32 i = 0; i < m_config.m_num_supersegments; ++i)
         {
             m_asupersegments[i].initialize(vmem, config.m_segment_address_range, m_config.m_asupersegmentconfigs[i].c_block_range, m_config.m_asupersegmentconfigs[i].c_chunk_size, &m_internal_heap, &m_internal_fsa);
             m_aallocators[i] = superalloc_t(&m_asupersegments[i], used_chunk_list_per_size);
@@ -1400,7 +1380,7 @@ namespace ncore
 
 #ifdef SUPERALLOC_DEBUG
         // sanity check on the superbin_t config
-        for (s32 s = 0; s < m_config.m_num_superbins; s++)
+        for (u32 s = 0; s < m_config.m_num_superbins; s++)
         {
             u32 const rs            = m_config.m_asuperbins[s].m_alloc_bin_index;
             u32 const size          = m_config.m_asuperbins[rs].m_alloc_size;
