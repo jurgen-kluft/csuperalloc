@@ -154,8 +154,11 @@ namespace SuperAlloc
 				{
                     allocSizesToDo.Add(allocSize.Size);
 				}
+
 				List<SuperAlloc_t> Allocators = new List<SuperAlloc_t>();
-				for (UInt64 chunkSize = KB(64); chunkSize <= MB(512); chunkSize *= 2)
+
+                List<UInt64> chunkSizes = new List<UInt64>() { KB(4), KB(8), KB(16), KB(64), KB(128), KB(256), KB(512), MB(1), MB(2), MB(4), MB(8), MB(16), MB(32), MB(64), MB(128), MB(256), GB(1)};
+				foreac (UInt64 chunkSize in chunkSizes)
                 {
                     SuperAlloc_t allocator = new SuperAlloc_t();
                     allocator.ChunkSize = chunkSize;
@@ -277,9 +280,9 @@ namespace SuperAlloc
         ///  ----------------------------------------------------------------------------------------------------------
 
 
-        static UInt64 KB(int mb) { return (UInt64)mb * 1024; }
-        static UInt64 MB(int mb) { return (UInt64)mb * 1024 * 1024; }
-        static UInt64 GB(int mb) { return (UInt64)mb * 1024 * 1024 * 1024; }
+        static UInt64 KB(int v) { return (UInt64)v * 1024; }
+        static UInt64 MB(int v) { return (UInt64)v * 1024 * 1024; }
+        static UInt64 GB(int v) { return (UInt64)v * 1024 * 1024 * 1024; }
 
         public static UInt64 CeilPo2(UInt64 v)
         {
