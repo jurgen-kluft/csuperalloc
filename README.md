@@ -38,5 +38,6 @@ Note: A large running test (60 million alloc/free operations) was done without c
 
 Some things missing:
 
+- not multi-thread safe (yet)
 - cached chunks are not limited so nothing is released back in terms of unused physical pages. 
 
