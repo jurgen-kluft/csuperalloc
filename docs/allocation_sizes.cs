@@ -67,7 +67,23 @@ namespace SuperAlloc
             public UInt64 ChunkCount { get; set; } = 0;
         };
 
-        public static BinMapConfig CalcBinMap(UInt64 allocCount, UInt64 chunksize)
+        public class SuperSegment_t
+        {
+            public SuperSegment_t(UInt64 blocksize, UInt64 chunksize, UInt64 memtype, UInt64 memprotect)
+            {
+				BlockSize = blocksize;
+				ChunkSize = chunksize;
+				MemType = (ushort)memtype;
+				MemProtect = (ushort)memprotect;
+			}
+
+			public UInt64 BlockSize { get; set; } = 0;
+			public UInt64 ChunkSize { get; set; } = 0;
+			public ushort MemType { get; set; } = 0;
+			public ushort MemProtect { get; set; } = 0;
+		}
+
+		public static BinMapConfig CalcBinMap(UInt64 allocCount, UInt64 chunksize)
         {
             BinMapConfig bm = new BinMapConfig();
             bm.Count = (uint)(allocCount);
@@ -94,12 +110,33 @@ namespace SuperAlloc
         {
             try
             {
-                EWasteTarget wt = EWasteTarget.PERCENT_10;
+                EWasteTarget wasteTarget = EWasteTarget.PERCENT_25;
+				UInt32 maxAllocSize = (UInt32)MB(256);
 
-                // This is the place to override certain sizes and map them to a higher size
-                Dictionary<UInt32, UInt32> allocSizeRemap = new Dictionary<uint, uint>();
+                List<SuperSegment_t> superSegments = new List<SuperSegment_t>()
+                {
+                    new SuperSegment_t(MB( 64), KB(4 ), 0, 0),
+                    new SuperSegment_t(MB( 256), KB(16 ), 0, 0),
+                    new SuperSegment_t(GB( 1), KB(64 ), 0, 0),
+                    new SuperSegment_t(GB( 1), KB(128 ), 0, 0),
+                    new SuperSegment_t(GB( 1), KB(256 ), 0, 0),
+                    new SuperSegment_t(GB( 1), KB(512 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(1 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(2 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(4 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(8 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(16 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(32 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(64 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(128 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(256 ), 0, 0),
+                    new SuperSegment_t(GB( 1), MB(512 ), 0, 0),
+                };
+
+				// This is the place to override certain sizes and map them to a higher size
+				Dictionary<UInt32, UInt32> allocSizeRemap = new Dictionary<uint, uint>();
                 // remap size     from -> to
-                if (wt == EWasteTarget.PERCENT_10)
+                if (wasteTarget == EWasteTarget.PERCENT_10)
                 {
                     allocSizeRemap.Add(9, 12);
                     allocSizeRemap.Add(10, 12);
@@ -112,22 +149,21 @@ namespace SuperAlloc
                     allocSizeRemap.Add(26, 28);
                     allocSizeRemap.Add(30, 32);
                 }
-                else if (wt == EWasteTarget.PERCENT_25)
+                else if (wasteTarget == EWasteTarget.PERCENT_25)
 				{
                     allocSizeRemap.Add(10, 12);
                     allocSizeRemap.Add(14, 16);
 				}
 				List<SuperBin_t> AllocSizes = new List<SuperBin_t>();
 
-                UInt32 maxAllocSize = (UInt32)MB(256);
                 for (UInt32 b = 8; b <= maxAllocSize; )
 				{
-                    UInt32 d = b / (uint)wt;
+                    UInt32 d = b / (uint)wasteTarget;
                     UInt32 s = b;
                     while (s < (b<<1))
                     {
-                        int bin = AllocSizeToBin(s, wt);
-						//Console.WriteLine("AllocSize: {0}, Bin: {1}", s, bin);
+                        int bin = AllocSizeToBin(s, wasteTarget);
+						Console.WriteLine("AllocSize: {0}, Bin: {1}", s, bin);
 						SuperBin_t sbin = new SuperBin_t(s, bin);
 						while (AllocSizes.Count <= bin)
                         {
@@ -141,14 +177,14 @@ namespace SuperAlloc
                 // Remap certain sizes to another (higher) bin
                 foreach(var s2s in allocSizeRemap)
 				{
-                    int fbin = AllocSizeToBin(s2s.Key, wt);
-                    int tbin = AllocSizeToBin(s2s.Value, wt);
+                    int fbin = AllocSizeToBin(s2s.Key, wasteTarget);
+                    int tbin = AllocSizeToBin(s2s.Value, wasteTarget);
                     AllocSizes[fbin].BinIndex = tbin;
 				}                    
 
                 // Go over all the power-of-2 chunk sizes and determine which allocation sizes to add
                 // to each SuperAlloc.
-                UInt32 pageSize = (UInt32)KB(64);
+                UInt32 pageSize = (UInt32)KB(4);
                 HashSet<UInt32> allocSizesToDo = new HashSet<UInt32>();
 				foreach (SuperBin_t allocSize in AllocSizes)
 				{
@@ -157,8 +193,8 @@ namespace SuperAlloc
 
 				List<SuperAlloc_t> Allocators = new List<SuperAlloc_t>();
 
-                List<UInt64> chunkSizes = new List<UInt64>() { KB(4), KB(8), KB(16), KB(64), KB(128), KB(256), KB(512), MB(1), MB(2), MB(4), MB(8), MB(16), MB(32), MB(64), MB(128), MB(256), GB(1)};
-				foreac (UInt64 chunkSize in chunkSizes)
+                List<UInt64> chunkSizes = new List<UInt64>() { KB(16), KB(64), KB(128), KB(256), KB(512), MB(1), MB(2), MB(4), MB(8), MB(16), MB(32), MB(64), MB(128), MB(256), GB(1)};
+				foreach (UInt64 chunkSize in chunkSizes)
                 {
                     SuperAlloc_t allocator = new SuperAlloc_t();
                     allocator.ChunkSize = chunkSize;
@@ -174,6 +210,7 @@ namespace SuperAlloc
                         //  allocSizesToDo.Remove(allocSize);
                         // continue;
                         //}
+                        
                         // Figure out if this size can be part of this Chunk Size
                         // Go down in chunksize until page-size to try and fit the allocation size
                         bool addToAllocator = false;
@@ -211,7 +248,7 @@ namespace SuperAlloc
                     { 
                         UInt64 allocCountPerChunk = am.ChunkSize / allocSize.Size;
                         UInt64 chunkSize = am.ChunkSize;
-                        int bin = AllocSizeToBin(allocSize.Size, wt);
+                        int bin = AllocSizeToBin(allocSize.Size, wasteTarget);
 
                         Console.Write("{0}:", allocatorIndex);
                         Console.Write("{0} AllocSize:{1}, AllocCount:{2}, ChunkSize:{3}, UsedPagesPerChunk:{4}", bin, allocSize.Size.ToByteSize(), allocCountPerChunk, chunkSize.ToByteSize(), allocSize.NumPages);

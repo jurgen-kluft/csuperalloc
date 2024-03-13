@@ -60,6 +60,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 
         UNITTEST_FIXTURE_SETUP()
         {
+            vmem->initialize();
             s_alloc.init(Allocator);
         }
 

@@ -753,9 +753,9 @@ namespace ncore
 
         chunkinfo_t chunk_index_to_chunk_info(u32 chunk_index) const
         {
-            u32 const block_index                            = chunk_index >> (m_config.m_blocks_shift - m_config.m_chunks_shift);
-            block_t*  block                                  = &m_blocks_array[block_index];
-            u32 const block_chunk_index                      = chunk_index & ((1 << (m_config.m_blocks_shift - m_config.m_chunks_shift)) - 1);
+            u32 const block_index       = chunk_index >> (m_config.m_blocks_shift - m_config.m_chunks_shift);
+            block_t*  block             = &m_blocks_array[block_index];
+            u32 const block_chunk_index = chunk_index & ((1 << (m_config.m_blocks_shift - m_config.m_chunks_shift)) - 1);
             ASSERT(block_chunk_index < m_config.m_chunks_max);
             u32 const chunk_iptr = block->m_chunks_array[block_chunk_index];
             ASSERT(chunk_iptr != 0xffffffff);
@@ -1067,12 +1067,26 @@ namespace ncore
     namespace superallocator_config_desktop_app_25p_t
     {
         // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
-        static const s32                   c_num_ssegments               = 3;
+        static const s32                   c_num_ssegments               = 16;
         static const supersegment_config_t c_assegments[c_num_ssegments] = {
+          // supersegment size = 4 cGB
           // block-size, chunk-size, memtype, memprotect
-          supersegment_config_t(cGB * 1, 64 * cKB, 0, 0),    // cGB * 1 / 64 * cKB = 16 * cKB
-          supersegment_config_t(cMB * 256, 16 * cKB, 0, 0),  // cMB * 256 / 16 cKB = 16 * cKB
           supersegment_config_t(cMB * 64, 4 * cKB, 0, 0),    // cMB * 64 / 4 * cKB = 16 * cKB
+          supersegment_config_t(cMB * 256, 16 * cKB, 0, 0),  // cMB * 256 / 16 cKB = 16 * cKB
+          supersegment_config_t(cGB * 1, 64 * cKB, 0, 0),    // cGB * 1 / 64 * cKB = 16 * cKB
+          supersegment_config_t(cGB * 1, 128 * cKB, 0, 0),   // cGB * 1 / 64 * cKB = 8 * cKB
+          supersegment_config_t(cGB * 1, 256 * cKB, 0, 0),   // cGB * 1 / 256 * cKB = 4 * cKB
+          supersegment_config_t(cGB * 1, 512 * cKB, 0, 0),   // cGB * 1 / 512 * cKB = 2 * cKB
+          supersegment_config_t(cGB * 1, 1 * cMB, 0, 0),     // cGB * 1 / 1 * cMB = 1 * cKB
+          supersegment_config_t(cGB * 1, 2 * cMB, 0, 0),     // cGB * 1 / 2 * cMB = 512
+          supersegment_config_t(cGB * 1, 4 * cMB, 0, 0),     // cGB * 1 / 4 * cMB = 256
+          supersegment_config_t(cGB * 1, 8 * cMB, 0, 0),     // cGB * 1 / 8 * cMB = 128
+          supersegment_config_t(cGB * 1, 16 * cMB, 0, 0),    // cGB * 1 / 16 * cMB = 64
+          supersegment_config_t(cGB * 1, 32 * cMB, 0, 0),    // cGB * 1 / 32 * cMB = 32
+          supersegment_config_t(cGB * 1, 64 * cMB, 0, 0),    // cGB * 1 / 64 * cMB = 16
+          supersegment_config_t(cGB * 1, 128 * cMB, 0, 0),   // cGB * 1 / 128 * cMB = 8
+          supersegment_config_t(cGB * 1, 256 * cMB, 0, 0),   // cGB * 1 / 256 * cMB = 4
+          supersegment_config_t(cGB * 1, 512 * cMB, 0, 0),   // cGB * 1 / 512 * cMB = 2
         };
 
         // superbin_t(alloc-size MB, KB, B, bin redir index, allocator / supersegment index, use binmap?, max alloc-count, binmap level 1 length (u16), binmap level 2 length (u16))
