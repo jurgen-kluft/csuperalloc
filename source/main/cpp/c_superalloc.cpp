@@ -402,7 +402,7 @@ namespace ncore
             u32       m_count_chunks_cached;            // number of chunks that can are cached
             u32       m_count_chunks_free;              // number of chunks that can are free
             u32       m_count_chunks_used;              // number of chunks that can are used
-            u32       m_chunk_size;                     // chunk size is fixed
+            u32       m_chunk_size_index;               // chunk size index
         };
 
         struct chunk_t
@@ -422,36 +422,29 @@ namespace ncore
             u32 m_chunk_iptr;
         };
 
-        struct config_t
-        {
-            u16 m_chunks_max;    // maximum number of chunks per block
-            u8  m_chunks_shift;  // chunk-size = 1 << m_chunks_shift
-            u8  m_binmap_l1;
-            u16 m_binmap_l2;
-        };
-
         superfsa_t* m_fsa;
         vmem_t*     m_vmem;
         void*       m_address_base;
         u64         m_address_range;
-        u64         m_segment_size;
-        u32         m_page_count;
         u32         m_page_size;
         u8          m_page_shift;
-        config_t    m_config;
-        segment_t*  m_segment_array;
+        u8          m_segment_shift;  // 1 << m_segment_shift = segment size
+        u32         m_segment_count;  // Space Address Range / Segment Size = Number of segments
+        segment_t*  m_segment_array;  // Array of segments
 
-        lldata_t    m_segment_list_data;
-        llist_t     m_segment_list_free;
-        llhead_t    m_segment_list_active;
-        lldata_t    m_chunk_list_data;
+        lldata_t m_segment_list_data;
+        llist_t  m_segment_list_free;
+        llist_t  m_segment_list_full;
+        llist_t* m_segment_list_active;  // This needs to be per chunk-size
+
+        u32*     m_chunk_sizes;      // Array of chunk sizes (c64KB, c128KB, c256KB, c512KB, c1MB ... c512MB)
+        lldata_t m_chunk_list_data;  // Initialize this beforehand
 
         superspace_t()
             : m_fsa(nullptr)
             , m_vmem(nullptr)
             , m_address_base(nullptr)
             , m_address_range(0)
-            , m_page_count(0)
             , m_page_size(0)
             , m_page_shift(0)
             , m_segment_array(nullptr)
@@ -471,7 +464,6 @@ namespace ncore
             u32 const attrs = 0;
             m_vmem->reserve(address_range, m_page_size, attrs, m_address_base);
             m_page_shift = math::ilog2(m_page_size);
-            m_page_count = 0;
 
             m_fsa = fsa;
 
@@ -482,12 +474,6 @@ namespace ncore
             m_segment_list_data.m_itemsize = sizeof(segment_t);
             m_segment_list_free.initialize(m_segment_list_data, 0, num_segments, num_segments);
             m_segment_list_active.reset();
-
-            m_config.m_blocks_shift = segment_shift;
-            m_config.m_chunks_shift = math::ilog2(chunk_size);
-            m_config.m_chunks_max   = (u16)(segment_size >> m_config.m_chunks_shift);
-            m_config.m_binmap_l2    = (m_config.m_chunks_max + 15) / 16;
-            m_config.m_binmap_l1    = (m_config.m_binmap_l2 + 15) / 16;
         }
 
         void deinitialize(superheap_t& heap)
@@ -533,31 +519,27 @@ namespace ncore
             return bm;
         }
 
-        u16 checkout_block()
+        u32 checkout_segment(u32 chunk_size)
         {
-            u32 const  block_index                      = m_segment_list_free.remove_headi(m_segment_list_data);
-            segment_t* block                            = &m_segment_array[block_index];
-            u32 const  chunks_index_array_iptr          = m_fsa->alloc(sizeof(u32) * m_config.m_chunks_max);
-            u32 const  chunks_pages_array_iptr          = m_fsa->alloc(sizeof(u32) * m_config.m_chunks_max);
-            u32 const  chunks_alloc_tracking_array_iptr = m_fsa->alloc(sizeof(u32) * m_config.m_chunks_max);
+            u32 const  segment_chunk_count           = (1 << m_segment_shift) / chunk_size;
+            u32 const  segment_index                 = m_segment_list_free.remove_headi(m_segment_list_data);
+            segment_t* segment                       = &m_segment_array[segment_index];
+            u32 const  chunks_index_array_iptr       = m_fsa->alloc(sizeof(u32) * segment_chunk_count);
+            u32 const  chunks_llnode_array_iptr      = m_fsa->alloc(sizeof(llnode_t) * segment_chunk_count);
+            u32 const  chunks_active_list_array_iptr = m_fsa->alloc(sizeof(llhead_t) * segment_chunk_count);
+            u32 const  chunks_cached_list_array_iptr = m_fsa->alloc(sizeof(llhead_t) * segment_chunk_count);
 
-            block->m_prev                        = llnode_t::NIL;
-            block->m_next                        = llnode_t::NIL;
-            block->m_chunks_physical_pages       = (u16*)m_fsa->idx2ptr(chunks_pages_array_iptr);
-            block->m_chunks_array                = (u32*)m_fsa->idx2ptr(chunks_index_array_iptr);
-            block->m_chunks_alloc_tracking_array = (u32*)m_fsa->idx2ptr(chunks_alloc_tracking_array_iptr);
-            block->m_binmap_chunks_cached_iptr   = m_fsa->alloc(sizeof(binmap_t));
-            block->m_binmap_chunks_free_iptr     = m_fsa->alloc(sizeof(binmap_t));
-            if (m_config.m_binmap_l2 > 0)
-            {
-                initialize_binmap(block->m_binmap_chunks_cached_iptr, true);
-                initialize_binmap(block->m_binmap_chunks_free_iptr, false);
-            }
+            segment->m_chunks_array                  = (u32*)m_fsa->idx2ptr(chunks_index_array_iptr);
+            segment->m_chunks_llnode_array           = (llnode_t*)m_fsa->idx2ptr(chunks_llnode_array_iptr);
+            segment->m_chunks_active_list_head_array = (llhead_t*)m_fsa->idx2ptr(chunks_active_list_array_iptr);
+            segment->m_chunks_cached_list_head_array = (llhead_t*)m_fsa->idx2ptr(chunks_cached_list_array_iptr);
 
-            block->m_chunks_used         = 0;
-            block->m_count_chunks_cached = 0;
-            block->m_count_chunks_free   = m_config.m_chunks_max;
-            return block_index;
+            segment->m_count_chunks_cached = 0;
+            segment->m_count_chunks_free   = segment_chunk_count;
+            segment->m_count_chunks_used   = 0;
+            segment->m_chunk_size          = chunk_size;
+
+            return segment_index;
         }
 
         u32 chunk_physical_pages(superbin_t const& bin, u32 alloc_size) const
@@ -570,25 +552,26 @@ namespace ncore
             return (size + (m_page_size - 1)) >> m_page_shift;
         }
 
-        // we do not need chunk_shift here since super segments is locked at initialization on a specific chunk size
-        chunkinfo_t checkout_chunk(u32 alloc_size, u32 chunk_iptr, superbin_t const& bin)
+        chunkinfo_t checkout_chunk(u32 alloc_size, superbin_t const& bin)
         {
-            u32 block_index = 0xffffffff;
+            // Get the chunk size index
+
+            u32 segment_index = 0xffffffff;
             if (m_segment_list_active.is_nil())
             {
-                block_index = checkout_block();
-                m_segment_list_active.insert(m_segment_list_data, block_index);
+                segment_index = checkout_block();
+                m_segment_list_active.insert(m_segment_list_data, segment_index);
             }
             else
             {
-                block_index = m_segment_list_active.m_index;
+                segment_index = m_segment_list_active.m_index;
             }
 
             u32 const required_physical_pages = chunk_physical_pages(bin, alloc_size);
             m_page_count += required_physical_pages;
 
             // Here we have a block where we can get a chunk from
-            segment_t* block                   = &m_segment_array[block_index];
+            segment_t* block                   = &m_segment_array[segment_index];
             u32        block_chunk_index       = 0xffffffff;
             u32        already_committed_pages = 0;
             if (block->m_count_chunks_cached > 0)
@@ -632,13 +615,13 @@ namespace ncore
             block->m_chunks_used += 1;
             if (block->m_chunks_used == m_config.m_chunks_max)
             {
-                m_segment_list_active.remove_item(m_segment_list_data, block_index);
+                m_segment_list_active.remove_item(m_segment_list_data, segment_index);
             }
 
             // Return the chunk info
             chunkinfo_t chunkinfo;
             chunkinfo.m_block_chunk_index   = block_chunk_index;
-            chunkinfo.m_segment_block_index = block_index;
+            chunkinfo.m_segment_block_index = segment_index;
             chunkinfo.m_chunk_iptr          = chunk_iptr;
             return chunkinfo;
         }
