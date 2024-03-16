@@ -9,7 +9,7 @@ backgroundImage: url('superalloc-background.jpg')
 
 # **SuperAlloc**
 
-Virtual Memory Allocator for 64-bit Games or Applications
+Virtual Memory Allocator for 64-bit Games and Applications
 
 ---
 
@@ -24,7 +24,7 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * Waste a lot of memory
 * Suffers from fragmentation
 * Easy to crash when intrusive bookkeeping data is overwritten making it hard to find the cause
-* Not able to use it for GPU memory, need another implementation to handle GPU memory
+* Not able to use it for GPU memory, so will need another implementation to handle GPU memory
 
 ---
 
@@ -71,7 +71,7 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * Reduced memory fragmentation
   * Fragmentation is address fragmentation
   * We use virtual addresses
-  * Virtual address space is larger than physical
+  * Virtual address space is larger than physical memory
   * Contiguous virtual memory not contiguous in physical memory
 * Able to release back unused 'memory'
 
@@ -111,13 +111,13 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 
 * 2 MB pages are the fastest
 * 16 KB pages wastes less memory
-* We use 64 KB (4 x 16 KB pages on PlayStation 4)
-  * Smallest optimal size for PlayStation 4 GPU
-* Also able to use 4 or 16 KB for special cases
+* 4KB and 16 KB pages on PlayStation 4
+  * Using 4x16KB=64KB is smallest optimal size for PlayStation 4 GPU
+  * Also able to use 4 or 16 KB for special cases
 
 ---
 
-# PlayStation Onion Bus & Garlic Bus
+# PlayStation 4 Onion & Garlic Bus
 
 * CPU & GPU can access both
   * But at different bandwidths
@@ -126,12 +126,11 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 
 ---
 
-# SuperAllocator
+# Super Allocator
 
 * Splits up large virtual address space into `segments`
 * Every `segment` is dedicated to one specific `chunk` size
-* Every `segment` is divided into `blocks`
-* Every `block` is divided into `chunks`
+* Every `segment` is divided into `chunks`
 * All bookkeeping data is outside of the managed memory
 * A superalloc allocator manages a range of allocation sizes
 * Only uses 2 data structures:
