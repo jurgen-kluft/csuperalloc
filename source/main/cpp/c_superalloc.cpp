@@ -552,10 +552,11 @@ namespace ncore
 
         struct chunk_t : public llnode_t
         {
-            u32      m_segment_index;        // The index of the segment in the superspace
-            u32      m_segment_chunk_index;  // The index of the chunk in the segment
-            u16      m_elem_used;            // The number of elements used in this chunk
+            u16      m_segment_index;        // The index of the segment in the superspace
             u16      m_bin_index;            // The index of the bin that this chunk belongs to
+            u32      m_segment_chunk_index;  // The index of the chunk in the segment
+            u16      m_elem_used_count;      // The number of elements used in this chunk
+            u16      m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
             binmap_t m_binmap;               // The binmap for this chunk
             u32      m_physical_pages;       // The number of physical pages that this chunk has committed
             u32      m_alloc_tracking_iptr;  // The index to the tracking array which we use for set_tag/get_tag
@@ -651,7 +652,7 @@ namespace ncore
 
             // To avoid fully initializing the binmap's, we are using an index that marks the first free chunk.
             // We also use this index to lazily initialize each binmap. So each time we checkout a chunk
-            // we progressively initialize both binmaps by looking at the lower 5 bits of the index, when 0 we 
+            // we progressively initialize both binmaps by looking at the lower 5 bits of the index, when 0 we
             // call lazy_init on each binmap.
             segment->m_chunks_free_index = 0;
 
@@ -716,8 +717,9 @@ namespace ncore
                 chunk->m_physical_pages = 0;
             }
 
-            chunk->m_bin_index = bin.m_alloc_bin_index;
-            chunk->m_elem_used = 0;
+            chunk->m_bin_index       = bin.m_alloc_bin_index;
+            chunk->m_elem_free_index = 0;
+            chunk->m_elem_used_count = 0;
         }
 
         chunk_t* checkout_chunk(superbin_t const& bin)
@@ -981,17 +983,32 @@ namespace ncore
         void*                    ptr     = m_superspace->chunk_index_to_address(segment, chunk->m_segment_chunk_index);
         if (bin.use_binmap())
         {
-            u32 const i = chunk->m_binmap.findandset();
-            ASSERT(i < bin.m_max_alloc_count);
-            ptr = toaddress(ptr, (u64)i * bin.m_alloc_size);
+            // if we have elements in the binmap, we can use it to find the next free element.
+            // if not, we need to use the free_index to find the next free element.
+            u32 elem_index;
+            if (chunk->m_elem_used_count == chunk->m_elem_free_index)
+            {
+                // lazy initialize binmap
+                if ((chunk->m_elem_free_index & 0x1F) == 0)
+                {
+                    chunk->m_binmap.lazy_init_1(chunk->m_elem_free_index);
+                }
+                elem_index = chunk->m_elem_free_index++;
+            }
+            else
+            {
+                elem_index = chunk->m_binmap.findandset();
+            }
+            ASSERT(elem_index < bin.m_max_alloc_count);
+            ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);
         }
         else
         {
             chunk->m_physical_pages = (alloc_size + (m_superspace->m_block_size - 1)) >> m_superspace->m_page_shift;
         }
 
-        chunk->m_elem_used += 1;
-        if (bin.m_max_alloc_count == chunk->m_elem_used)
+        chunk->m_elem_used_count += 1;
+        if (bin.m_max_alloc_count == chunk->m_elem_used_count)
         {
             // Chunk is full, so remove it from the list of active chunks
             m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_head(m_chunk_list_data);
@@ -1018,10 +1035,10 @@ namespace ncore
             alloc_size = chunk->m_physical_pages * m_superspace->m_block_size;
         }
 
-        const bool chunk_was_full = (bin.m_max_alloc_count == chunk->m_elem_used);
+        const bool chunk_was_full = (bin.m_max_alloc_count == chunk->m_elem_used_count);
 
-        chunk->m_elem_used -= 1;
-        if (0 == chunk->m_elem_used)
+        chunk->m_elem_used_count -= 1;
+        if (0 == chunk->m_elem_used_count)
         {
             if (!chunk_was_full)
             {
