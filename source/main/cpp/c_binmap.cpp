@@ -23,7 +23,7 @@ namespace ncore
         {
             bits_per_level[level++] = count;
             count                   = (count + 31) >> 5;
-        } while (count > 1);
+        } while (count > 1 && level < 4);
         u32 const l = level;
         l0          = bits_per_level[--level];
         l1          = level > 0 ? bits_per_level[--level] : 0;
@@ -35,7 +35,7 @@ namespace ncore
     static void resetarray_end(u32 level_bits, u32* level, u32 df)
     {
         u32 const w = level_bits >> 5;
-        if (level_bits & (32 - 1) != 0)
+        if ((level_bits & (32 - 1)) != 0)
         {
             u32 const m = 0xffffffff << (level_bits & (32 - 1));
             level[w]    = m | (df & ~m);
@@ -47,7 +47,7 @@ namespace ncore
         u32 const w = level_bits >> 5;
         for (u32 i = 0; i < w; i++)
             level[i] = df;
-        if (level_bits & (32 - 1) != 0)
+        if ((level_bits & (32 - 1)) != 0)
         {
             u32 const m = 0xffffffff << (level_bits & (32 - 1));
             level[w]    = m | (df & ~m);
@@ -113,7 +113,7 @@ namespace ncore
         {
             m_count = (0 << 24) | count;
         }
-        m_l0 = 0xffffffffffff;
+        m_l0 = 0xffffffff;
     }
 
     void binmap_t::init_0(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
@@ -122,20 +122,20 @@ namespace ncore
         m_l[1] = l2;
         m_l[0] = l1;
         // Set those bits that we never touch to '1' the rest to '0'
-        if (l3 != nullptr)
+        if (l3 != nullptr && l3len > 0)
         {
             m_count = (3 << 24) | count;
             resetarray_full(l3len, l3, 0);
             resetarray_full(l2len, l2, 0);
             resetarray_full(l1len, l1, 0);
         }
-        else if (l2 != nullptr)
+        else if (l2 != nullptr && l2len > 0)
         {
             m_count = (2 << 24) | count;
             resetarray_full(l2len, l2, 0);
             resetarray_full(l1len, l1, 0);
         }
-        else if (l1 != nullptr)
+        else if (l1 != nullptr && l1len > 0)
         {
             m_count = (1 << 24) | count;
             resetarray_full(l1len, l1, 0);
@@ -144,7 +144,7 @@ namespace ncore
         {
             m_count = (0 << 24) | count;
         }
-        m_l0 = 0xffffffffffff << l0len;
+        m_l0 = 0xffffffff << l0len;
     }
 
     void binmap_t::init_1(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
@@ -154,29 +154,29 @@ namespace ncore
         m_l[0] = l1;
 
         // Set all bits to '1'
-        if (l3 != nullptr)
+        if (l3 != nullptr && l3len > 0)
         {
             m_count = (3 << 24) | count;
-            resetarray_full(l3len, l3, 0xffffffffffff);
-            resetarray_full(l2len, l2, 0xffffffffffff);
-            resetarray_full(l1len, l1, 0xffffffffffff);
+            resetarray_full(l3len, l3, 0xffffffff);
+            resetarray_full(l2len, l2, 0xffffffff);
+            resetarray_full(l1len, l1, 0xffffffff);
         }
-        else if (l2 != nullptr)
+        else if (l2 != nullptr && l2len > 0)
         {
             m_count = (2 << 24) | count;
-            resetarray_full(l2len, l2, 0xffffffffffff);
-            resetarray_full(l1len, l1, 0xffffffffffff);
+            resetarray_full(l2len, l2, 0xffffffff);
+            resetarray_full(l1len, l1, 0xffffffff);
         }
-        else if (l1 != nullptr)
+        else if (l1 != nullptr && l1len > 0)
         {
             m_count = (1 << 24) | count;
-            resetarray_full(l1len, l1, 0xffffffffffff);
+            resetarray_full(l1len, l1, 0xffffffff);
         }
         else
         {
             m_count = (0 << 24) | count;
         }
-        m_l0 = 0xffffffffffff;
+        m_l0 = 0xffffffff;
     }
 
     void binmap_t::set(u32 bit)
@@ -290,22 +290,22 @@ namespace ncore
         if (l == 0)
             return bi;
 
-        u32 wi = bi << 5;
-        bi     = math::findFirstBit((u32)~m_l[0][wi]);
-        ASSERT(bi >= 0);
+        u32 wi = bi;
+        bi     = math::findFirstBit(~m_l[0][wi]);
+        ASSERT(bi >= 0 && bi < 32);
         if (l == 1)
             return (wi << 5) + bi;
 
-        wi = ((wi << 5) + bi) << 5;
-        bi = math::findFirstBit((u32)~m_l[1][wi]);
-        ASSERT(bi >= 0);
+        wi = (wi << 5) + bi;
+        bi = math::findFirstBit(~m_l[1][wi]);
+        ASSERT(bi >= 0 && bi < 32);
         if (l == 2)
             return (wi << 5) + bi;
 
         ASSERT(l == 3);
-        wi = ((wi << 5) + bi) << 5;
-        bi = math::findFirstBit((u32)~m_l[2][wi]);
-        ASSERT(bi >= 0);
+        wi = (wi << 5) + bi;
+        bi = math::findFirstBit(~m_l[2][wi]);
+        ASSERT(bi >= 0 && bi < 32);
         return (wi << 5) + bi;
     }
 
@@ -313,9 +313,9 @@ namespace ncore
     {
         // TODO: This is not efficient, we should be able to do this inline here without using find() + set()
         s32 const bi = find();
-        if (bi < 0)
-            return -1;
-        set(bi);
+        if (bi >= 0)
+            set(bi);
+        return bi;
     }
 
     void binmap_t::lazy_init_0(u32 bit)
