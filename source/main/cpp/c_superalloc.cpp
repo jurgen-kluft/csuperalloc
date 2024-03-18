@@ -557,7 +557,7 @@ namespace ncore
             u32      m_segment_chunk_index;  // The index of the chunk in the segment
             u16      m_elem_used_count;      // The number of elements used in this chunk
             u16      m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
-            binmap_t m_binmap;               // The binmap for this chunk
+            binmap_t m_elem_free_binmap;     // The binmap marking free elements for this chunk
             u32      m_physical_pages;       // The number of physical pages that this chunk has committed
             u32      m_alloc_tracking_iptr;  // The index to the tracking array which we use for set_tag/get_tag
         };
@@ -693,7 +693,7 @@ namespace ncore
         void initialize_chunk(superspace_t::chunk_t* chunk, u32 alloc_size, superbin_t const& bin)
         {
             // Allocate allocation tracking array
-            chunk->m_alloc_tracking_iptr = 0;
+            chunk->m_alloc_tracking_iptr = superfsa_t::NIL;
             if (bin.m_max_alloc_count > 1)
             {
                 chunk->m_alloc_tracking_iptr = m_fsa->alloc(sizeof(u32) * bin.m_max_alloc_count);
@@ -701,8 +701,6 @@ namespace ncore
 
             if (bin.use_binmap())
             {
-                binmap_t* binmap = (binmap_t*)&chunk->m_binmap;
-
                 u32 l0len, l1len, l2len, l3len;
                 binmap_t::compute_levels(bin.m_max_alloc_count, l0len, l1len, l2len, l3len);
 
@@ -710,7 +708,8 @@ namespace ncore
                 u32* l2 = (l2len > 0) ? (u32*)m_fsa->allocptr(sizeof(u32) * l2len) : nullptr;
                 u32* l1 = (l1len > 0) ? (u32*)m_fsa->allocptr(sizeof(u32) * l1len) : nullptr;
 
-                binmap->init_lazy_1(bin.m_max_alloc_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                binmap_t* bm = (binmap_t*)&chunk->m_elem_free_binmap;
+                bm->init_lazy_0(bin.m_max_alloc_count, l0len, l1, l1len, l2, l2len, l3, l3len);
             }
             else
             {
@@ -741,8 +740,8 @@ namespace ncore
             u32 const required_physical_pages = chunk_physical_pages(bin, bin.m_alloc_size);
             m_block_count += required_physical_pages;
 
-            // Here we have a segment where we can get a chunk from
-            // Remember to also lazily initialize the binmaps
+            // Here we have a segment where we can get a chunk from.
+            // Remember to also lazily initialize the free and cached chunk binmaps.
             segment_t* segment                 = &m_segment_array[segment_index];
             u32        segment_chunk_index     = 0xffffffff;
             u32        already_committed_pages = 0;
@@ -803,12 +802,15 @@ namespace ncore
 
         void deinitialize_chunk(superfsa_t& fsa, superspace_t::chunk_t* chunk, superbin_t const& bin)
         {
-            if (bin.m_max_alloc_count > 1)
+            if (chunk->m_alloc_tracking_iptr != superfsa_t::NIL)
+            {
                 fsa.dealloc(chunk->m_alloc_tracking_iptr);
+                chunk->m_alloc_tracking_iptr = superfsa_t::NIL;
+            }
 
             if (bin.use_binmap())
             {
-                binmap_t* bm = (binmap_t*)&chunk->m_binmap;
+                binmap_t* bm = (binmap_t*)&chunk->m_elem_free_binmap;
                 for (u32 i = 0; i < bm->num_levels(); i++)
                 {
                     m_fsa->deallocptr(bm->m_l[i]);
@@ -983,21 +985,20 @@ namespace ncore
         void*                    ptr     = m_superspace->chunk_index_to_address(segment, chunk->m_segment_chunk_index);
         if (bin.use_binmap())
         {
-            // if we have elements in the binmap, we can use it to find the next free element.
-            // if not, we need to use the free_index to find the next free element.
+            // If we have elements in the binmap, we can use it to get a free element.
+            // If not, we need to use free_index as the free element.
             u32 elem_index;
             if (chunk->m_elem_used_count == chunk->m_elem_free_index)
-            {
-                // lazy initialize binmap
+            {  // seems all elements are used, lazy initialize binmap
                 if ((chunk->m_elem_free_index & 0x1F) == 0)
                 {
-                    chunk->m_binmap.lazy_init_1(chunk->m_elem_free_index);
+                    chunk->m_elem_free_binmap.lazy_init_0(chunk->m_elem_free_index);
                 }
                 elem_index = chunk->m_elem_free_index++;
             }
             else
             {
-                elem_index = chunk->m_binmap.findandset();
+                elem_index = chunk->m_elem_free_binmap.findandset();
             }
             ASSERT(elem_index < bin.m_max_alloc_count);
             ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);
@@ -1027,7 +1028,7 @@ namespace ncore
             void* const              chunk_address = m_superspace->chunk_index_to_address(segment, chunk->m_segment_chunk_index);
             u32 const                i             = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(i < bin.m_max_alloc_count);
-            chunk->m_binmap.clr(i);
+            chunk->m_elem_free_binmap.clr(i);
             alloc_size = bin.m_alloc_size;
         }
         else
