@@ -28,9 +28,9 @@ namespace ncore
 
         // The (lowest level) index of the branch to initialize
 
-        // m_count -> 0xFF000000 = number of levels, 0x00FFFFFF = number of bits
-        inline s32 size() const { return m_count & 0x00FFFFFF; }
-        inline s32 num_levels() const { return m_count >> 24; }
+        // m_count -> 0xFF000000 = number of levels, 0x0FFFFFFF = number of bits
+        inline s32 size() const { return m_count & 0x0FFFFFFF; }
+        inline s32 num_levels() const { return m_count >> 30; }
 
         u32  m_count;  // 0xFF000000 = number of levels, 0x00FFFFFF = number of bits
         u32  m_l0;     // Level 0 is 32 bits

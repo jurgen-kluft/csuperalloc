@@ -1,5 +1,6 @@
 #include "ccore/c_allocator.h"
 #include "cbase/c_integer.h"
+#include "cbase/c_memory.h"
 
 #include "csuperalloc/private/c_binmap.h"
 
@@ -51,6 +52,61 @@ UNITTEST_SUITE_BEGIN(binmap)
                 {
                     s32 const f = bm.find();
                     CHECK_EQUAL(-1, f);
+                }
+            }
+
+            TestAllocator->Deallocate(l1);
+            TestAllocator->Deallocate(l2);
+            TestAllocator->Deallocate(l3);
+        }
+
+        UNITTEST_TEST(lazy_init)
+        {
+            binmap_t bm;
+
+            u32 l0len, l1len, l2len, l3len;
+            bm.compute_levels(32 * 32 * 32 * 32, l0len, l1len, l2len, l3len);
+
+            u32* l1 = (u32*)TestAllocator->Allocate(sizeof(u32) * (l1len >> 5));
+            u32* l2 = (u32*)TestAllocator->Allocate(sizeof(u32) * (l2len >> 5));
+            u32* l3 = (u32*)TestAllocator->Allocate(sizeof(u32) * (l3len >> 5));
+            nmem::memclr(l1, l1len >> 3);
+            nmem::memclr(l2, l2len >> 3);
+            nmem::memclr(l3, l3len >> 3);
+
+            for (s32 i = 0; i < 1; ++i)
+            {
+                u32 const count = 2050 + (i * 41);
+                bm.compute_levels(count, l0len, l1len, l2len, l3len);
+                bm.init_lazy_0(count, l0len, l1, l1len, l2, l2len, l3, l3len);
+
+                for (s32 lazy_count = 0; lazy_count < count; ++lazy_count)
+                {
+                    bm.lazy_init_0(lazy_count);
+
+                    for (u32 b = 0; b < lazy_count; b += 2)
+                    {
+                        bm.set(b);
+                    }
+                    for (u32 b = 0; b < lazy_count; b++)
+                    {
+                        bool const s = bm.get(b);
+                        CHECK_EQUAL(((b & 1) == 0), s);
+                    }
+                    for (u32 b = 1; b < lazy_count; b += 2)
+                    {
+                        u32 const f = bm.findandset();
+                        CHECK_EQUAL(b, f);
+                    }
+
+                    // There should not be any more free places in the binmap
+                    s32 const f = bm.find();
+                    CHECK_EQUAL(-1, f);
+
+                    for (u32 b = 0; b < lazy_count; b++)
+                    {
+                        bm.clr(b);
+                    }
                 }
             }
 

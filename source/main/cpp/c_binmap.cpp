@@ -13,23 +13,31 @@ namespace ncore
     // l2 : 32K =  1K * u32
     // l3 :  1M = 32K * u32
 
+    // TODO, We could encode the level 'bits left' into m_count
+    // e.g.:
+    //       l0 = 2     (30 '0' bits, encode in 0x0000001F)
+    //       l1 = 60    ( 4 '0' bits, encode in 0x000003E0)
+    //       l2 = 1900  (20 '0' bits, encode in 0x00007C00)
+    //       l3 = 60790 (10 '0' bits, encode in 0x000F8000)
+
+    // You can then always compute the full count = ((32 - [l0]) * 32 - [l1]) * 32 - [l2]) * 32 - [l3]
+
     u32 binmap_t::compute_levels(u32 count, u32& l0, u32& l1, u32& l2, u32& l3)
     {
         ASSERT(count <= 1 * 1024 * 1024);  // maximum count is 1 Million (5 bits + 5 bits + 5 bits + 5 bits = 20 bits = 1 M)
-
-        u32 bits_per_level[4];
-        u32 level = 0;
-        do
+        u32 levels = (count & 31) ? 1 : 0;
+        levels += (count & (31 << 5)) ? 1 : 0;
+        levels += (count & (31 << 10)) ? 1 : 0;
+        levels += (count & (31 << 15)) ? 1 : 0;
+        u32 len = count;
+        switch (levels)
         {
-            bits_per_level[level++] = count;
-            count                   = (count + 31) >> 5;
-        } while (count > 1 && level < 4);
-        u32 const l = level;
-        l0          = bits_per_level[--level];
-        l1          = level > 0 ? bits_per_level[--level] : 0;
-        l2          = level > 0 ? bits_per_level[--level] : 0;
-        l3          = level > 0 ? bits_per_level[--level] : 0;
-        return l;
+            case 4: l3 = len; len = (len + 31) >> 5;
+            case 3: l2 = len; len = (len + 31) >> 5;
+            case 2: l1 = len; len = (len + 31) >> 5;
+            case 1: l0 = len; len = (len + 31) >> 5;
+        }
+        return levels - 1;
     }
 
     static void resetarray_end(u32 level_bits, u32* level, u32 df)
@@ -62,25 +70,25 @@ namespace ncore
         // Set those bits that we never touch to '1' the rest to '0'
         if (l3 != nullptr)
         {
-            m_count = (3 << 24) | count;
+            m_count = (3 << 30) | count;
             resetarray_end(l3len, l3, 0);
             resetarray_end(l2len, l2, 0);
             resetarray_end(l1len, l1, 0);
         }
         else if (l2 != nullptr)
         {
-            m_count = (2 << 24) | count;
+            m_count = (2 << 30) | count;
             resetarray_end(l2len, l2, 0);
             resetarray_end(l1len, l1, 0);
         }
         else if (l1 != nullptr)
         {
-            m_count = (1 << 24) | count;
+            m_count = (1 << 30) | count;
             resetarray_end(l1len, l1, 0);
         }
         else
         {
-            m_count = (0 << 24) | count;
+            m_count = (0 << 30) | count;
         }
         m_l0 = 0xffffffff << l0len;
     }
@@ -93,25 +101,25 @@ namespace ncore
         // Set those bits that we never touch to '1' the rest to '0'
         if (l3 != nullptr)
         {
-            m_count = (3 << 24) | count;
+            m_count = (3 << 30) | count;
             resetarray_end(l3len, l3, 0xffffffff);
             resetarray_end(l2len, l2, 0xffffffff);
             resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l2 != nullptr)
         {
-            m_count = (2 << 24) | count;
+            m_count = (2 << 30) | count;
             resetarray_end(l2len, l2, 0xffffffff);
             resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l1 != nullptr)
         {
-            m_count = (1 << 24) | count;
+            m_count = (1 << 30) | count;
             resetarray_end(l1len, l1, 0xffffffff);
         }
         else
         {
-            m_count = (0 << 24) | count;
+            m_count = (0 << 30) | count;
         }
         m_l0 = 0xffffffff;
     }
@@ -124,25 +132,25 @@ namespace ncore
         // Set those bits that we never touch to '1' the rest to '0'
         if (l3 != nullptr && l3len > 0)
         {
-            m_count = (3 << 24) | count;
+            m_count = (3 << 30) | count;
             resetarray_full(l3len, l3, 0);
             resetarray_full(l2len, l2, 0);
             resetarray_full(l1len, l1, 0);
         }
         else if (l2 != nullptr && l2len > 0)
         {
-            m_count = (2 << 24) | count;
+            m_count = (2 << 30) | count;
             resetarray_full(l2len, l2, 0);
             resetarray_full(l1len, l1, 0);
         }
         else if (l1 != nullptr && l1len > 0)
         {
-            m_count = (1 << 24) | count;
+            m_count = (1 << 30) | count;
             resetarray_full(l1len, l1, 0);
         }
         else
         {
-            m_count = (0 << 24) | count;
+            m_count = (0 << 30) | count;
         }
         m_l0 = 0xffffffff << l0len;
     }
@@ -156,25 +164,25 @@ namespace ncore
         // Set all bits to '1'
         if (l3 != nullptr && l3len > 0)
         {
-            m_count = (3 << 24) | count;
+            m_count = (3 << 30) | count;
             resetarray_full(l3len, l3, 0xffffffff);
             resetarray_full(l2len, l2, 0xffffffff);
             resetarray_full(l1len, l1, 0xffffffff);
         }
         else if (l2 != nullptr && l2len > 0)
         {
-            m_count = (2 << 24) | count;
+            m_count = (2 << 30) | count;
             resetarray_full(l2len, l2, 0xffffffff);
             resetarray_full(l1len, l1, 0xffffffff);
         }
         else if (l1 != nullptr && l1len > 0)
         {
-            m_count = (1 << 24) | count;
+            m_count = (1 << 30) | count;
             resetarray_full(l1len, l1, 0xffffffff);
         }
         else
         {
-            m_count = (0 << 24) | count;
+            m_count = (0 << 30) | count;
         }
         m_l0 = 0xffffffff;
     }
@@ -264,7 +272,7 @@ namespace ncore
 
     bool binmap_t::get(u32 bit) const
     {
-        if (size() <= 32)
+        if (m_l[0] == nullptr)
         {
             u32 const bi0 = 1 << (bit & (32 - 1));
             return (m_l0 & bi0) != 0;
