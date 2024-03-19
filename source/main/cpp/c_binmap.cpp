@@ -79,30 +79,27 @@ namespace ncore
         if (l3 != nullptr && l3len > 0)
         {
             m_count = (3 << 30) | count;
-            resetarray_end(l3len, l3, 0);
-            resetarray_end(l2len, l2, 0);
-            resetarray_end(l1len, l1, 0);
+            resetarray_end(l3len, l3, 0xffffffff);
+            resetarray_end(l2len, l2, 0xffffffff);
+            resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l2 != nullptr && l2len > 0)
         {
             m_count = (2 << 30) | count;
-            resetarray_end(l2len, l2, 0);
-            resetarray_end(l1len, l1, 0);
+            resetarray_end(l2len, l2, 0xffffffff);
+            resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l1 != nullptr && l1len > 0)
         {
             m_count = (1 << 30) | count;
-            resetarray_end(l1len, l1, 0);
+            resetarray_end(l1len, l1, 0xffffffff);
         }
         else
         {
             m_count = (0 << 30) | count;
         }
-        switch (l0len)
-        {
-            case 32: m_l0 = 0; break;
-            default: m_l0 = 0xffffffff << l0len; break;
-        }
+        // Nothing is 'free' yet
+        m_l0 = 0xffffffff;
     }
 
     void binmap_t::init_lazy_1(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
@@ -217,7 +214,7 @@ namespace ncore
             case 2: goto level_2;
         }
 
-    //level_3:
+        // level_3:
         bi         = (u32)1 << (wi & (32 - 1));
         wi         = wi >> 5;
         wd         = m_l[2][wi] | bi;
@@ -257,7 +254,7 @@ namespace ncore
             case 2: goto level_2;
         }
 
-    //level_3:
+        // level_3:
         bi         = (u32)1 << (wi & (32 - 1));
         wi         = wi << 5;
         wd         = m_l[2][wi];
@@ -346,37 +343,50 @@ namespace ncore
     void binmap_t::lazy_init_0(u32 bit)
     {
         u32 wi = bit;
-        u32 mi = size() - 1;
 
         switch (num_levels())
         {
             case 0: return;
             case 1: goto level_1;
             case 2: goto level_2;
+            case 3: goto level_3;
         }
 
-    //level_3:
+    level_3:
         if ((wi & (32 - 1)) != 0)
+        {
+            u32 const bi = 1 << (wi & (32 - 1));
+            m_l[2][wi]   = m_l[2][wi] & ~bi;
             return;
-        mi = ((mi + 32) >> 5) - 1;
-        wi = wi >> 5;
-        if (wi < mi)
-            m_l[2][wi] = 0;
+        }
+        wi         = wi >> 5;
+        m_l[2][wi] = 0xfffffffe;
     level_2:
         if ((wi & (32 - 1)) != 0)
+        {
+            u32 const bi = 1 << (wi & (32 - 1));
+            m_l[1][wi]   = m_l[1][wi] & ~bi;
             return;
-        mi = ((mi + 32) >> 5) - 1;
-        wi = wi >> 5;
-        if (wi < mi)
-            m_l[1][wi] = 0;
+        }
+        wi         = wi >> 5;
+        m_l[1][wi] = 0xfffffffe;
 
     level_1:
         if ((wi & (32 - 1)) != 0)
+        {
+            u32 const bi = 1 << (wi & (32 - 1));
+            m_l[0][wi]   = m_l[0][wi] & ~bi;
             return;
-        mi = ((mi + 32) >> 5) - 1;
-        wi = wi >> 5;
-        if (wi < mi)
-            m_l[0][wi] = 0;
+        }
+        wi         = wi >> 5;
+        m_l[0][wi] = 0xfffffffe;
+
+    level_0:
+        if ((wi & (32 - 1)) != 0)
+        {
+            m_l0 = m_l0 & ~(1 << (wi & (32 - 1)));
+            return;
+        }
     }
 
     void binmap_t::lazy_init_1(u32 bit)
@@ -391,7 +401,7 @@ namespace ncore
             case 2: goto level_2;
         }
 
-    //level_3:
+        // level_3:
         if ((wi & (32 - 1)) != 0)
             return;
         mi = ((mi + 32) >> 5) - 1;
