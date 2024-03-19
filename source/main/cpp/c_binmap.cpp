@@ -395,7 +395,6 @@ namespace ncore
 
     void binmap_t::lazy_init_1(u32 bit)
     {
-        u32 bi;
         u32 wi = bit;
         u32 li;
         u32 wd;
@@ -410,44 +409,40 @@ namespace ncore
 
     level_3:
         li = wi & (32 - 1);
-        bi = (u32)1 << li;
         wi = wi >> 5;
         wd = li == 0 ? 0xfffffffe : m_l[2][wi];
         if (wd == 0xffffffff)
             return;
-        wd |= bi;
+        wd |= (u32)1 << li;
         m_l[2][wi] = wd;
         if (wd != 0xffffffff)
             return;
 
     level_2:
         li = wi & (32 - 1);
-        bi = (u32)1 << li;
         wi = wi >> 5;
         wd = li == 0 ? 0xfffffffe : m_l[1][wi];
         if (wd == 0xffffffff)
             return;
-        wd |= bi;
+        wd |= (u32)1 << li;
         m_l[1][wi] = wd;
         if (wd != 0xffffffff)
             return;
 
     level_1:
         li = wi & (32 - 1);
-        bi = (u32)1 << li;
         wi = wi >> 5;
         wd = li == 0 ? 0xfffffffe : m_l[0][wi];
         if (wd == 0xffffffff)
             return;
-        wd |= bi;
+        wd |= (u32)1 << li;
         m_l[0][wi] = wd;
         if (wd != 0xffffffff)
             return;
 
     level_0:
         li   = wi & (32 - 1);
-        bi   = (u32)1 << li;
-        m_l0 = m_l0 | bi;
+        m_l0 = m_l0 | ((u32)1 << li);
     }
 
 }  // namespace ncore
