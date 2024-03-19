@@ -141,7 +141,7 @@ namespace ncore
             ASSERT(item_index < m_item_freepos);
             u16* const pelem = (u16*)idx2ptr(page_address, item_index);
 #ifdef SUPERALLOC_DEBUG
-            nmem::memset(pelem, 0xFEFEFEFE, (1 << m_item_size_shift));
+            nmem::memset(pelem, 0xFEFEFEFE, ((u64)1 << m_item_size_shift));
 #endif
             pelem[0]        = m_item_freelist;
             m_item_freelist = item_index;
@@ -499,7 +499,7 @@ namespace ncore
 
     struct superbin_t
     {
-        inline superbin_t(u8 binidx, u64 allocsize, chunkconfig_t chunkconfig)
+        inline superbin_t(u8 binidx, u32 allocsize, chunkconfig_t chunkconfig)
             : m_alloc_size(allocsize)
             , m_chunk_config(chunkconfig)
             , m_alloc_bin_index(binidx)
@@ -513,7 +513,7 @@ namespace ncore
         inline u16  binmap_l2len() const { return (u16)(m_max_alloc_count >> 4); }
         inline bool use_binmap() const { return m_max_alloc_count == 1 && binmap_l1len() == 0 && binmap_l2len() == 0 ? 0 : 1; }
 
-        u64           m_alloc_size;       // The size of the allocation that this bin is managing
+        u32           m_alloc_size;       // The size of the allocation that this bin is managing
         u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
         chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
         u8            m_alloc_bin_index;  // The index of this bin, also used as an indirection (only one indirection allowed)
@@ -602,7 +602,7 @@ namespace ncore
         {
         }
 
-        void initialize(vmem_t* vmem, u64 address_range, u64 segment_shift, superheap_t* heap, superfsa_t* fsa, u32 num_chunk_configs, chunkconfig_t const* chunk_configs)
+        void initialize(vmem_t* vmem, u64 address_range, u8 segment_shift, superheap_t* heap, superfsa_t* fsa, u32 num_chunk_configs, chunkconfig_t const* chunk_configs)
         {
             ASSERT(math::ispo2(address_range));
 
@@ -682,12 +682,12 @@ namespace ncore
 
         u32 chunk_physical_pages(superbin_t const& bin, u32 alloc_size) const
         {
-            u32 size;
+            u64 size;
             if (bin.use_binmap())
                 size = (bin.m_alloc_size * bin.m_max_alloc_count);
             else
                 size = alloc_size;
-            return (size + (m_block_size - 1)) >> m_page_shift;
+            return (u32)((size + (((u64)1 << m_page_shift) - 1)) >> m_page_shift);
         }
 
         void initialize_chunk(superspace_t::chunk_t* chunk, u32 alloc_size, superbin_t const& bin)
@@ -1105,7 +1105,7 @@ namespace ncore
 
         u64               m_total_address_size;
         u64               m_segment_address_size;
-        s16               m_segment_address_range_shift;
+        s8                m_segment_address_range_shift;
         u32               m_num_superbins;
         superbin_t const* m_asuperbins;
         u32               m_internal_heap_address_range;
