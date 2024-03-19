@@ -20,7 +20,8 @@ UNITTEST_SUITE_BEGIN(binmap)
             binmap_t bm;
 
             u32 l0len, l1len, l2len, l3len;
-            bm.compute_levels(32 * 32 * 32 * 32, l0len, l1len, l2len, l3len);
+            u32 const len = 32 * 32 * 32 * 32;
+            bm.compute_levels(60790, l0len, l1len, l2len, l3len);
 
             u32* l1 = (u32*)TestAllocator->Allocate(sizeof(u32) * (l1len >> 5));
             u32* l2 = (u32*)TestAllocator->Allocate(sizeof(u32) * (l2len >> 5));

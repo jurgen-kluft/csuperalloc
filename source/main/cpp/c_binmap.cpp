@@ -25,11 +25,14 @@ namespace ncore
     u32 binmap_t::compute_levels(u32 count, u32& l0, u32& l1, u32& l2, u32& l3)
     {
         ASSERT(count <= 1 * 1024 * 1024);  // maximum count is 1 Million (5 bits + 5 bits + 5 bits + 5 bits = 20 bits = 1 M)
-        u32 levels = (count & 31) ? 1 : 0;
-        levels += (count & (31 << 5)) ? 1 : 0;
-        levels += (count & (31 << 10)) ? 1 : 0;
-        levels += (count & (31 << 15)) ? 1 : 0;
+        if (count == 0)
+            return 0;
         u32 len = count;
+        count = count - 1;
+        u32 levels = ((count & 31) != 0) ? 1 : 0;
+        levels += ((count & (31 << 5)) != 0) ? 1 : 0;
+        levels += ((count & (31 << 10)) != 0) ? 1 : 0;
+        levels += ((count & (31 << 15)) != 0) ? 1 : 0;
         switch (levels)
         {
             case 4: l3 = len; len = (len + 31) >> 5;
