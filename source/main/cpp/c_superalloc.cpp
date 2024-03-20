@@ -889,34 +889,34 @@ namespace ncore
         void set_assoc(void* ptr, u32 assoc, chunk_t* chunk, superbin_t const& bin)
         {
             segment_t* segment              = &m_segment_array[chunk->m_segment_index];
-            u32*       chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
+            u32*       elem_tag_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
 
             ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
             if (bin.use_binmap())
             {
                 void* const chunk_address              = chunk_index_to_address(segment, chunk->m_segment_chunk_index);
                 u32 const   chunk_item_index           = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
-                chunk_tracking_array[chunk_item_index] = assoc;
+                elem_tag_array[chunk_item_index] = assoc;
             }
             else
             {
-                chunk_tracking_array[0] = assoc;
+                elem_tag_array[0] = assoc;
             }
         }
 
         u32 get_assoc(void* ptr, chunk_t const* chunk, superbin_t const& bin) const
         {
             segment_t* segment              = &m_segment_array[chunk->m_segment_index];
-            u32* const chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
+            u32* const elem_tag_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
 
             ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
             if (bin.use_binmap())
             {
                 void* const chunk_address       = chunk_index_to_address(segment, chunk->m_segment_chunk_index);
                 u32 const   chunk_element_index = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
-                return chunk_tracking_array[chunk_element_index];
+                return elem_tag_array[chunk_element_index];
             }
-            return chunk_tracking_array[0];
+            return elem_tag_array[0];
         }
 
         inline chunk_t* address_to_chunk(void* ptr) const
@@ -1005,9 +1005,9 @@ namespace ncore
             ASSERT(elem_index < bin.m_max_alloc_count);
             ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);
 
-            // Initialize the assoc value for this element
-            u32* chunk_tracking_array        = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
-            chunk_tracking_array[elem_index] = 0;
+            // Initialize the tag value for this element
+            u32* elem_tag_array        = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
+            elem_tag_array[elem_index] = 0;
         }
         else
         {
@@ -1035,9 +1035,9 @@ namespace ncore
             u32 const                i             = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(i < bin.m_max_alloc_count);
             chunk->m_elem_free_binmap.clr(i);
-            u32* chunk_tracking_array = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
-            ASSERT(chunk_tracking_array[i] != 0xFEFEFEFE);  // Double freeing this element ?
-            chunk_tracking_array[i] = 0xFEFEFEFE;           // Clear the assoc value for this element (mark it as freed)
+            u32* elem_tag_array = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
+            ASSERT(elem_tag_array[i] != 0xFEFEFEFE);  // Double freeing this element ?
+            elem_tag_array[i] = 0xFEFEFEFE;           // Clear the tag for this element (mark it as freed)
             alloc_size              = bin.m_alloc_size;
         }
         else
