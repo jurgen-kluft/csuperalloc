@@ -560,8 +560,8 @@ namespace ncore
             u16      m_elem_used_count;      // The number of elements used in this chunk
             u16      m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
             binmap_t m_elem_free_binmap;     // The binmap marking free elements for this chunk
+            u32      m_elem_tag_array_iptr;  // The index to an array which we use for set_tag/get_tag
             u32      m_physical_pages;       // The number of physical pages that this chunk has committed
-            u32      m_alloc_tracking_iptr;  // The index to the tracking array which we use for set_tag/get_tag
         };
 
         superfsa_t*          m_fsa;
@@ -695,10 +695,10 @@ namespace ncore
         void initialize_chunk(superspace_t::chunk_t* chunk, u32 alloc_size, superbin_t const& bin)
         {
             // Allocate allocation tracking array
-            chunk->m_alloc_tracking_iptr = superfsa_t::NIL;
+            chunk->m_elem_tag_array_iptr = superfsa_t::NIL;
             if (bin.m_max_alloc_count > 1)
             {
-                chunk->m_alloc_tracking_iptr = m_fsa->alloc(sizeof(u32) * bin.m_max_alloc_count);
+                chunk->m_elem_tag_array_iptr = m_fsa->alloc(sizeof(u32) * bin.m_max_alloc_count);
             }
 
             if (bin.use_binmap())
@@ -804,10 +804,10 @@ namespace ncore
 
         void deinitialize_chunk(superfsa_t& fsa, superspace_t::chunk_t* chunk, superbin_t const& bin)
         {
-            if (chunk->m_alloc_tracking_iptr != superfsa_t::NIL)
+            if (chunk->m_elem_tag_array_iptr != superfsa_t::NIL)
             {
-                fsa.dealloc(chunk->m_alloc_tracking_iptr);
-                chunk->m_alloc_tracking_iptr = superfsa_t::NIL;
+                fsa.dealloc(chunk->m_elem_tag_array_iptr);
+                chunk->m_elem_tag_array_iptr = superfsa_t::NIL;
             }
 
             if (bin.use_binmap())
@@ -889,7 +889,7 @@ namespace ncore
         void set_assoc(void* ptr, u32 assoc, chunk_t* chunk, superbin_t const& bin)
         {
             segment_t* segment              = &m_segment_array[chunk->m_segment_index];
-            u32*       chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            u32*       chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
 
             ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
             if (bin.use_binmap())
@@ -907,7 +907,7 @@ namespace ncore
         u32 get_assoc(void* ptr, chunk_t const* chunk, superbin_t const& bin) const
         {
             segment_t* segment              = &m_segment_array[chunk->m_segment_index];
-            u32* const chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            u32* const chunk_tracking_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
 
             ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
             if (bin.use_binmap())
@@ -1006,7 +1006,7 @@ namespace ncore
             ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);
 
             // Initialize the assoc value for this element
-            u32* chunk_tracking_array        = (u32*)fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            u32* chunk_tracking_array        = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
             chunk_tracking_array[elem_index] = 0;
         }
         else
@@ -1035,7 +1035,7 @@ namespace ncore
             u32 const                i             = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(i < bin.m_max_alloc_count);
             chunk->m_elem_free_binmap.clr(i);
-            u32* chunk_tracking_array = (u32*)fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            u32* chunk_tracking_array = (u32*)fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
             ASSERT(chunk_tracking_array[i] != 0xFEFEFEFE);  // Double freeing this element ?
             chunk_tracking_array[i] = 0xFEFEFEFE;           // Clear the assoc value for this element (mark it as freed)
             alloc_size              = bin.m_alloc_size;
