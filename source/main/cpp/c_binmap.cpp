@@ -312,14 +312,23 @@ namespace ncore
         if (m_l0 == 0xffffffff)
             return -1;
 
-        u32 const l = num_levels();
+        u32 l = num_levels();
 
+        u32 wi;
         u32 bi = math::findFirstBit(~m_l0);
         if (l == 0)
             return bi;
 
-        u32 wi = bi;
-        bi     = math::findFirstBit(~m_l[0][wi]);
+        for (s32 i=0; i<l; ++l)
+        {
+            wi = bi;
+            bi = math::findFirstBit(~m_l[i][wi]);
+        }
+        return (wi << 5) + bi;
+
+#if 0
+        wi = bi;
+        bi = math::findFirstBit(~m_l[0][wi]);
         ASSERT(bi >= 0 && bi < 32);
         if (l == 1)
             return (wi << 5) + bi;
@@ -335,6 +344,7 @@ namespace ncore
         bi = math::findFirstBit(~m_l[2][wi]);
         ASSERT(bi >= 0 && bi < 32);
         return (wi << 5) + bi;
+#endif
     }
 
     s32 binmap_t::findandset()
