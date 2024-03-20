@@ -88,7 +88,9 @@ UNITTEST_SUITE_BEGIN(binmap)
 
                 for (u32 b = 0; b < count; b += 2)
                 {
+                    CHECK_FALSE(bm.get(b));
                     bm.set(b);
+                    CHECK_TRUE(bm.get(b));
                 }
                 for (u32 b = 0; b < count; b++)
                 {

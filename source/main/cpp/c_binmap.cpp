@@ -43,21 +43,6 @@ namespace ncore
         return levels - 1;
     }
 
-    static void resetarray_end(u32 level_bits, u32* level, u32 df)
-    {
-        if ((level_bits & (32 - 1)) != 0)
-        {
-            u32 const w = level_bits >> 5;
-            u32 const m = 0xffffffff << (level_bits & (32 - 1));
-            level[w]    = m | (df & ~m);
-        }
-        else
-        {
-            u32 const w = (level_bits >> 5) - 1;
-            level[w]    = df;
-        }
-    }
-
     static void resetarray_full(u32 level_bits, u32* level, u32 df)
     {
         u32 const w = level_bits >> 5;
@@ -100,30 +85,24 @@ namespace ncore
         m_l[2] = l3;
         m_l[1] = l2;
         m_l[0] = l1;
+        m_l0 = 0xffffffff;
 
         if (l3 != nullptr && l3len > 0)
         {
             m_count = (3 << 30) | count;
-            resetarray_end(l3len, l3, 0xffffffff);
-            resetarray_end(l2len, l2, 0xffffffff);
-            resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l2 != nullptr && l2len > 0)
         {
             m_count = (2 << 30) | count;
-            resetarray_end(l2len, l2, 0xffffffff);
-            resetarray_end(l1len, l1, 0xffffffff);
         }
         else if (l1 != nullptr && l1len > 0)
         {
             m_count = (1 << 30) | count;
-            resetarray_end(l1len, l1, 0xffffffff);
         }
         else
         {
             m_count = (0 << 30) | count;
         }
-        m_l0 = 0xffffffff;
     }
 
     void binmap_t::init_0(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
@@ -196,55 +175,20 @@ namespace ncore
 
     void binmap_t::set(u32 bit)
     {
-        u32 bi;
         u32 wi = bit;
-        u32 wd;
-
-        switch (num_levels())
+        for (s32 l = num_levels() - 1; l >= 0; --l)
         {
-            case 0: goto level_0;
-            case 1: goto level_1;
-            case 2: goto level_2;
-            case 3: goto level_3;
+            u32 bi = (u32)1 << (wi & (32 - 1));
+            wi     = wi >> 5;
+            u32 wd = m_l[l][wi];
+            if (wd == 0xffffffff)
+                return;
+            wd |= bi;
+            m_l[l][wi] = wd;
+            if (wd != 0xffffffff)
+                return;
         }
-
-    level_3:
-        bi = (u32)1 << (wi & (32 - 1));
-        wi = wi >> 5;
-        wd = m_l[2][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= bi;
-        m_l[2][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_2:
-        bi = (u32)1 << (wi & (32 - 1));
-        wi = wi >> 5;
-        wd = m_l[1][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= bi;
-        m_l[1][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_1:
-        bi = 1 << (wi & (32 - 1));
-        wi = wi >> 5;
-        wd = m_l[0][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= bi;
-        m_l[0][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_0:
-        bi   = 1 << (wi & (32 - 1));
-        wd   = m_l0 | bi;
-        m_l0 = wd;
+        m_l0 = m_l0 | (1 << (wi & (32 - 1)));
     }
 
     void binmap_t::clr(u32 bit)
@@ -253,38 +197,15 @@ namespace ncore
         u32 wi = bit;
         u32 wd;
 
-        switch (num_levels())
+        for (s32 l = num_levels() - 1; l >= 0; --l)
         {
-            case 0: goto level_0;
-            case 1: goto level_1;
-            case 2: goto level_2;
+            bi         = (u32)1 << (wi & (32 - 1));
+            wi         = wi >> 5;
+            wd         = m_l[l][wi];
+            m_l[l][wi] = wd & ~bi;
+            if (wd != 0xffffffff)
+                return;
         }
-
-        // level_3:
-        bi         = (u32)1 << (wi & (32 - 1));
-        wi         = wi << 5;
-        wd         = m_l[2][wi];
-        m_l[2][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_2:
-        bi         = (u32)1 << (wi & (32 - 1));
-        wi         = wi << 5;
-        wd         = m_l[1][wi];
-        m_l[1][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_1:
-        bi         = (u32)1 << (wi & (32 - 1));
-        wi         = wi << 5;
-        wd         = m_l[0][wi];
-        m_l[0][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_0:
         bi   = 1 << (wi & (32 - 1));
         wd   = m_l0 & ~bi;
         m_l0 = wd;
@@ -312,39 +233,16 @@ namespace ncore
         if (m_l0 == 0xffffffff)
             return -1;
 
-        u32 l = num_levels();
-
-        u32 wi;
+        u32 const l = num_levels();
+        u32 wi = 0;
         u32 bi = math::findFirstBit(~m_l0);
-        if (l == 0)
-            return bi;
-
-        for (s32 i=0; i<l; ++l)
+        for (u32 i = 0; i < l; ++i)
         {
-            wi = bi;
+            wi = (wi << 5) + bi;
             bi = math::findFirstBit(~m_l[i][wi]);
+            ASSERT(bi >= 0 && bi < 32);
         }
         return (wi << 5) + bi;
-
-#if 0
-        wi = bi;
-        bi = math::findFirstBit(~m_l[0][wi]);
-        ASSERT(bi >= 0 && bi < 32);
-        if (l == 1)
-            return (wi << 5) + bi;
-
-        wi = (wi << 5) + bi;
-        bi = math::findFirstBit(~m_l[1][wi]);
-        ASSERT(bi >= 0 && bi < 32);
-        if (l == 2)
-            return (wi << 5) + bi;
-
-        ASSERT(l == 3);
-        wi = (wi << 5) + bi;
-        bi = math::findFirstBit(~m_l[2][wi]);
-        ASSERT(bi >= 0 && bi < 32);
-        return (wi << 5) + bi;
-#endif
     }
 
     s32 binmap_t::findandset()
@@ -375,48 +273,6 @@ namespace ncore
         }
         li   = wi & (32 - 1);
         m_l0 = m_l0 & ~((u32)1 << li);
-        return;
-
-#if 0
-        switch (num_levels())
-        {
-            case 0: goto level_0;
-            case 1: goto level_1;
-            case 2: goto level_2;
-            case 3: goto level_3;
-        }
-
-    level_3:
-        li         = wi & (32 - 1);
-        wi         = wi << 5;
-        wd         = (li == 0) ? 0xffffffff : m_l[2][wi];
-        bi         = (u32)1 << li;
-        m_l[2][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_2:
-        li         = wi & (32 - 1);
-        wi         = wi << 5;
-        wd         = (li == 0) ? 0xffffffff : m_l[1][wi];
-        bi         = (u32)1 << li;
-        m_l[1][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_1:
-        li         = wi & (32 - 1);
-        wi         = wi << 5;
-        wd         = (li == 0) ? 0xffffffff : m_l[0][wi];
-        bi         = (u32)1 << li;
-        m_l[0][wi] = wd & ~bi;
-        if (wd != 0xffffffff)
-            return;
-
-    level_0:
-        li   = wi & (32 - 1);
-        m_l0 = m_l0 & ~((u32)1 << li);
-#endif
     }
 
     void binmap_t::lazy_init_1(u32 bit)
@@ -439,54 +295,6 @@ namespace ncore
         }
         li   = wi & (32 - 1);
         m_l0 = m_l0 | ((u32)1 << li);
-        return;
-
-#if 0
-        switch (num_levels())
-        {
-            case 0: goto level_0;
-            case 1: goto level_1;
-            case 2: goto level_2;
-            case 3: goto level_3;
-        }
-
-    level_3:
-        li = wi & (32 - 1);
-        wi = wi >> 5;
-        wd = li == 0 ? 0xfffffffe : m_l[2][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= (u32)1 << li;
-        m_l[2][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_2:
-        li = wi & (32 - 1);
-        wi = wi >> 5;
-        wd = li == 0 ? 0xfffffffe : m_l[1][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= (u32)1 << li;
-        m_l[1][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_1:
-        li = wi & (32 - 1);
-        wi = wi >> 5;
-        wd = li == 0 ? 0xfffffffe : m_l[0][wi];
-        if (wd == 0xffffffff)
-            return;
-        wd |= (u32)1 << li;
-        m_l[0][wi] = wd;
-        if (wd != 0xffffffff)
-            return;
-
-    level_0:
-        li   = wi & (32 - 1);
-        m_l0 = m_l0 | ((u32)1 << li);
-#endif
     }
 
 }  // namespace ncore
