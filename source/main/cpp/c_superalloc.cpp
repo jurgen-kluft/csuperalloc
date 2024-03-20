@@ -1035,7 +1035,10 @@ namespace ncore
             u32 const                i             = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(i < bin.m_max_alloc_count);
             chunk->m_elem_free_binmap.clr(i);
-            alloc_size = bin.m_alloc_size;
+            u32* chunk_tracking_array = (u32*)fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            ASSERT(chunk_tracking_array[i] != 0xFEFEFEFE);  // Double freeing this element ?
+            chunk_tracking_array[i] = 0xFEFEFEFE;           // Clear the assoc value for this element (mark it as freed)
+            alloc_size              = bin.m_alloc_size;
         }
         else
         {
