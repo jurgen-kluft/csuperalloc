@@ -15,14 +15,16 @@ namespace ncore
     class valloc_t : public alloc_t
     {
     public:
-        inline void set_tag(void* ptr, u32 assoc) { return v_set_tag(ptr, assoc); }
-        inline u32  get_tag(void* ptr) const { return v_get_tag(ptr); }
         inline u32  get_size(void* ptr) const { return v_get_size(ptr); }
 
+        inline void set_tag(void* ptr, u32 assoc) { return v_set_tag(ptr, assoc); }
+        inline u32  get_tag(void* ptr) const { return v_get_tag(ptr); }
+
     protected:
+        virtual u32  v_get_size(void* ptr) const     = 0;
+
         virtual void v_set_tag(void* ptr, u32 assoc) = 0;
         virtual u32  v_get_tag(void* ptr) const      = 0;
-        virtual u32  v_get_size(void* ptr) const     = 0;
     };
 
     // A 'virtual memory' allocator, suitable for CPU as well as GPU memory

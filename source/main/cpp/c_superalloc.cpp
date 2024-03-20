@@ -91,6 +91,12 @@ namespace ncore
         return toaddress(m_address, offset);
     }
 
+    void superheap_t::deallocate(void* ptr)
+    {
+        ASSERT(ptr >= m_address);
+        ASSERT(ptr >= m_address && (((uint_t)ptr - (uint_t)m_address) < (uint_t)m_address_range));  // Purely some validation
+    }
+
     struct superblock_t
     {
         static const u16 NIL = 0xffff;
@@ -351,13 +357,9 @@ namespace ncore
     const superfsa_t::blockconfig_t superfsa_t::c_ablock_config[] = 
     {   // block-size, preallocate
         {         64 * 1024,  64 * 1024}, 
-        {        128 * 1024, 128 * 1024}, 
         {        256 * 1024, 256 * 1024}, 
-        {        512 * 1024, 512 * 1024}, 
         {   1 * 1024 * 1024,          0}, 
-        {   2 * 1024 * 1024,          0}, 
         {   4 * 1024 * 1024,          0}, 
-        {   8 * 1024 * 1024,          0}
     };
     // clang-format on
 
@@ -376,12 +378,12 @@ namespace ncore
         {       4096,  0}, 
         {       8192,  0}, 
         {      16384,  0}, 
-        {      32768,  0}, 
+        {      32768,  1}, 
         {  64 * 1024,  1}, 
         { 128 * 1024,  2}, 
-        { 256 * 1024,  3}, 
-        { 512 * 1024,  4}, 
-        {1024 * 1024,  6}
+        { 256 * 1024,  2}, 
+        { 512 * 1024,  3}, 
+        {1024 * 1024,  3}
     };
     // clang-format on
 
@@ -1002,6 +1004,10 @@ namespace ncore
             }
             ASSERT(elem_index < bin.m_max_alloc_count);
             ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);
+
+            // Initialize the assoc value for this element
+            u32* chunk_tracking_array        = (u32*)fsa->idx2ptr(chunk->m_alloc_tracking_iptr);
+            chunk_tracking_array[elem_index] = 0;
         }
         else
         {
@@ -1189,7 +1195,7 @@ namespace ncore
             const u64 c_segment_address_range       = 1 * cGB;
             const u32 c_internal_heap_address_range = 16 * cMB;
             const u32 c_internal_heap_pre_size      = 2 * cMB;
-            const u32 c_internal_fsa_address_range  = 512 * cMB;
+            const u32 c_internal_fsa_address_range  = 256 * cMB;
             const u32 c_internal_fsa_pre_size       = 16 * cMB;
             return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size);
         }
@@ -1334,7 +1340,7 @@ namespace ncore
             const u64 c_segment_address_range       = 1 * cGB;
             const u32 c_internal_heap_address_range = 16 * cMB;
             const u32 c_internal_heap_pre_size      = 2 * cMB;
-            const u32 c_internal_fsa_address_range  = 512 * cMB;
+            const u32 c_internal_fsa_address_range  = 256 * cMB;
             const u32 c_internal_fsa_pre_size       = 16 * cMB;
             return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_pre_size);
         }
@@ -1384,9 +1390,9 @@ namespace ncore
         virtual u32   v_deallocate(void* p);
         virtual void  v_release() { deinitialize(); }
 
+        virtual u32  v_get_size(void* ptr) const;
         virtual void v_set_tag(void* ptr, u32 assoc);
         virtual u32  v_get_tag(void* ptr) const;
-        virtual u32  v_get_size(void* ptr) const;
     };
 
     void superallocator_t::initialize(vmem_t* vmem, superallocator_config_t const& config)
@@ -1448,6 +1454,23 @@ namespace ncore
         return size;
     }
 
+    u32 superallocator_t::v_get_size(void* ptr) const
+    {
+        if (ptr == nullptr)
+            return 0;
+        ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
+        superspace_t::chunk_t* pchunk    = m_superspace->address_to_chunk(ptr);
+        u32 const              sbinindex = pchunk->m_bin_index;
+        if (m_config.m_asuperbins[sbinindex].use_binmap())
+        {
+            return m_config.m_asuperbins[sbinindex].m_alloc_size;
+        }
+        else
+        {
+            return pchunk->m_physical_pages * m_superspace->m_block_size;
+        }
+    }
+
     void superallocator_t::v_set_tag(void* ptr, u32 assoc)
     {
         if (ptr != nullptr)
@@ -1467,23 +1490,6 @@ namespace ncore
         superspace_t::chunk_t* pchunk    = m_superspace->address_to_chunk(ptr);
         u32 const              sbinindex = pchunk->m_bin_index;
         return m_allocator->get_assoc(ptr, pchunk, m_config.m_asuperbins[sbinindex]);
-    }
-
-    u32 superallocator_t::v_get_size(void* ptr) const
-    {
-        if (ptr == nullptr)
-            return 0;
-        ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
-        superspace_t::chunk_t* pchunk    = m_superspace->address_to_chunk(ptr);
-        u32 const              sbinindex = pchunk->m_bin_index;
-        if (m_config.m_asuperbins[sbinindex].use_binmap())
-        {
-            return m_config.m_asuperbins[sbinindex].m_alloc_size;
-        }
-        else
-        {
-            return pchunk->m_physical_pages * m_superspace->m_block_size;
-        }
     }
 
     valloc_t* gCreateVmAllocator(alloc_t* main_heap, vmem_t* vmem)

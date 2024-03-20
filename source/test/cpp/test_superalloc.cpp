@@ -11,7 +11,7 @@ using namespace ncore;
 
 class alloc_with_stats_t : public alloc_t
 {
-    alloc_t* mAllocator;
+    valloc_t* mAllocator;
     u32     mNumAllocs;
     u32     mNumDeallocs;
     u64     mMemoryAllocated;
@@ -27,7 +27,13 @@ public:
         mMemoryDeallocated = 0;
     }
 
-    void init(alloc_t* allocator) { mAllocator = allocator; }
+    void init(alloc_t* allocator, vmem_t* vmem) 
+    { 
+        vmem->initialize();
+
+        mAllocator = gCreateVmAllocator(allocator, vmem);
+   
+    }
 
     virtual void* v_allocate(u32 size, u32 alignment)
     {
@@ -60,8 +66,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 
         UNITTEST_FIXTURE_SETUP()
         {
-            vmem->initialize();
-            s_alloc.init(Allocator);
+            s_alloc.init(Allocator, vmem);
         }
 
         UNITTEST_FIXTURE_TEARDOWN()
