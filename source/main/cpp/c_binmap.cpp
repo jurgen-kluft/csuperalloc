@@ -57,119 +57,75 @@ namespace ncore
 
     void binmap_t::init_lazy_0(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
     {
+        ASSERT((l3len == 0 || l3 != nullptr) && (l2len == 0 || l2 != nullptr) && (l1len == 0 || l1 != nullptr) && (l0len > 0));
+
         m_l[2] = l3;
         m_l[1] = l2;
         m_l[0] = l1;
         m_l0   = 0xffffffff;
 
-        if (l3 != nullptr && l3len > 0)
-        {
-            m_count = (3 << 30) | count;
-        }
-        else if (l2 != nullptr && l2len > 0)
-        {
-            m_count = (2 << 30) | count;
-        }
-        else if (l1 != nullptr && l1len > 0)
-        {
-            m_count = (1 << 30) | count;
-        }
-        else
-        {
-            m_count = (0 << 30) | count;
-        }
+        u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
+        m_count = (levels << 30) | count;
     }
 
     void binmap_t::init_lazy_1(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
     {
+        ASSERT((l3len == 0 || l3 != nullptr) && (l2len == 0 || l2 != nullptr) && (l1len == 0 || l1 != nullptr) && (l0len > 0));
+
         m_l[2] = l3;
         m_l[1] = l2;
         m_l[0] = l1;
-        m_l0 = 0xffffffff;
+        m_l0   = 0xffffffff;
 
-        if (l3 != nullptr && l3len > 0)
-        {
-            m_count = (3 << 30) | count;
-        }
-        else if (l2 != nullptr && l2len > 0)
-        {
-            m_count = (2 << 30) | count;
-        }
-        else if (l1 != nullptr && l1len > 0)
-        {
-            m_count = (1 << 30) | count;
-        }
-        else
-        {
-            m_count = (0 << 30) | count;
-        }
+        u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
+        m_count = (levels << 30) | count;
     }
 
     void binmap_t::init_0(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
     {
-        m_l[2] = l3;
-        m_l[1] = l2;
-        m_l[0] = l1;
+        ASSERT((l3len == 0 || l3 != nullptr) && (l2len == 0 || l2 != nullptr) && (l1len == 0 || l1 != nullptr) && (l0len > 0));
 
-        if (l3 != nullptr && l3len > 0)
+        u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
+        m_count = (levels << 30) | count;
+
+        switch (levels)
         {
-            m_count = (3 << 30) | count;
-            resetarray_full(l3len, l3, 0);
-            resetarray_full(l2len, l2, 0);
-            resetarray_full(l1len, l1, 0);
-        }
-        else if (l2 != nullptr && l2len > 0)
-        {
-            m_count = (2 << 30) | count;
-            resetarray_full(l2len, l2, 0);
-            resetarray_full(l1len, l1, 0);
-        }
-        else if (l1 != nullptr && l1len > 0)
-        {
-            m_count = (1 << 30) | count;
-            resetarray_full(l1len, l1, 0);
-        }
-        else
-        {
-            m_count = (0 << 30) | count;
+            case 0: m_l[0] = nullptr;
+            case 1: m_l[1] = nullptr;
+            case 2: m_l[2] = nullptr;
         }
 
-        switch (l0len)
+        switch (levels)
         {
-            case 32: m_l0 = 0; break;
-            default: m_l0 = 0xffffffff << l0len; break;
+            case 3: m_l[2] = l3; resetarray_full(l3len, l3, 0);
+            case 2: m_l[1] = l2; resetarray_full(l2len, l2, 0);
+            case 1: m_l[0] = l1; resetarray_full(l1len, l1, 0);
         }
+
+        m_l0 = (u32)((u64)0xffffffff << l0len);
     }
 
     void binmap_t::init_1(u32 count, u32 l0len, u32* l1, u32 l1len, u32* l2, u32 l2len, u32* l3, u32 l3len)
     {
-        m_l[2] = l3;
-        m_l[1] = l2;
-        m_l[0] = l1;
+        ASSERT((l3len == 0 || l3 != nullptr) && (l2len == 0 || l2 != nullptr) && (l1len == 0 || l1 != nullptr) && (l0len > 0));
 
-        // Set all bits to '1'
-        if (l3 != nullptr && l3len > 0)
+        u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
+        m_count = (levels << 30) | count;
+
+        switch (levels)
         {
-            m_count = (3 << 30) | count;
-            resetarray_full(l3len, l3, 0xffffffff);
-            resetarray_full(l2len, l2, 0xffffffff);
-            resetarray_full(l1len, l1, 0xffffffff);
+            case 0: m_l[0] = nullptr;
+            case 1: m_l[1] = nullptr;
+            case 2: m_l[2] = nullptr;
         }
-        else if (l2 != nullptr && l2len > 0)
+
+        switch (levels)
         {
-            m_count = (2 << 30) | count;
-            resetarray_full(l2len, l2, 0xffffffff);
-            resetarray_full(l1len, l1, 0xffffffff);
+            case 3: m_l[2] = l3; resetarray_full(l3len, l3, 0xffffffff);
+            case 2: m_l[1] = l2; resetarray_full(l2len, l2, 0xffffffff);
+            case 1: m_l[0] = l1; resetarray_full(l1len, l1, 0xffffffff);
         }
-        else if (l1 != nullptr && l1len > 0)
-        {
-            m_count = (1 << 30) | count;
-            resetarray_full(l1len, l1, 0xffffffff);
-        }
-        else
-        {
-            m_count = (0 << 30) | count;
-        }
+
         m_l0 = 0xffffffff;
     }
 
@@ -233,9 +189,9 @@ namespace ncore
         if (m_l0 == 0xffffffff)
             return -1;
 
-        u32 const l = num_levels();
-        u32 wi = 0;
-        u32 bi = math::findFirstBit(~m_l0);
+        u32 const l  = num_levels();
+        u32       wi = 0;
+        u32       bi = math::findFirstBit(~m_l0);
         for (u32 i = 0; i < l; ++i)
         {
             wi = (wi << 5) + bi;
