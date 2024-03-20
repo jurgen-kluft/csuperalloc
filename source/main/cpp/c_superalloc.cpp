@@ -718,9 +718,13 @@ namespace ncore
                 chunk->m_physical_pages = 0;
             }
 
+            chunk->m_next            = llnode_t::NIL;
+            chunk->m_prev            = llnode_t::NIL;
+            chunk->m_segment_index   = 0xffff;
             chunk->m_bin_index       = bin.m_alloc_bin_index;
-            chunk->m_elem_free_index = 0;
+            chunk->m_segment_chunk_index = 0xffffffff;
             chunk->m_elem_used_count = 0;
+            chunk->m_elem_free_index = 0;
         }
 
         chunk_t* checkout_chunk(superbin_t const& bin)
