@@ -7,7 +7,7 @@
 
 namespace ncore
 {
-    void llist_t::initialize(lldata_t& data, u16 start, u16 size, u16 max_size)
+    void llist_t::initialize(lldata_t& data, u32 start, u32 size, u32 max_size)
     {
         ASSERT(max_size > 0);
         ASSERT(size <= max_size);

@@ -13,7 +13,6 @@ llnode_t* gCreateList(alloc_t* alloc, u32 count, lldata_t& lldata)
 	llnode_t* list = (llnode_t*)alloc->allocate(sizeof(llnode_t) * count);
 	lldata.m_data = list;
 	lldata.m_itemsize = sizeof(llnode_t);
-	lldata.m_pagesize = sizeof(llnode_t) * count;
 	return list;
 }
 

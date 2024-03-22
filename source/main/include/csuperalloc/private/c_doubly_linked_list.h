@@ -47,12 +47,10 @@ namespace ncore
     struct lldata_t
     {
         void* m_data;
-        u32   m_pagesize;
         u32   m_itemsize;
 
         lldata_t()
             : m_data(nullptr)
-            , m_pagesize(0)
             , m_itemsize(0)
         {
         }
@@ -61,16 +59,15 @@ namespace ncore
         {
             if (i == llnode_t::NIL)
                 return nullptr;
-            return (llnode_t*)((ptr_t)m_data + ((ptr_t)m_pagesize * (i >> 16)) + ((ptr_t)m_itemsize * (i & 0xFFFF)));
+            return (llnode_t*)((ptr_t)m_data + ((ptr_t)m_itemsize * i));
         }
 
         llindex_t node2idx(llnode_t* node)
         {
             if (node == nullptr)
                 return llindex_t();
-            u32 const page_index = (u32)(((ptr_t)node - (ptr_t)m_data) / m_pagesize);
-            u32 const item_index = (u32)(((ptr_t)node - (ptr_t)m_data) & (m_pagesize - 1)) / m_itemsize;
-            return (page_index << 16) | item_index;
+            u32 const item_index = (u32)(((ptr_t)node - (ptr_t)m_data)) / m_itemsize;
+            return item_index;
         }
     };
 
@@ -81,7 +78,7 @@ namespace ncore
             , m_size_max(0)
         {
         }
-        inline llist_t(u16 size, u16 size_max)
+        inline llist_t(u32 size, u32 size_max)
             : m_size(size)
             , m_size_max(size_max)
         {
@@ -91,7 +88,7 @@ namespace ncore
         inline bool is_empty() const { return m_size == 0; }
         inline bool is_full() const { return m_size == m_size_max; }
 
-        void        initialize(lldata_t& data, u16 start, u16 size, u16 max_size);
+        void        initialize(lldata_t& data, u32 start, u32 size, u32 max_size);
         inline void reset()
         {
             m_size = 0;
@@ -119,8 +116,8 @@ namespace ncore
             return i;
         }
 
-        u16      m_size;
-        u16      m_size_max;
+        u32      m_size;
+        u32      m_size_max;
         llhead_t m_head;
     };
 
