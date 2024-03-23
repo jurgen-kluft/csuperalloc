@@ -1133,7 +1133,7 @@ namespace ncore
             chunk_t*  chunk     = address_to_chunk(ptr);
             u32 const sbinindex = chunk->m_bin_index;
             ASSERT(sbinindex < num_superbins);
-            superbin_t const& bin = superbins[sbinindex];            
+            superbin_t const& bin = superbins[sbinindex];
 
             segment_t* segment        = &m_segment_array[chunk->m_segment_index];
             u32* const elem_tag_array = (u32*)m_fsa->idx2ptr(chunk->m_elem_tag_array_iptr);
@@ -1185,32 +1185,21 @@ namespace ncore
         {
         }
 
-        superallocator_config_t(const superallocator_config_t& other)
-            : m_total_address_size(other.m_total_address_size)
-            , m_segment_address_range(other.m_segment_address_range)
-            , m_segment_address_range_shift(other.m_segment_address_range_shift)
-            , m_num_superbins(other.m_num_superbins)
-            , m_asuperbins(other.m_asuperbins)
-            , m_internal_heap_address_range(other.m_internal_heap_address_range)
-            , m_internal_heap_pre_size(other.m_internal_heap_pre_size)
-            , m_internal_fsa_address_range(other.m_internal_fsa_address_range)
-            , m_internal_fsa_segment_size(other.m_internal_fsa_segment_size)
-            , m_internal_fsa_pre_size(other.m_internal_fsa_pre_size)
-        {
-        }
+        virtual void initialize()             = 0;
+        virtual s32  size2bin(u32 size) const = 0;
 
-        superallocator_config_t(u64 space_address_range, u32 segment_address_range, s32 const num_superbins, superbin_t const* asuperbins, u32 const internal_heap_address_range, u32 const internal_heap_pre_size, u32 const internal_fsa_address_range,
-                                u32 const internal_fsa_segment_size, u32 const internal_fsa_pre_size)
-            : m_total_address_size(space_address_range)
-            , m_segment_address_range(segment_address_range)
-            , m_num_superbins(num_superbins)
-            , m_asuperbins(asuperbins)
-            , m_internal_heap_address_range(internal_heap_address_range)
-            , m_internal_heap_pre_size(internal_heap_pre_size)
-            , m_internal_fsa_address_range(internal_fsa_address_range)
-            , m_internal_fsa_segment_size(internal_fsa_segment_size)
-            , m_internal_fsa_pre_size(internal_fsa_pre_size)
+        void initialize(u64 space_address_range, u32 segment_address_range, s32 const num_superbins, superbin_t const* asuperbins, u32 const internal_heap_address_range, u32 const internal_heap_pre_size, u32 const internal_fsa_address_range,
+                        u32 const internal_fsa_segment_size, u32 const internal_fsa_pre_size)
         {
+            m_total_address_size          = space_address_range;
+            m_segment_address_range       = segment_address_range;
+            m_num_superbins               = num_superbins;
+            m_asuperbins                  = asuperbins;
+            m_internal_heap_address_range = internal_heap_address_range;
+            m_internal_heap_pre_size      = internal_heap_pre_size;
+            m_internal_fsa_address_range  = internal_fsa_address_range;
+            m_internal_fsa_segment_size   = internal_fsa_segment_size;
+            m_internal_fsa_pre_size       = internal_fsa_pre_size;
             m_segment_address_range_shift = math::ilog2(segment_address_range);
         }
 
@@ -1226,88 +1215,100 @@ namespace ncore
         u32               m_internal_fsa_pre_size;
     };
 
+    // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
     // 25% allocation waste (based on empirical data)
-    namespace superallocator_config_windows_desktop_app_25p_t
+    class superallocator_config_windows_desktop_app_25p_t : public superallocator_config_t
     {
-        // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
+    public:
+        superallocator_config_windows_desktop_app_25p_t() { initialize(); }
 
-        // clang-format off
-        // superbin_t(bin-index or remap, alloc-size, chunk-config)
-        static const s32        c_num_bins           = 112;
-        static const superbin_t c_asbins[c_num_bins] = {
-          superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
-          superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
-          superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
-          superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
-          superbin_t(8,         8,  c64KB),                    superbin_t(10,   10, c64KB),                    // 8, 12
-          superbin_t(10,        12, c64KB),                    superbin_t(12,   14, c64KB),                    // 12, 16
-          superbin_t(12,        16, c64KB),                    superbin_t(13,   20, c64KB),                    // 16, 20
-          superbin_t(14,        24, c64KB),                    superbin_t(15,   28, c64KB),                    // 24, 28
-          superbin_t(16,        32, c64KB),                    superbin_t(17,   40, c64KB),                    // 32, 40
-          superbin_t(18,        48, c64KB),                    superbin_t(19,   56, c64KB),                    // 48, 56
-          superbin_t(20,        64, c64KB),                    superbin_t(21,   80, c64KB),                    //
-          superbin_t(22,        96, c64KB),                    superbin_t(23,   112, c64KB),                   //
-          superbin_t(24,       128, c64KB),                    superbin_t(25,   160, c64KB),                   //
-          superbin_t(26,       192, c64KB),                    superbin_t(27,   224, c64KB),                   //
-          superbin_t(28,       256, c64KB),                    superbin_t(29,   320, c64KB),                   //
-          superbin_t(30,       384, c64KB),                    superbin_t(31,   448, c64KB),                   //
-          superbin_t(32,       512, c64KB),                    superbin_t(33,   640, c64KB),                   //
-          superbin_t(34,       768, c64KB),                    superbin_t(35,   896, c64KB),                   //
-          superbin_t(36,   1 * cKB, c64KB),                    superbin_t(37,  1*cKB + 256, c128KB),           //
-          superbin_t(38,   1 * cKB + 512, c128KB),             superbin_t(39,  1*cKB + 768, c128KB),           //
-          superbin_t(40,   2 * cKB, c128KB),                   superbin_t(41,  2*cKB + 512, c128KB),           //
-          superbin_t(42,   3 * cKB, c128KB),                   superbin_t(43,  3*cKB + 512, c128KB),           //
-          superbin_t(44,   4 * cKB, c128KB),                   superbin_t(45,  5*cKB, c128KB),                 //
-          superbin_t(46,   6 * cKB, c128KB),                   superbin_t(47,  7*cKB, c128KB),                 //
-          superbin_t(48,   8 * cKB, c128KB),                   superbin_t(49,  10*cKB, c128KB),                //
-          superbin_t(50,  12 * cKB, c128KB),                   superbin_t(51,  14*cKB, c128KB),                //
-          superbin_t(52,  16 * cKB, c128KB),                   superbin_t(53,  20*cKB, c128KB),                //
-          superbin_t(54,  24 * cKB, c128KB),                   superbin_t(55,  28*cKB, c128KB),                //
-          superbin_t(56,  32 * cKB, c128KB),                   superbin_t(57,  40*cKB, c128KB),                //
-          superbin_t(58,  48 * cKB, c128KB),                   superbin_t(59,  56*cKB, c128KB),                //
-          superbin_t(60,  64 * cKB, c128KB),                   superbin_t(61,  80*cKB, c128KB),                //
-          superbin_t(62,  96 * cKB, c128KB),                   superbin_t(63,  112*cKB, c512KB),               //
-          superbin_t(64, 128 * cKB, c512KB),                   superbin_t(65,  160*cKB, c512KB),               //
-          superbin_t(66, 192 * cKB, c512KB),                   superbin_t(67,  224*cKB, c1MB),               //
-          superbin_t(68, 256 * cKB, c512KB),                   superbin_t(69,  320*cKB, c1MB),               //
-          superbin_t(70, 384 * cKB, c1MB),                     superbin_t(71,  448*cKB, c1MB),               //
-          superbin_t(72, 512 * cKB, c1MB),                     superbin_t(73,  640*cKB, c1MB),               //
-          superbin_t(74, 768 * cKB, c1MB),                     superbin_t(75,  896*cKB, c1MB),               //
-          superbin_t(76,   1 * cMB, c1MB),                     superbin_t(77, 1*cMB + 256*cKB, c2MB),        //
-          superbin_t(78,   1 * cMB + 512 * cKB, c2MB),         superbin_t(79, 1*cMB + 768*cKB, c2MB),        //
-          superbin_t(80,   2 * cMB, c32MB),                    superbin_t(81, 2*cMB + 512*cKB, c32MB),        //
-          superbin_t(82,   3 * cMB, c32MB),                    superbin_t(83, 3*cMB + 512*cKB, c32MB),        //
-          superbin_t(84,   4 * cMB, c32MB),                    superbin_t(85, 5*cMB, c32MB),                  //
-          superbin_t(86,   6 * cMB, c32MB),                    superbin_t(87, 7*cMB, c32MB),                  //
-          superbin_t(88,   8 * cMB, c32MB),                    superbin_t(89, 10*cMB, c32MB),                 //
-          superbin_t(90,  12 * cMB, c32MB),                    superbin_t(91, 14*cMB, c32MB),                 //
-          superbin_t(92,  16 * cMB, c32MB),                    superbin_t(93, 20*cMB, c32MB),                 //
-          superbin_t(94,  24 * cMB, c32MB),                    superbin_t(95, 28*cMB, c32MB),                 //
-          superbin_t(96,  32 * cMB, c32MB),                    superbin_t(97, 40*cMB, c128MB),                 //
-          superbin_t(98,  48 * cMB, c128MB),                   superbin_t(99, 56*cMB, c128MB),                 //
-          superbin_t(100,  64 * cMB, c128MB),                  superbin_t(101, 80*cMB, c128MB),                //
-          superbin_t(102,  96 * cMB, c128MB),                  superbin_t(103, 112*cMB, c128MB),               //
-          superbin_t(104, 128 * cMB, c128MB),                  superbin_t(105, 160*cMB, c512MB),               //
-          superbin_t(106, 192 * cMB, c512MB),                  superbin_t(107, 224*cMB, c512MB),               //
-          superbin_t(108, 256 * cMB, c512MB),                  superbin_t(109, 320*cMB, c512MB),               //
-          superbin_t(110, 384 * cMB, c512MB),                  superbin_t(111, 448*cMB, c512MB),               //
-        };
-        // clang-format on
-
-        static superallocator_config_t get_config()
+        void initialize() override final
         {
-            const u32 c_page_size                   = 4096;  // Windows OS page size
-            const u64 c_total_address_space         = 128 * cGB;
-            const u64 c_segment_address_range       = 1 * cGB;
-            const u32 c_internal_heap_address_range = 16 * cMB;
-            const u32 c_internal_heap_pre_size      = 2 * cMB;
-            const u32 c_internal_fsa_address_range  = 256 * cMB;
-            const u32 c_internal_fsa_segment_size   = 8 * cMB;
-            const u32 c_internal_fsa_pre_size       = 16 * cMB;
-            return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_segment_size, c_internal_fsa_pre_size);
+            // clang-format off
+            // superbin_t(bin-index or remap, alloc-size, chunk-config)
+            static const s32        c_num_bins           = 112;
+            static const superbin_t c_asbins[c_num_bins] = {
+                superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
+                superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
+                superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
+                superbin_t(8,         8,  c64KB),                    superbin_t(8,    8,  c64KB),                    // 8, 8
+                superbin_t(8,         8,  c64KB),                    superbin_t(10,   10, c64KB),                    // 8, 12
+                superbin_t(10,        12, c64KB),                    superbin_t(12,   14, c64KB),                    // 12, 16
+                superbin_t(12,        16, c64KB),                    superbin_t(13,   20, c64KB),                    // 16, 20
+                superbin_t(14,        24, c64KB),                    superbin_t(15,   28, c64KB),                    // 24, 28
+                superbin_t(16,        32, c64KB),                    superbin_t(17,   40, c64KB),                    // 32, 40
+                superbin_t(18,        48, c64KB),                    superbin_t(19,   56, c64KB),                    // 48, 56
+                superbin_t(20,        64, c64KB),                    superbin_t(21,   80, c64KB),                    //
+                superbin_t(22,        96, c64KB),                    superbin_t(23,   112, c64KB),                   //
+                superbin_t(24,       128, c64KB),                    superbin_t(25,   160, c64KB),                   //
+                superbin_t(26,       192, c64KB),                    superbin_t(27,   224, c64KB),                   //
+                superbin_t(28,       256, c64KB),                    superbin_t(29,   320, c64KB),                   //
+                superbin_t(30,       384, c64KB),                    superbin_t(31,   448, c64KB),                   //
+                superbin_t(32,       512, c64KB),                    superbin_t(33,   640, c64KB),                   //
+                superbin_t(34,       768, c64KB),                    superbin_t(35,   896, c64KB),                   //
+                superbin_t(36,   1 * cKB, c64KB),                    superbin_t(37,  1*cKB + 256, c128KB),           //
+                superbin_t(38,   1 * cKB + 512, c128KB),             superbin_t(39,  1*cKB + 768, c128KB),           //
+                superbin_t(40,   2 * cKB, c128KB),                   superbin_t(41,  2*cKB + 512, c128KB),           //
+                superbin_t(42,   3 * cKB, c128KB),                   superbin_t(43,  3*cKB + 512, c128KB),           //
+                superbin_t(44,   4 * cKB, c128KB),                   superbin_t(45,  5*cKB, c128KB),                 //
+                superbin_t(46,   6 * cKB, c128KB),                   superbin_t(47,  7*cKB, c128KB),                 //
+                superbin_t(48,   8 * cKB, c128KB),                   superbin_t(49,  10*cKB, c128KB),                //
+                superbin_t(50,  12 * cKB, c128KB),                   superbin_t(51,  14*cKB, c128KB),                //
+                superbin_t(52,  16 * cKB, c128KB),                   superbin_t(53,  20*cKB, c128KB),                //
+                superbin_t(54,  24 * cKB, c128KB),                   superbin_t(55,  28*cKB, c128KB),                //
+                superbin_t(56,  32 * cKB, c128KB),                   superbin_t(57,  40*cKB, c128KB),                //
+                superbin_t(58,  48 * cKB, c128KB),                   superbin_t(59,  56*cKB, c128KB),                //
+                superbin_t(60,  64 * cKB, c128KB),                   superbin_t(61,  80*cKB, c128KB),                //
+                superbin_t(62,  96 * cKB, c128KB),                   superbin_t(63,  112*cKB, c512KB),               //
+                superbin_t(64, 128 * cKB, c512KB),                   superbin_t(65,  160*cKB, c512KB),               //
+                superbin_t(66, 192 * cKB, c512KB),                   superbin_t(67,  224*cKB, c1MB),               //
+                superbin_t(68, 256 * cKB, c512KB),                   superbin_t(69,  320*cKB, c1MB),               //
+                superbin_t(70, 384 * cKB, c1MB),                     superbin_t(71,  448*cKB, c1MB),               //
+                superbin_t(72, 512 * cKB, c1MB),                     superbin_t(73,  640*cKB, c1MB),               //
+                superbin_t(74, 768 * cKB, c1MB),                     superbin_t(75,  896*cKB, c1MB),               //
+                superbin_t(76,   1 * cMB, c1MB),                     superbin_t(77, 1*cMB + 256*cKB, c2MB),        //
+                superbin_t(78,   1 * cMB + 512 * cKB, c2MB),         superbin_t(79, 1*cMB + 768*cKB, c2MB),        //
+                superbin_t(80,   2 * cMB, c32MB),                    superbin_t(81, 2*cMB + 512*cKB, c32MB),        //
+                superbin_t(82,   3 * cMB, c32MB),                    superbin_t(83, 3*cMB + 512*cKB, c32MB),        //
+                superbin_t(84,   4 * cMB, c32MB),                    superbin_t(85, 5*cMB, c32MB),                  //
+                superbin_t(86,   6 * cMB, c32MB),                    superbin_t(87, 7*cMB, c32MB),                  //
+                superbin_t(88,   8 * cMB, c32MB),                    superbin_t(89, 10*cMB, c32MB),                 //
+                superbin_t(90,  12 * cMB, c32MB),                    superbin_t(91, 14*cMB, c32MB),                 //
+                superbin_t(92,  16 * cMB, c32MB),                    superbin_t(93, 20*cMB, c32MB),                 //
+                superbin_t(94,  24 * cMB, c32MB),                    superbin_t(95, 28*cMB, c32MB),                 //
+                superbin_t(96,  32 * cMB, c32MB),                    superbin_t(97, 40*cMB, c128MB),                 //
+                superbin_t(98,  48 * cMB, c128MB),                   superbin_t(99, 56*cMB, c128MB),                 //
+                superbin_t(100,  64 * cMB, c128MB),                  superbin_t(101, 80*cMB, c128MB),                //
+                superbin_t(102,  96 * cMB, c128MB),                  superbin_t(103, 112*cMB, c128MB),               //
+                superbin_t(104, 128 * cMB, c128MB),                  superbin_t(105, 160*cMB, c512MB),               //
+                superbin_t(106, 192 * cMB, c512MB),                  superbin_t(107, 224*cMB, c512MB),               //
+                superbin_t(108, 256 * cMB, c512MB),                  superbin_t(109, 320*cMB, c512MB),               //
+                superbin_t(110, 384 * cMB, c512MB),                  superbin_t(111, 448*cMB, c512MB),               //
+            };
+            // clang-format on
+
+            static const u32 c_page_size                   = 4096;  // Windows OS page size
+            static const u64 c_total_address_space         = 128 * cGB;
+            static const u64 c_segment_address_range       = 1 * cGB;
+            static const u32 c_internal_heap_address_range = 16 * cMB;
+            static const u32 c_internal_heap_pre_size      = 2 * cMB;
+            static const u32 c_internal_fsa_address_range  = 256 * cMB;
+            static const u32 c_internal_fsa_segment_size   = 8 * cMB;
+            static const u32 c_internal_fsa_pre_size       = 16 * cMB;
+
+            m_total_address_size          = c_total_address_space;
+            m_segment_address_range       = c_segment_address_range;
+            m_num_superbins               = c_num_bins;
+            m_asuperbins                  = c_asbins;
+            m_internal_heap_address_range = c_internal_heap_address_range;
+            m_internal_heap_pre_size      = c_internal_heap_pre_size;
+            m_internal_fsa_address_range  = c_internal_fsa_address_range;
+            m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+            m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+            m_segment_address_range_shift = math::ilog2(c_segment_address_range);
         }
 
-        static inline s32 size2bin(u32 size)
+        s32 size2bin(u32 size) const override final
         {
             const s32 w = math::countLeadingZeros(size);
             const u32 f = (u32)0x80000000 >> w;
@@ -1317,131 +1318,132 @@ namespace ncore
             const int i = (int)((size & r) >> (29 - w)) + ((29 - w) * 4);
             return i;
         }
+    };
 
-    };  // namespace superallocator_config_windows_desktop_app_25p_t
-
+    // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
     // 10% allocation waste (based on empirical data)
-    namespace superallocator_config_windows_desktop_app_10p_t
+    class superallocator_config_windows_desktop_app_10p_t : public superallocator_config_t
     {
-        // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
+    public:
+        superallocator_config_windows_desktop_app_10p_t() { initialize(); }
 
-        // clang-format off
-        // superbin_t(bin-index or remap, alloc-size, chunk-config)
-        static const s32        c_num_bins           = 216;
-        static const superbin_t c_asbins[c_num_bins] = {
-          superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
-          superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
-          superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
-          superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
-          superbin_t(8,   8, c64KB),                              superbin_t(12,   9, c64KB),                   //
-          superbin_t(12,   10, c64KB),                            superbin_t(12,   11, c64KB),                  //
-          superbin_t(12,   12, c64KB),                            superbin_t(16,   13, c64KB),                  //
-          superbin_t(16,   14, c64KB),                            superbin_t(16,   15, c64KB),                  //
-          superbin_t(16,   16, c64KB),                            superbin_t(18,   18, c64KB),                  //
-          superbin_t(18,   20, c64KB),                            superbin_t(20,   22, c64KB),                  //
-          superbin_t(20,   24, c64KB),                            superbin_t(22,   26, c64KB),                  //
-          superbin_t(22,   28, c64KB),                            superbin_t(24,   30, c64KB),                  //
-          superbin_t(24,   32, c64KB),                            superbin_t(25,   36, c64KB),                  //
-          superbin_t(26,   40, c64KB),                            superbin_t(27,   44, c64KB),                  //
-          superbin_t(28,   48, c64KB),                            superbin_t(29,   52, c64KB),                  //
-          superbin_t(30,   56, c64KB),                            superbin_t(31,   60, c64KB),                  //
-          superbin_t(32,   64, c64KB),                            superbin_t(33,   72, c64KB),                  //
-          superbin_t(34,   80, c64KB),                            superbin_t(35,   88, c64KB),                  //
-          superbin_t(36,   96, c64KB),                            superbin_t(37,   104, c64KB),                 //
-          superbin_t(38,   112, c64KB),                           superbin_t(39,   120, c64KB),                 //
-          superbin_t(40,   128, c64KB),                           superbin_t(41,   144, c64KB),                 //
-          superbin_t(42,   160, c64KB),                           superbin_t(43,   176, c64KB),                 //
-          superbin_t(44,   192, c64KB),                           superbin_t(45,   208, c64KB),                 //
-          superbin_t(46,   224, c64KB),                           superbin_t(47,   240, c64KB),                 //
-          superbin_t(48,   256, c64KB),                           superbin_t(49,   288, c64KB),                 //
-          superbin_t(50,   320, c64KB),                           superbin_t(51,   352, c64KB),                 //
-          superbin_t(52,   384, c64KB),                           superbin_t(53,   416, c64KB),                 //
-          superbin_t(54,   448, c64KB),                           superbin_t(55,   480, c64KB),                 //
-          superbin_t(56,   512, c64KB),                           superbin_t(57,   576, c64KB),                 //
-          superbin_t(58,   640, c64KB),                           superbin_t(59,   704, c64KB),                 //
-          superbin_t(60,   768, c64KB),                           superbin_t(61,   832, c64KB),                 //
-          superbin_t(62,   896, c64KB),                           superbin_t(63,   960, c64KB),                 //
-          superbin_t(64,  1*cKB, c64KB),                          superbin_t(65,  1*cKB + 128, c64KB),          //
-          superbin_t(66,  1*cKB + 256, c64KB),                    superbin_t(67,  1*cKB + 384, c64KB),          //
-          superbin_t(68,  1*cKB + 512, c64KB),                    superbin_t(69,  1*cKB + 640, c64KB),          //
-          superbin_t(70,  1*cKB + 768, c64KB),                    superbin_t(71,  1*cKB + 896, c64KB),          //
-          superbin_t(72,  2*cKB, c64KB),                          superbin_t(73,  2*cKB + 256, c64KB),          //
-          superbin_t(74,  2*cKB + 512, c64KB),                    superbin_t(75,  2*cKB + 768, c64KB),          //
-          superbin_t(76,  3*cKB, c64KB),                          superbin_t(77,  3*cKB + 256, c64KB),          //
-          superbin_t(78,  3*cKB + 512, c64KB),                    superbin_t(79,  3*cKB + 768, c64KB),          //
-          superbin_t(80,  4*cKB, c64KB),                          superbin_t(81,  4*cKB + 512, c64KB),          //
-          superbin_t(82,  5*cKB, c64KB),                          superbin_t(83,  5*cKB + 512, c64KB),          //
-          superbin_t(84,  6*cKB, c64KB),                          superbin_t(85,  6*cKB + 512, c64KB),          //
-          superbin_t(86,  7*cKB, c64KB),                          superbin_t(87,  7*cKB + 512, c64KB),          //
-          superbin_t(88,  8*cKB, c64KB),                          superbin_t(89,  9*cKB, c64KB),                //
-          superbin_t(90,  10*cKB, c64KB),                         superbin_t(91,  11*cKB, c64KB),               //
-          superbin_t(92,  12*cKB, c64KB),                         superbin_t(93,  13*cKB, c64KB),               //
-          superbin_t(94,  14*cKB, c64KB),                         superbin_t(95,  15*cKB, c64KB),               //
-          superbin_t(96,  16*cKB, c64KB),                         superbin_t(97,  18*cKB, c64KB),               //
-          superbin_t(98,  20*cKB, c64KB),                         superbin_t(99,  22*cKB, c64KB),               //
-          superbin_t(100,  24*cKB, c64KB),                        superbin_t(101,  26*cKB, c64KB),              //
-          superbin_t(102,  28*cKB, c64KB),                        superbin_t(103,  30*cKB, c64KB),              //
-          superbin_t(104,  32*cKB, c64KB),                        superbin_t(105,  36*cKB, c64KB),              //
-          superbin_t(106,  40*cKB, c64KB),                        superbin_t(107,  44*cKB, c64KB),              //
-          superbin_t(108,  48*cKB, c64KB),                        superbin_t(109,  52*cKB, c64KB),              //
-          superbin_t(110,  56*cKB, c64KB),                        superbin_t(111,  60*cKB, c64KB),              //
-          superbin_t(112,  64*cKB, c64KB),                        superbin_t(113,  72*cKB, c64KB),              //
-          superbin_t(114,  80*cKB, c64KB),                        superbin_t(115,  88*cKB, c64KB),              //
-          superbin_t(116,  96*cKB, c64KB),                        superbin_t(117,  104*cKB, c64KB),             //
-          superbin_t(118,  112*cKB, c64KB),                       superbin_t(119,  120*cKB, c64KB),             //
-          superbin_t(120,  128*cKB, c64KB),                       superbin_t(121,  144*cKB, c64KB),             //
-          superbin_t(122,  160*cKB, c64KB),                       superbin_t(123,  176*cKB, c64KB),             //
-          superbin_t(124,  192*cKB, c64KB),                       superbin_t(125,  208*cKB, c64KB),             //
-          superbin_t(126,  224*cKB, c64KB),                       superbin_t(127,  240*cKB, c64KB),             //
-          superbin_t(128,  256*cKB, c64KB),                       superbin_t(129,  288*cKB, c64KB),             //
-          superbin_t(130,  320*cKB, c64KB),                       superbin_t(131,  352*cKB, c64KB),             //
-          superbin_t(132,  384*cKB, c64KB),                       superbin_t(133,  416*cKB, c64KB),             //
-          superbin_t(134,  448*cKB, c64KB),                       superbin_t(135,  480*cKB, c64KB),             //
-          superbin_t(136,  512*cKB, c64KB),                       superbin_t(137,  576*cKB, c64KB),             //
-          superbin_t(138,  640*cKB, c64KB),                       superbin_t(139,  704*cKB, c64KB),             //
-          superbin_t(140,  768*cKB, c64KB),                       superbin_t(141,  832*cKB, c64KB),             //
-          superbin_t(142,  896*cKB, c64KB),                       superbin_t(143,  960*cKB, c64KB),             //
-          superbin_t(144, 1*cMB, c64KB),                          superbin_t(145, 1*cMB + 128*cKB, c64KB),      //
-          superbin_t(146, 1*cMB + 256*cKB, c64KB),                superbin_t(147, 1*cMB + 384*cKB, c64KB),      //
-          superbin_t(148, 1*cMB + 512*cKB, c64KB),                superbin_t(149, 1*cMB + 640*cKB, c64KB),      //
-          superbin_t(150, 1*cMB + 768*cKB, c64KB),                superbin_t(151, 1*cMB + 896*cKB, c64KB),      //
-          superbin_t(152, 2*cMB, c64KB),                          superbin_t(153, 2*cMB + 256*cKB, c64KB),      //
-          superbin_t(154, 2*cMB + 512*cKB, c64KB),                superbin_t(155, 2*cMB + 768*cKB, c64KB),      //
-          superbin_t(156, 3*cMB, c64KB),                          superbin_t(157, 3*cMB + 256*cKB, c64KB),      //
-          superbin_t(158, 3*cMB + 512*cKB, c64KB),                superbin_t(159, 3*cMB + 768*cKB, c64KB),      //
-          superbin_t(160, 4*cMB, c64KB),                          superbin_t(161, 4*cMB + 512*cKB, c64KB),      //
-          superbin_t(162, 5*cMB, c64KB),                          superbin_t(163, 5*cMB + 512*cKB, c64KB),      //
-          superbin_t(164, 6*cMB, c64KB),                          superbin_t(165, 6*cMB + 512*cKB, c64KB),      //
-          superbin_t(166, 7*cMB, c64KB),                          superbin_t(167, 7*cMB + 512*cKB, c64KB),      //
-          superbin_t(168, 8*cMB, c64KB),                          superbin_t(169, 9*cMB, c64KB),                //
-          superbin_t(170, 10*cKB, c64KB),                         superbin_t(171, 11*cMB, c64KB),               //
-          superbin_t(172, 12*cMB, c64KB),                         superbin_t(173, 13*cMB, c64KB),               //
-          superbin_t(174, 14*cMB, c64KB),                         superbin_t(175, 15*cMB, c64KB),               //
-          superbin_t(176, 16*cMB, c64KB),                         superbin_t(177, 18*cMB, c64KB),               //
-          superbin_t(178, 20*cKB, c64KB),                         superbin_t(179, 22*cMB, c64KB),               //
-          superbin_t(180, 24*cMB, c64KB),                         superbin_t(181, 26*cMB, c64KB),               //
-          superbin_t(182, 28*cMB, c64KB),                         superbin_t(183, 30*cKB, c64KB),               //
-          superbin_t(184, 32*cMB, c64KB),                         superbin_t(185, 36*cMB, c64KB),               //
-          superbin_t(186, 40*cKB, c64KB),                         superbin_t(187, 44*cMB, c64KB),               //
-          superbin_t(188, 48*cMB, c64KB),                         superbin_t(189, 52*cMB, c64KB),               //
-          superbin_t(190, 56*cMB, c64KB),                         superbin_t(191, 60*cKB, c64KB),               //
-          superbin_t(192, 64*cMB, c64KB),                         superbin_t(193, 72*cMB, c64KB),               //
-          superbin_t(194, 80*cKB, c64KB),                         superbin_t(195, 88*cMB, c64KB),               //
-          superbin_t(196, 96*cMB, c64KB),                         superbin_t(197, 104*cMB, c64KB),              //
-          superbin_t(198, 112*cMB, c64KB),                        superbin_t(199, 120*cKB, c64KB),              //
-          superbin_t(200, 128*cMB, c64KB),                        superbin_t(201, 144*cMB, c64KB),              //
-          superbin_t(202, 160*cKB, c64KB),                        superbin_t(203, 176*cMB, c64KB),              //
-          superbin_t(204, 192*cMB, c64KB),                        superbin_t(205, 208*cMB, c64KB),              //
-          superbin_t(206, 224*cMB, c64KB),                        superbin_t(207, 240*cKB, c64KB),              //
-          superbin_t(208, 256*cMB, c64KB),                        superbin_t(209, 288*cMB, c64KB),              //
-          superbin_t(210, 320*cKB, c64KB),                        superbin_t(211, 352*cMB, c64KB),              //
-          superbin_t(212, 384*cMB, c64KB),                        superbin_t(213, 416*cMB, c64KB),              //
-          superbin_t(214, 448*cMB, c64KB),                        superbin_t(215, 480*cKB, c64KB),              //
-        };
-        // clang-format on
-
-        static superallocator_config_t get_config()
+        void initialize() override final
         {
+            // clang-format off
+            // superbin_t(bin-index or remap, alloc-size, chunk-config)
+            static const s32        c_num_bins           = 216;
+            static const superbin_t c_asbins[c_num_bins] = {
+                superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
+                superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
+                superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
+                superbin_t(8,   8, c64KB),                              superbin_t(8,   8, c64KB),                    //
+                superbin_t(8,   8, c64KB),                              superbin_t(12,   9, c64KB),                   //
+                superbin_t(12,   10, c64KB),                            superbin_t(12,   11, c64KB),                  //
+                superbin_t(12,   12, c64KB),                            superbin_t(16,   13, c64KB),                  //
+                superbin_t(16,   14, c64KB),                            superbin_t(16,   15, c64KB),                  //
+                superbin_t(16,   16, c64KB),                            superbin_t(18,   18, c64KB),                  //
+                superbin_t(18,   20, c64KB),                            superbin_t(20,   22, c64KB),                  //
+                superbin_t(20,   24, c64KB),                            superbin_t(22,   26, c64KB),                  //
+                superbin_t(22,   28, c64KB),                            superbin_t(24,   30, c64KB),                  //
+                superbin_t(24,   32, c64KB),                            superbin_t(25,   36, c64KB),                  //
+                superbin_t(26,   40, c64KB),                            superbin_t(27,   44, c64KB),                  //
+                superbin_t(28,   48, c64KB),                            superbin_t(29,   52, c64KB),                  //
+                superbin_t(30,   56, c64KB),                            superbin_t(31,   60, c64KB),                  //
+                superbin_t(32,   64, c64KB),                            superbin_t(33,   72, c64KB),                  //
+                superbin_t(34,   80, c64KB),                            superbin_t(35,   88, c64KB),                  //
+                superbin_t(36,   96, c64KB),                            superbin_t(37,   104, c64KB),                 //
+                superbin_t(38,   112, c64KB),                           superbin_t(39,   120, c64KB),                 //
+                superbin_t(40,   128, c64KB),                           superbin_t(41,   144, c64KB),                 //
+                superbin_t(42,   160, c64KB),                           superbin_t(43,   176, c64KB),                 //
+                superbin_t(44,   192, c64KB),                           superbin_t(45,   208, c64KB),                 //
+                superbin_t(46,   224, c64KB),                           superbin_t(47,   240, c64KB),                 //
+                superbin_t(48,   256, c64KB),                           superbin_t(49,   288, c64KB),                 //
+                superbin_t(50,   320, c64KB),                           superbin_t(51,   352, c64KB),                 //
+                superbin_t(52,   384, c64KB),                           superbin_t(53,   416, c64KB),                 //
+                superbin_t(54,   448, c64KB),                           superbin_t(55,   480, c64KB),                 //
+                superbin_t(56,   512, c64KB),                           superbin_t(57,   576, c64KB),                 //
+                superbin_t(58,   640, c64KB),                           superbin_t(59,   704, c64KB),                 //
+                superbin_t(60,   768, c64KB),                           superbin_t(61,   832, c64KB),                 //
+                superbin_t(62,   896, c64KB),                           superbin_t(63,   960, c64KB),                 //
+                superbin_t(64,  1*cKB, c64KB),                          superbin_t(65,  1*cKB + 128, c64KB),          //
+                superbin_t(66,  1*cKB + 256, c64KB),                    superbin_t(67,  1*cKB + 384, c64KB),          //
+                superbin_t(68,  1*cKB + 512, c64KB),                    superbin_t(69,  1*cKB + 640, c64KB),          //
+                superbin_t(70,  1*cKB + 768, c64KB),                    superbin_t(71,  1*cKB + 896, c64KB),          //
+                superbin_t(72,  2*cKB, c64KB),                          superbin_t(73,  2*cKB + 256, c64KB),          //
+                superbin_t(74,  2*cKB + 512, c64KB),                    superbin_t(75,  2*cKB + 768, c64KB),          //
+                superbin_t(76,  3*cKB, c64KB),                          superbin_t(77,  3*cKB + 256, c64KB),          //
+                superbin_t(78,  3*cKB + 512, c64KB),                    superbin_t(79,  3*cKB + 768, c64KB),          //
+                superbin_t(80,  4*cKB, c64KB),                          superbin_t(81,  4*cKB + 512, c64KB),          //
+                superbin_t(82,  5*cKB, c64KB),                          superbin_t(83,  5*cKB + 512, c64KB),          //
+                superbin_t(84,  6*cKB, c64KB),                          superbin_t(85,  6*cKB + 512, c64KB),          //
+                superbin_t(86,  7*cKB, c64KB),                          superbin_t(87,  7*cKB + 512, c64KB),          //
+                superbin_t(88,  8*cKB, c64KB),                          superbin_t(89,  9*cKB, c64KB),                //
+                superbin_t(90,  10*cKB, c64KB),                         superbin_t(91,  11*cKB, c64KB),               //
+                superbin_t(92,  12*cKB, c64KB),                         superbin_t(93,  13*cKB, c64KB),               //
+                superbin_t(94,  14*cKB, c64KB),                         superbin_t(95,  15*cKB, c64KB),               //
+                superbin_t(96,  16*cKB, c64KB),                         superbin_t(97,  18*cKB, c64KB),               //
+                superbin_t(98,  20*cKB, c64KB),                         superbin_t(99,  22*cKB, c64KB),               //
+                superbin_t(100,  24*cKB, c64KB),                        superbin_t(101,  26*cKB, c64KB),              //
+                superbin_t(102,  28*cKB, c64KB),                        superbin_t(103,  30*cKB, c64KB),              //
+                superbin_t(104,  32*cKB, c64KB),                        superbin_t(105,  36*cKB, c64KB),              //
+                superbin_t(106,  40*cKB, c64KB),                        superbin_t(107,  44*cKB, c64KB),              //
+                superbin_t(108,  48*cKB, c64KB),                        superbin_t(109,  52*cKB, c64KB),              //
+                superbin_t(110,  56*cKB, c64KB),                        superbin_t(111,  60*cKB, c64KB),              //
+                superbin_t(112,  64*cKB, c64KB),                        superbin_t(113,  72*cKB, c64KB),              //
+                superbin_t(114,  80*cKB, c64KB),                        superbin_t(115,  88*cKB, c64KB),              //
+                superbin_t(116,  96*cKB, c64KB),                        superbin_t(117,  104*cKB, c64KB),             //
+                superbin_t(118,  112*cKB, c64KB),                       superbin_t(119,  120*cKB, c64KB),             //
+                superbin_t(120,  128*cKB, c64KB),                       superbin_t(121,  144*cKB, c64KB),             //
+                superbin_t(122,  160*cKB, c64KB),                       superbin_t(123,  176*cKB, c64KB),             //
+                superbin_t(124,  192*cKB, c64KB),                       superbin_t(125,  208*cKB, c64KB),             //
+                superbin_t(126,  224*cKB, c64KB),                       superbin_t(127,  240*cKB, c64KB),             //
+                superbin_t(128,  256*cKB, c64KB),                       superbin_t(129,  288*cKB, c64KB),             //
+                superbin_t(130,  320*cKB, c64KB),                       superbin_t(131,  352*cKB, c64KB),             //
+                superbin_t(132,  384*cKB, c64KB),                       superbin_t(133,  416*cKB, c64KB),             //
+                superbin_t(134,  448*cKB, c64KB),                       superbin_t(135,  480*cKB, c64KB),             //
+                superbin_t(136,  512*cKB, c64KB),                       superbin_t(137,  576*cKB, c64KB),             //
+                superbin_t(138,  640*cKB, c64KB),                       superbin_t(139,  704*cKB, c64KB),             //
+                superbin_t(140,  768*cKB, c64KB),                       superbin_t(141,  832*cKB, c64KB),             //
+                superbin_t(142,  896*cKB, c64KB),                       superbin_t(143,  960*cKB, c64KB),             //
+                superbin_t(144, 1*cMB, c64KB),                          superbin_t(145, 1*cMB + 128*cKB, c64KB),      //
+                superbin_t(146, 1*cMB + 256*cKB, c64KB),                superbin_t(147, 1*cMB + 384*cKB, c64KB),      //
+                superbin_t(148, 1*cMB + 512*cKB, c64KB),                superbin_t(149, 1*cMB + 640*cKB, c64KB),      //
+                superbin_t(150, 1*cMB + 768*cKB, c64KB),                superbin_t(151, 1*cMB + 896*cKB, c64KB),      //
+                superbin_t(152, 2*cMB, c64KB),                          superbin_t(153, 2*cMB + 256*cKB, c64KB),      //
+                superbin_t(154, 2*cMB + 512*cKB, c64KB),                superbin_t(155, 2*cMB + 768*cKB, c64KB),      //
+                superbin_t(156, 3*cMB, c64KB),                          superbin_t(157, 3*cMB + 256*cKB, c64KB),      //
+                superbin_t(158, 3*cMB + 512*cKB, c64KB),                superbin_t(159, 3*cMB + 768*cKB, c64KB),      //
+                superbin_t(160, 4*cMB, c64KB),                          superbin_t(161, 4*cMB + 512*cKB, c64KB),      //
+                superbin_t(162, 5*cMB, c64KB),                          superbin_t(163, 5*cMB + 512*cKB, c64KB),      //
+                superbin_t(164, 6*cMB, c64KB),                          superbin_t(165, 6*cMB + 512*cKB, c64KB),      //
+                superbin_t(166, 7*cMB, c64KB),                          superbin_t(167, 7*cMB + 512*cKB, c64KB),      //
+                superbin_t(168, 8*cMB, c64KB),                          superbin_t(169, 9*cMB, c64KB),                //
+                superbin_t(170, 10*cKB, c64KB),                         superbin_t(171, 11*cMB, c64KB),               //
+                superbin_t(172, 12*cMB, c64KB),                         superbin_t(173, 13*cMB, c64KB),               //
+                superbin_t(174, 14*cMB, c64KB),                         superbin_t(175, 15*cMB, c64KB),               //
+                superbin_t(176, 16*cMB, c64KB),                         superbin_t(177, 18*cMB, c64KB),               //
+                superbin_t(178, 20*cKB, c64KB),                         superbin_t(179, 22*cMB, c64KB),               //
+                superbin_t(180, 24*cMB, c64KB),                         superbin_t(181, 26*cMB, c64KB),               //
+                superbin_t(182, 28*cMB, c64KB),                         superbin_t(183, 30*cKB, c64KB),               //
+                superbin_t(184, 32*cMB, c64KB),                         superbin_t(185, 36*cMB, c64KB),               //
+                superbin_t(186, 40*cKB, c64KB),                         superbin_t(187, 44*cMB, c64KB),               //
+                superbin_t(188, 48*cMB, c64KB),                         superbin_t(189, 52*cMB, c64KB),               //
+                superbin_t(190, 56*cMB, c64KB),                         superbin_t(191, 60*cKB, c64KB),               //
+                superbin_t(192, 64*cMB, c64KB),                         superbin_t(193, 72*cMB, c64KB),               //
+                superbin_t(194, 80*cKB, c64KB),                         superbin_t(195, 88*cMB, c64KB),               //
+                superbin_t(196, 96*cMB, c64KB),                         superbin_t(197, 104*cMB, c64KB),              //
+                superbin_t(198, 112*cMB, c64KB),                        superbin_t(199, 120*cKB, c64KB),              //
+                superbin_t(200, 128*cMB, c64KB),                        superbin_t(201, 144*cMB, c64KB),              //
+                superbin_t(202, 160*cKB, c64KB),                        superbin_t(203, 176*cMB, c64KB),              //
+                superbin_t(204, 192*cMB, c64KB),                        superbin_t(205, 208*cMB, c64KB),              //
+                superbin_t(206, 224*cMB, c64KB),                        superbin_t(207, 240*cKB, c64KB),              //
+                superbin_t(208, 256*cMB, c64KB),                        superbin_t(209, 288*cMB, c64KB),              //
+                superbin_t(210, 320*cKB, c64KB),                        superbin_t(211, 352*cMB, c64KB),              //
+                superbin_t(212, 384*cMB, c64KB),                        superbin_t(213, 416*cMB, c64KB),              //
+                superbin_t(214, 448*cMB, c64KB),                        superbin_t(215, 480*cKB, c64KB),              //
+            };
+            // clang-format on
+
             const u32 c_page_size                   = 4096;  // Windows OS page size
             const u64 c_total_address_space         = 128 * cGB;
             const u64 c_segment_address_range       = 1 * cGB;
@@ -1450,10 +1452,20 @@ namespace ncore
             const u32 c_internal_fsa_address_range  = 256 * cMB;
             const u32 c_internal_fsa_segment_size   = 8 * cMB;
             const u32 c_internal_fsa_pre_size       = 16 * cMB;
-            return superallocator_config_t(c_total_address_space, c_segment_address_range, c_num_bins, c_asbins, c_internal_heap_address_range, c_internal_heap_pre_size, c_internal_fsa_address_range, c_internal_fsa_segment_size, c_internal_fsa_pre_size);
+
+            m_total_address_size          = c_total_address_space;
+            m_segment_address_range       = c_segment_address_range;
+            m_num_superbins               = c_num_bins;
+            m_asuperbins                  = c_asbins;
+            m_internal_heap_address_range = c_internal_heap_address_range;
+            m_internal_heap_pre_size      = c_internal_heap_pre_size;
+            m_internal_fsa_address_range  = c_internal_fsa_address_range;
+            m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+            m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+            m_segment_address_range_shift = math::ilog2(c_segment_address_range);
         }
 
-        static inline s32 size2bin(u32 size)
+        s32 size2bin(u32 size) const override final
         {
             s32 w = math::countLeadingZeros(size);
             u32 f = (u32)0x80000000 >> w;
@@ -1463,29 +1475,23 @@ namespace ncore
             int i = (int)((size & r) >> (28 - w)) + ((28 - w) * 8);
             return i;
         }
-
-    };  // namespace superallocator_config_windows_desktop_app_10p_t
-
-    namespace superallocator_config = superallocator_config_windows_desktop_app_10p_t;
-    // namespace superallocator_config = superallocator_config_windows_desktop_app_25p_t;
+    };
 
     class superalloc_t : public valloc_t
     {
     public:
-        u32                 m_num_superbins;
-        superbin_t const*   m_asuperbins;
-        vmem_t*             m_vmem;
-        void*               m_vmem_membase;
-        nsuperheap::alloc_t m_internal_heap;
-        nsuperfsa::alloc_t  m_internal_fsa;
-        superspace_t*       m_superspace;
-        lldata_t            m_chunk_list_data;
-        llhead_t*           m_active_chunk_list_per_alloc_size;
-        alloc_t*            m_main_allocator;
+        superallocator_config_t const* m_config;
+        vmem_t*                        m_vmem;
+        void*                          m_vmem_membase;
+        nsuperheap::alloc_t            m_internal_heap;
+        nsuperfsa::alloc_t             m_internal_fsa;
+        superspace_t*                  m_superspace;
+        lldata_t                       m_chunk_list_data;
+        llhead_t*                      m_active_chunk_list_per_alloc_size;
+        alloc_t*                       m_main_allocator;
 
         superalloc_t(alloc_t* main_allocator)
-            : m_num_superbins(0)
-            , m_asuperbins(nullptr)
+            : m_config(nullptr)
             , m_vmem(nullptr)
             , m_internal_heap()
             , m_internal_fsa()
@@ -1498,7 +1504,7 @@ namespace ncore
 
         DCORE_CLASS_PLACEMENT_NEW_DELETE
 
-        void initialize(vmem_t* vmem, superallocator_config_t const& config);
+        void initialize(vmem_t* vmem, superallocator_config_t const* config);
         void deinitialize();
 
         void* v_allocate(u32 size, u32 alignment);
@@ -1509,42 +1515,40 @@ namespace ncore
         u32   v_get_tag(void* ptr) const;
     };
 
-    void superalloc_t::initialize(vmem_t* vmem, superallocator_config_t const& config)
+    void superalloc_t::initialize(vmem_t* vmem, superallocator_config_t const* config)
     {
-        m_num_superbins = config.m_num_superbins;
-        m_asuperbins    = config.m_asuperbins;
-        m_vmem          = vmem;
+        m_config = config;
+        m_vmem   = vmem;
 
-        m_internal_heap.initialize(m_vmem, config.m_internal_heap_address_range, config.m_internal_heap_pre_size);
-        m_internal_fsa.initialize(&m_internal_heap, m_vmem, config.m_internal_fsa_address_range, config.m_internal_fsa_segment_size);
+        m_internal_heap.initialize(m_vmem, config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
+        m_internal_fsa.initialize(&m_internal_heap, m_vmem, config->m_internal_fsa_address_range, config->m_internal_fsa_segment_size);
 
 #ifdef SUPERALLOC_DEBUG
         // sanity check on the superbin_t config
-        for (u32 s = 0; s < config.m_num_superbins; s++)
+        for (u32 s = 0; s < config->m_num_superbins; s++)
         {
-            u32 const rs            = config.m_asuperbins[s].m_alloc_bin_index;
-            u32 const size          = config.m_asuperbins[rs].m_alloc_size;
-            u32 const bin_index     = superallocator_config::size2bin(size);
-            u32 const bin_reindex   = config.m_asuperbins[bin_index].m_alloc_bin_index;
-            u32 const bin_allocsize = config.m_asuperbins[bin_reindex].m_alloc_size;
+            u32 const rs            = config->m_asuperbins[s].m_alloc_bin_index;
+            u32 const size          = config->m_asuperbins[rs].m_alloc_size;
+            u32 const bin_index     = config->size2bin(size);
+            u32 const bin_reindex   = config->m_asuperbins[bin_index].m_alloc_bin_index;
+            u32 const bin_allocsize = config->m_asuperbins[bin_reindex].m_alloc_size;
             ASSERT(size <= bin_allocsize);
         }
 #endif
 
         m_superspace = (superspace_t*)m_internal_heap.calloc(sizeof(superspace_t));
-        m_superspace->initialize(vmem, config.m_total_address_size, config.m_segment_address_range_shift, &m_internal_heap, &m_internal_fsa, config.m_num_superbins, config.m_asuperbins, cNumChunkConfigs, cChunkInfoArray);
+        m_superspace->initialize(vmem, config->m_total_address_size, config->m_segment_address_range_shift, &m_internal_heap, &m_internal_fsa, config->m_num_superbins, config->m_asuperbins, cNumChunkConfigs, cChunkInfoArray);
 
         m_chunk_list_data.m_data           = m_internal_fsa.base_address();
         m_chunk_list_data.m_itemsize       = sizeof(superspace_t::chunk_t);
-        m_active_chunk_list_per_alloc_size = (llhead_t*)m_internal_heap.alloc(config.m_num_superbins * sizeof(llhead_t));
-        for (u32 i = 0; i < config.m_num_superbins; i++)
+        m_active_chunk_list_per_alloc_size = (llhead_t*)m_internal_heap.alloc(config->m_num_superbins * sizeof(llhead_t));
+        for (u32 i = 0; i < config->m_num_superbins; i++)
             m_active_chunk_list_per_alloc_size[i].reset();
     }
 
     void superalloc_t::deinitialize()
     {
-        m_num_superbins = 0;
-        m_asuperbins    = nullptr;
+        m_config = nullptr;
         m_internal_fsa.deinitialize(&m_internal_heap);
         m_internal_heap.deinitialize();
         m_superspace     = nullptr;
@@ -1556,8 +1560,8 @@ namespace ncore
     void* superalloc_t::v_allocate(u32 alloc_size, u32 alignment)
     {
         alloc_size                  = math::alignUp(alloc_size, alignment);
-        u32 const         sbinindex = m_asuperbins[superallocator_config::size2bin(alloc_size)].m_alloc_bin_index;
-        superbin_t const& bin       = m_asuperbins[sbinindex];
+        u32 const         sbinindex = m_config->m_asuperbins[m_config->size2bin(alloc_size)].m_alloc_bin_index;
+        superbin_t const& bin       = m_config->m_asuperbins[sbinindex];
         ASSERT(bin.m_alloc_bin_index == sbinindex);
         ASSERT(alloc_size <= bin.m_alloc_size);
 
@@ -1628,7 +1632,7 @@ namespace ncore
 
         ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
         superspace_t::chunk_t* chunk = m_superspace->address_to_chunk(ptr);
-        superbin_t const&      bin   = m_asuperbins[chunk->m_bin_index];
+        superbin_t const&      bin   = m_config->m_asuperbins[chunk->m_bin_index];
 
         u32 alloc_size;
         if (bin.use_binmap())
@@ -1680,7 +1684,7 @@ namespace ncore
             return 0;
         ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
         superspace_t::chunk_t* chunk = m_superspace->address_to_chunk(ptr);
-        superbin_t const&      bin   = m_asuperbins[chunk->m_bin_index];
+        superbin_t const&      bin   = m_config->m_asuperbins[chunk->m_bin_index];
         if (bin.use_binmap())
         {
             return bin.m_alloc_size;
@@ -1694,20 +1698,23 @@ namespace ncore
     void superalloc_t::v_set_tag(void* ptr, u32 assoc)
     {
         if (ptr != nullptr)
-            m_superspace->set_tag(ptr, assoc, m_num_superbins, m_asuperbins);
+            m_superspace->set_tag(ptr, assoc, m_config->m_num_superbins, m_config->m_asuperbins);
     }
 
     u32 superalloc_t::v_get_tag(void* ptr) const
     {
         if (ptr == nullptr)
             return 0xffffffff;
-        return m_superspace->get_tag(ptr, m_num_superbins, m_asuperbins);
+        return m_superspace->get_tag(ptr, m_config->m_num_superbins, m_config->m_asuperbins);
     }
 
     valloc_t* gCreateVmAllocator(alloc_t* main_heap, vmem_t* vmem)
     {
+        static superallocator_config_windows_desktop_app_25p_t config;
+        // static superallocator_config_windows_desktop_app_10p_t config;
+
         superalloc_t* superalloc = main_heap->construct<superalloc_t>(main_heap);
-        superalloc->initialize(vmem, superallocator_config::get_config());
+        superalloc->initialize(vmem, &config);
         return superalloc;
     }
 
