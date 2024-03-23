@@ -29,10 +29,7 @@ public:
 
     void init(alloc_t* allocator, vmem_t* vmem) 
     { 
-        vmem->initialize();
-
         mAllocator = gCreateVmAllocator(allocator, vmem);
-   
     }
 
     virtual void* v_allocate(u32 size, u32 alignment)
@@ -52,7 +49,9 @@ public:
 
     virtual void v_release()
     {
-        mAllocator->release();
+        if (mAllocator == nullptr)
+            return;
+        gDestroyVmAllocator(mAllocator);
         mAllocator = nullptr;
     }
 };
@@ -61,20 +60,34 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 {
     UNITTEST_FIXTURE(main)
     {
-        alloc_with_stats_t s_alloc;
         UNITTEST_ALLOCATOR;
 
         UNITTEST_FIXTURE_SETUP()
         {
-            s_alloc.init(Allocator, vmem);
+            vmem->initialize();
         }
 
         UNITTEST_FIXTURE_TEARDOWN()
 		{
 		}
 
-        UNITTEST_TEST(init)
+        UNITTEST_TEST(init_release)
         {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator, vmem);
+            s_alloc.release();
+        }
+
+
+        UNITTEST_TEST(init_alloc1_dealloc_release)
+        {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator, vmem);
+
+            void* ptr = s_alloc.allocate(10);
+            s_alloc.deallocate(ptr);
+
+            s_alloc.release();
         }
     }
 }
