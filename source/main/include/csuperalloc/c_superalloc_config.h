@@ -39,7 +39,7 @@ namespace ncore
         {
         }
 
-        virtual s32 size2bin(u32 size) const = 0;
+        virtual binconfig_t const& size2bin(u32 size) const = 0;
 
         u64                  m_total_address_size;
         u64                  m_segment_address_range;
@@ -51,7 +51,7 @@ namespace ncore
         u32                  m_internal_fsa_pre_size;
         u32                  m_num_binconfigs;
         u32                  m_num_chunkconfigs;
-        binconfig_t const*    m_abinconfigs;
+        binconfig_t const*   m_abinconfigs;
         chunkconfig_t const* m_achunkconfigs;
     };
 

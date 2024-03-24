@@ -14,8 +14,8 @@ making it very suitable for different kind of memory (read-only, GPU etc..).
 It only uses the following data structures:
 
 * plain old c style arrays
+* binmap; 4 layer bit array (maximum of 2^20 items)
 * doubly linked list
-* binmap; 3 layer bit array
 
 ```c++
 class valloc_t
@@ -34,7 +34,7 @@ public:
 
 Note: Benchmarks are still to be done.  
 Note: A large running test (60 million alloc/free operations) was done without crashing, so this 
-      version is the first release candidate.
+      version is the first release candidate. (Needs to be rerun with the latest version)
 
 ## WIP
 

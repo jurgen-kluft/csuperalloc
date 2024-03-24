@@ -10,6 +10,8 @@
 
 namespace ncore
 {
+#define SUPERALLOC_DEBUG
+
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.
@@ -34,12 +36,12 @@ namespace ncore
     static const chunkconfig_t c_achunkconfigs[]  = {c4KB, c16KB, c32KB, c64KB, c128KB, c256KB, c512KB, c1MB, c2MB, c4MB, c8MB, c16MB, c32MB, c64MB, c128MB, c256MB, c512MB};
     static const u32           c_num_chunkconfigs = sizeof(c_achunkconfigs) / sizeof(chunkconfig_t);
 
-    static void initialize(binconfig_t& bin, u8 binidx, u32 allocsize, chunkconfig_t chunkconfig)
+    static void initialize(binconfig_t& bin, binconfig_t const& src)
     {
-        bin.m_alloc_size      = allocsize;
-        bin.m_chunk_config    = chunkconfig;
-        bin.m_alloc_bin_index = binidx;
-        bin.m_max_alloc_count = (u16)(((u32)1 << chunkconfig.m_chunk_size_shift) / allocsize);
+        bin.m_alloc_size      = src.m_alloc_size;
+        bin.m_chunk_config    = src.m_chunk_config;
+        bin.m_alloc_bin_index = src.m_alloc_bin_index;
+        bin.m_max_alloc_count = (u16)(((u32)1 << bin.m_chunk_config.m_chunk_size_shift) / bin.m_alloc_size);
     }
 
     // clang-format off
@@ -74,18 +76,18 @@ namespace ncore
         {50,  12 * cKB, c128KB},                   {51,  14*cKB, c128KB},                    //
         {52,  16 * cKB, c128KB},                   {53,  20*cKB, c128KB},                    //
         {54,  24 * cKB, c128KB},                   {55,  28*cKB, c128KB},                    //
-        {56,  32 * cKB, c128KB},                   {57,  40*cKB, c128KB},                    //
-        {58,  48 * cKB, c128KB},                   {59,  56*cKB, c128KB},                    //
-        {60,  64 * cKB, c128KB},                   {61,  80*cKB, c128KB},                    //
-        {62,  96 * cKB, c128KB},                   {63,  112*cKB, c512KB},                   //
-        {64, 128 * cKB, c512KB},                   {65,  160*cKB, c512KB},                   //
-        {66, 192 * cKB, c512KB},                   {67,  224*cKB, c1MB},                     //
-        {68, 256 * cKB, c512KB},                   {69,  320*cKB, c1MB},                     //
-        {70, 384 * cKB, c1MB},                     {71,  448*cKB, c1MB},                     //
-        {72, 512 * cKB, c1MB},                     {73,  640*cKB, c1MB},                     //
-        {74, 768 * cKB, c1MB},                     {75,  896*cKB, c1MB},                     //
-        {76,   1 * cMB, c1MB},                     {77, 1*cMB + 256*cKB, c2MB},              //
-        {78,   1 * cMB + 512 * cKB, c2MB},         {79, 1*cMB + 768*cKB, c2MB},              //
+        {56,  32 * cKB, c128KB},                   {57,  40*cKB, c512KB},                    //
+        {58,  48 * cKB, c512KB},                   {59,  56*cKB, c512KB},                    //
+        {60,  64 * cKB, c512KB},                   {61,  80*cKB, c512KB},                    //
+        {62,  96 * cKB, c512KB},                   {63,  112*cKB, c512KB},                   //
+        {64, 128 * cKB, c512KB},                   {65,  160*cKB, c1MB},                     //
+        {66, 192 * cKB, c1MB},                     {67,  224*cKB, c1MB},                     //
+        {68, 256 * cKB, c1MB},                     {69,  320*cKB, c1MB},                     //
+        {70, 384 * cKB, c2MB},                     {71,  448*cKB, c2MB},                     //
+        {72, 512 * cKB, c2MB},                     {73,  640*cKB, c8MB},                     //
+        {74, 768 * cKB, c8MB},                     {75,  896*cKB, c8MB},                     //
+        {76,   1 * cMB, c8MB},                     {77, 1*cMB + 256*cKB, c8MB},              //
+        {78,   1 * cMB + 512 * cKB, c8MB},         {79, 1*cMB + 768*cKB, c8MB},              //
         {80,   2 * cMB, c32MB},                    {81, 2*cMB + 512*cKB, c32MB},             //
         {82,   3 * cMB, c32MB},                    {83, 3*cMB + 512*cKB, c32MB},             //
         {84,   4 * cMB, c32MB},                    {85, 5*cMB, c32MB},                       //
@@ -106,48 +108,68 @@ namespace ncore
     // clang-format on
 
     // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
-    // 25% allocation waste (based on empirical data)
+    // 25% allocation waste (based on empirical data), however based on the allocation behaviour of the application, the waste can
+    // be a lot more or a lot less than 25%.
     class superalloc_config_windows_desktop_app_25p_t : public superalloc_config_t
     {
     public:
-        s32 size2bin(u32 size) const override final
+        binconfig_t const& size2bin(u32 alloc_size) const override final
         {
-            const s32 w = math::countLeadingZeros(size);
+            const s32 w = math::countLeadingZeros(alloc_size);
             const u32 f = (u32)0x80000000 >> w;
             const u32 r = 0xFFFFFFFF << (29 - w);
             const u32 t = ((f - 1) >> 2);
-            size        = (size + t) & ~t;
-            const int i = (int)((size & r) >> (29 - w)) + ((29 - w) * 4);
-            return i;
+            alloc_size  = (alloc_size + t) & ~t;
+            int i       = (int)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
+            i           = m_abinconfigs_25p[i].m_alloc_bin_index;
+            ASSERT(alloc_size <= m_abinconfigs_25p[i].m_alloc_size);
+            return m_abinconfigs_25p[i];
         }
+
+        binconfig_t m_abinconfigs_25p[c_num_binconfigs_25p];
     };
 
     static superalloc_config_windows_desktop_app_25p_t s_config_25p;
 
     superalloc_config_t const* gGetSuperAllocConfigWindowsDesktopApp25p()
     {
-        static const u32 c_page_size                   = 4096;  // Windows OS page size
-        static const u64 c_total_address_space         = 128 * cGB;
-        static const u64 c_segment_address_range       = 1 * cGB;
-        static const u32 c_internal_heap_address_range = 16 * cMB;
-        static const u32 c_internal_heap_pre_size      = 2 * cMB;
-        static const u32 c_internal_fsa_address_range  = 256 * cMB;
-        static const u32 c_internal_fsa_segment_size   = 8 * cMB;
-        static const u32 c_internal_fsa_pre_size       = 16 * cMB;
+        const u32 c_page_size                   = 4096;  // Windows OS page size
+        const u64 c_total_address_space         = 128 * cGB;
+        const u64 c_segment_address_range       = 1 * cGB;
+        const u32 c_internal_heap_address_range = 16 * cMB;
+        const u32 c_internal_heap_pre_size      = 2 * cMB;
+        const u32 c_internal_fsa_address_range  = 256 * cMB;
+        const u32 c_internal_fsa_segment_size   = 8 * cMB;
+        const u32 c_internal_fsa_pre_size       = 16 * cMB;
 
-        s_config_25p.m_total_address_size          = c_total_address_space;
-        s_config_25p.m_segment_address_range       = c_segment_address_range;
-        s_config_25p.m_internal_heap_address_range = c_internal_heap_address_range;
-        s_config_25p.m_internal_heap_pre_size      = c_internal_heap_pre_size;
-        s_config_25p.m_internal_fsa_address_range  = c_internal_fsa_address_range;
-        s_config_25p.m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
-        s_config_25p.m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
-        s_config_25p.m_segment_address_range_shift = math::ilog2(c_segment_address_range);
-        s_config_25p.m_num_binconfigs              = c_num_binconfigs_25p;
-        s_config_25p.m_num_chunkconfigs            = c_num_chunkconfigs;
-        s_config_25p.m_abinconfigs                 = c_abinconfigs_25p;
-        s_config_25p.m_achunkconfigs               = c_achunkconfigs;
-        return &s_config_25p;
+        superalloc_config_windows_desktop_app_25p_t* config = &s_config_25p;
+
+        config->m_total_address_size          = c_total_address_space;
+        config->m_segment_address_range       = c_segment_address_range;
+        config->m_internal_heap_address_range = c_internal_heap_address_range;
+        config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
+        config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
+        config->m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+        config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+        config->m_segment_address_range_shift = math::ilog2(c_segment_address_range);
+        config->m_num_binconfigs              = c_num_binconfigs_25p;
+        config->m_num_chunkconfigs            = c_num_chunkconfigs;
+        config->m_abinconfigs                 = config->m_abinconfigs_25p;
+        config->m_achunkconfigs               = c_achunkconfigs;
+        for (u32 s = 0; s < config->m_num_binconfigs; s++)
+            initialize(config->m_abinconfigs_25p[s], c_abinconfigs_25p[s]);
+
+#ifdef SUPERALLOC_DEBUG
+        // sanity check on the binconfig_t config
+        for (u32 s = 0; s < config->m_num_binconfigs; s++)
+        {
+            u32 const          rs   = config->m_abinconfigs[s].m_alloc_bin_index;
+            u32 const          size = config->m_abinconfigs[rs].m_alloc_size;
+            binconfig_t const& bin  = config->size2bin(size);
+            ASSERT(size <= bin.m_alloc_size);
+        }
+#endif
+        return config;
     }
 
     // clang-format off
@@ -266,21 +288,27 @@ namespace ncore
     // clang-format on
 
     // Note: It is preferable to analyze the memory usage of the application and adjust the superallocator configuration accordingly
-    // 10% allocation waste (based on empirical data)
+    // 10% allocation waste (based on empirical data), however based on the allocation behaviour of the application, the waste can
+    // be a lot more or a lot less than 10%.
     class superalloc_config_windows_desktop_app_10p_t : public superalloc_config_t
     {
     public:
-        s32 size2bin(u32 size) const override final
+        binconfig_t const& size2bin(u32 alloc_size) const override final
         {
-            s32 w = math::countLeadingZeros(size);
-            u32 f = (u32)0x80000000 >> w;
-            u32 r = 0xFFFFFFFF << (28 - w);
-            u32 t = ((f - 1) >> 3);
-            size  = (size + t) & ~t;
-            int i = (int)((size & r) >> (28 - w)) + ((28 - w) * 8);
-            return i;
+            const s32 w = math::countLeadingZeros(alloc_size);
+            const u32 f = (u32)0x80000000 >> w;
+            const u32 r = 0xFFFFFFFF << (28 - w);
+            const u32 t = ((f - 1) >> 3);
+            alloc_size  = (alloc_size + t) & ~t;
+            int i       = (int)((alloc_size & r) >> (28 - w)) + ((28 - w) * 8);
+            i           = m_abinconfigs[i].m_alloc_bin_index;
+            ASSERT(alloc_size <= m_abinconfigs[i].m_alloc_size);
+            return m_abinconfigs[i];
         }
+
+        binconfig_t m_abinconfigs_10p[c_num_binconfigs_10p];
     };
+
     static superalloc_config_windows_desktop_app_10p_t s_config_10p;
 
     superalloc_config_t const* gGetSuperAllocConfigWindowsDesktopApp10p()
@@ -293,20 +321,34 @@ namespace ncore
         const u32 c_internal_fsa_segment_size   = 8 * cMB;
         const u32 c_internal_fsa_pre_size       = 16 * cMB;
 
-        s_config_10p.m_total_address_size          = c_total_address_space;
-        s_config_10p.m_segment_address_range       = c_segment_address_range;
-        s_config_10p.m_internal_heap_address_range = c_internal_heap_address_range;
-        s_config_10p.m_internal_heap_pre_size      = c_internal_heap_pre_size;
-        s_config_10p.m_internal_fsa_address_range  = c_internal_fsa_address_range;
-        s_config_10p.m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
-        s_config_10p.m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
-        s_config_10p.m_segment_address_range_shift = math::ilog2(c_segment_address_range);
-        s_config_10p.m_num_binconfigs              = c_num_binconfigs_10p;
-        s_config_10p.m_num_chunkconfigs            = c_num_chunkconfigs;
-        s_config_10p.m_abinconfigs                 = c_abinconfigs_10p;
-        s_config_10p.m_achunkconfigs               = c_achunkconfigs;
+        superalloc_config_windows_desktop_app_10p_t* config = &s_config_10p;
 
-        return &s_config_10p;
+        config->m_total_address_size          = c_total_address_space;
+        config->m_segment_address_range       = c_segment_address_range;
+        config->m_internal_heap_address_range = c_internal_heap_address_range;
+        config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
+        config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
+        config->m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+        config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+        config->m_segment_address_range_shift = math::ilog2(c_segment_address_range);
+        config->m_num_binconfigs              = c_num_binconfigs_10p;
+        config->m_num_chunkconfigs            = c_num_chunkconfigs;
+        config->m_abinconfigs                 = config->m_abinconfigs_10p;
+        config->m_achunkconfigs               = c_achunkconfigs;
+        for (u32 s = 0; s < config->m_num_binconfigs; s++)
+            initialize(config->m_abinconfigs_10p[s], c_abinconfigs_25p[s]);
+
+#ifdef SUPERALLOC_DEBUG
+        // sanity check on the binconfig_t config
+        for (u32 s = 0; s < config->m_num_binconfigs; s++)
+        {
+            u32 const          rs   = config->m_abinconfigs[s].m_alloc_bin_index;
+            u32 const          size = config->m_abinconfigs[rs].m_alloc_size;
+            binconfig_t const& bin  = config->size2bin(size);
+            ASSERT(size <= bin.m_alloc_size);
+        }
+#endif
+        return config;
     }
 
 }  // namespace ncore
