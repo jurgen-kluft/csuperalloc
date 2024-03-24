@@ -23,7 +23,7 @@ public:
 
 dexer_t* gCreateList(alloc_t* alloc, u32 count, lldata_t& lldata)
 {
-    list_dexer_t* list = new (alloc) list_dexer_t();
+    list_dexer_t* list = alloc->construct<list_dexer_t>();
     lldata.m_dexer     = list;
     return list;
 }
@@ -34,10 +34,10 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 {
     UNITTEST_FIXTURE(main)
     {
+        UNITTEST_ALLOCATOR;
+
         UNITTEST_FIXTURE_SETUP() {}
         UNITTEST_FIXTURE_TEARDOWN() {}
-
-        UNITTEST_ALLOCATOR;
 
         UNITTEST_TEST(init)
         {

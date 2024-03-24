@@ -3,6 +3,7 @@
 #include "cbase/c_memory.h"
 
 #include "csuperalloc/private/c_binmap.h"
+#include "csuperalloc/test_allocator.h"
 
 #include "cunittest/cunittest.h"
 
@@ -12,6 +13,8 @@ UNITTEST_SUITE_BEGIN(binmap)
 {
     UNITTEST_FIXTURE(main)
     {
+        UNITTEST_ALLOCATOR;
+
         UNITTEST_FIXTURE_SETUP() {}
         UNITTEST_FIXTURE_TEARDOWN() {}
 
@@ -21,9 +24,9 @@ UNITTEST_SUITE_BEGIN(binmap)
             u32 const len = 32 * 32 * 32 * 32;
             binmap_t::compute_levels(len, l0len, l1len, l2len, l3len);
 
-            u32* l1 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l1len+31) >> 5));
-            u32* l2 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l2len+31) >> 5));
-            u32* l3 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l3len+31) >> 5));
+            u32* l1 = (u32*)Allocator->allocate(sizeof(u32) * ((l1len+31) >> 5));
+            u32* l2 = (u32*)Allocator->allocate(sizeof(u32) * ((l2len+31) >> 5));
+            u32* l3 = (u32*)Allocator->allocate(sizeof(u32) * ((l3len+31) >> 5));
             nmem::memclr(l1, sizeof(u32) * ((l1len+31) >> 5));
             nmem::memclr(l2, sizeof(u32) * ((l2len+31) >> 5));
             nmem::memclr(l3, sizeof(u32) * ((l3len+31) >> 5));
@@ -55,9 +58,9 @@ UNITTEST_SUITE_BEGIN(binmap)
                 CHECK_EQUAL(-1, f);
             }
 
-            TestAllocator->Deallocate(l1);
-            TestAllocator->Deallocate(l2);
-            TestAllocator->Deallocate(l3);
+            Allocator->deallocate(l1);
+            Allocator->deallocate(l2);
+            Allocator->deallocate(l3);
         }
 
         UNITTEST_TEST(lazy_init)
@@ -66,9 +69,9 @@ UNITTEST_SUITE_BEGIN(binmap)
             u32 const len = 32 * 32 * 32 * 32;
             binmap_t::compute_levels(len, l0len, l1len, l2len, l3len);
 
-            u32* l1 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l1len + 31) >> 5));
-            u32* l2 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l2len + 31) >> 5));
-            u32* l3 = (u32*)TestAllocator->Allocate(sizeof(u32) * ((l3len + 31) >> 5));
+            u32* l1 = (u32*)Allocator->allocate(sizeof(u32) * ((l1len + 31) >> 5));
+            u32* l2 = (u32*)Allocator->allocate(sizeof(u32) * ((l2len + 31) >> 5));
+            u32* l3 = (u32*)Allocator->allocate(sizeof(u32) * ((l3len + 31) >> 5));
             nmem::memclr(l1, sizeof(u32) * ((l1len + 31) >> 5));
             nmem::memclr(l2, sizeof(u32) * ((l2len + 31) >> 5));
             nmem::memclr(l3, sizeof(u32) * ((l3len + 31) >> 5));
@@ -109,9 +112,9 @@ UNITTEST_SUITE_BEGIN(binmap)
                 CHECK_EQUAL(-1, f);
             }
 
-            TestAllocator->Deallocate(l1);
-            TestAllocator->Deallocate(l2);
-            TestAllocator->Deallocate(l3);
+            Allocator->deallocate(l1);
+            Allocator->deallocate(l2);
+            Allocator->deallocate(l3);
         }
     }
 }

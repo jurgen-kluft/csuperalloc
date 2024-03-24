@@ -2,7 +2,7 @@
 #define __TEST_ALLOCATOR_H__
 #include "ccore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
-#pragma once
+#    pragma once
 #endif
 
 #include "ccore/c_allocator.h"
@@ -22,8 +22,8 @@ public:
     virtual void       v_release() {}
 };
 
-#define UNITTEST_ALLOCATOR                         \
-    static test_alloc_t TestAlloc(&TestAllocator); \
-    static alloc_t*     Allocator = &TestAlloc
+#define UNITTEST_ALLOCATOR                     \
+    test_alloc_t TestAlloc(&FixtureAllocator); \
+    alloc_t*     Allocator = &TestAlloc
 
-#endif // __TEST_ALLOCATOR_H__
+#endif  // __TEST_ALLOCATOR_H__

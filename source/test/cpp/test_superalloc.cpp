@@ -12,10 +12,10 @@ using namespace ncore;
 class alloc_with_stats_t : public alloc_t
 {
     valloc_t* mAllocator;
-    u32     mNumAllocs;
-    u32     mNumDeallocs;
-    u64     mMemoryAllocated;
-    u64     mMemoryDeallocated;
+    u32       mNumAllocs;
+    u32       mNumDeallocs;
+    u64       mMemoryAllocated;
+    u64       mMemoryDeallocated;
 
 public:
     alloc_with_stats_t()
@@ -27,10 +27,7 @@ public:
         mMemoryDeallocated = 0;
     }
 
-    void init(alloc_t* allocator, vmem_t* vmem) 
-    { 
-        mAllocator = gCreateVmAllocator(allocator, vmem);
-    }
+    void init(alloc_t* allocator) { mAllocator = gCreateVmAllocator(allocator); }
 
     virtual void* v_allocate(u32 size, u32 alignment)
     {
@@ -46,6 +43,10 @@ public:
         mMemoryDeallocated += size;
         return size;
     }
+
+    inline u32  get_size(void* mem) const { return mAllocator->get_size(mem); }
+    inline void set_tag(void* mem, u32 tag) { mAllocator->set_tag(mem, tag); }
+    inline u32  get_tag(void* mem) const { return mAllocator->get_tag(mem); }
 
     virtual void v_release()
     {
@@ -64,27 +65,43 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 
         UNITTEST_FIXTURE_SETUP()
         {
-            vmem->initialize();
+            // Initialize virtual memory
+            ncore::vmem_t::initialize();
         }
 
-        UNITTEST_FIXTURE_TEARDOWN()
-		{
-		}
+        UNITTEST_FIXTURE_TEARDOWN() {}
 
         UNITTEST_TEST(init_release)
         {
             alloc_with_stats_t s_alloc;
-            s_alloc.init(Allocator, vmem);
+            void* mem = Allocator->allocate(100);
+            Allocator->deallocate(mem);
+            s_alloc.init(Allocator);
             s_alloc.release();
         }
-
 
         UNITTEST_TEST(init_alloc1_dealloc_release)
         {
             alloc_with_stats_t s_alloc;
-            s_alloc.init(Allocator, vmem);
+            s_alloc.init(Allocator);
+
+            void* ptr  = s_alloc.allocate(10);
+            u32   size = s_alloc.get_size(ptr);
+            CHECK_EQUAL(16, size);
+            s_alloc.deallocate(ptr);
+
+            s_alloc.release();
+        }
+
+        UNITTEST_TEST(init_alloc_tag_dealloc_release)
+        {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator);
 
             void* ptr = s_alloc.allocate(10);
+            s_alloc.set_tag(ptr, 0x12345678);
+            u32 tag = s_alloc.get_tag(ptr);
+            CHECK_EQUAL(0x12345678, tag);
             s_alloc.deallocate(ptr);
 
             s_alloc.release();
