@@ -8,15 +8,30 @@
 
 using namespace ncore;
 
-llnode_t* gCreateList(alloc_t* alloc, u32 count, lldata_t& lldata)
+class list_dexer_t : public dexer_t
 {
-	llnode_t* list = (llnode_t*)alloc->allocate(sizeof(llnode_t) * count);
-	lldata.m_data = list;
+public:
+	list_dexer_t()
+	{
+	}
+
+	virtual void* v_idx2ptr(u32 i) const { return &m_data[i]; }
+	virtual u32 v_ptr2idx(void* obj) const { return (llindex_t)((llnode_t*)obj - m_data); }
+
+	DCORE_CLASS_PLACEMENT_NEW_DELETE
+
+	mutable llnode_t m_data[1024];
+};
+
+dexer_t* gCreateList(alloc_t* alloc, u32 count, lldata_t& lldata)
+{
+	list_dexer_t* list = new(alloc) list_dexer_t();
+	lldata.m_dexer = list;
 	lldata.m_itemsize = sizeof(llnode_t);
 	return list;
 }
 
-void gDestroyList(alloc_t* alloc, llnode_t* list)
+void gDestroyList(alloc_t* alloc, dexer_t* list)
 {
 	alloc->deallocate(list);
 }
@@ -33,7 +48,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(init) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -46,7 +61,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(insert_1) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -69,7 +84,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(insert_1_remove_head) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -97,7 +112,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(insert_N_remove_head) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -132,7 +147,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(insert_N_remove_tail) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());
@@ -167,7 +182,7 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
         UNITTEST_TEST(insert_N_remove_item) 
 		{
 			lldata_t lldata;
-			llnode_t* list_data = gCreateList(Allocator, 1024, lldata);
+			dexer_t* list_data = gCreateList(Allocator, 1024, lldata);
 			llist_t list(0, 1024);
 
 			CHECK_TRUE(list.is_empty());

@@ -5,6 +5,7 @@
 #    pragma once
 #endif
 
+#include "cbase/c_allocator.h"
 #include "ccore/c_debug.h"
 
 namespace ncore
@@ -31,8 +32,8 @@ namespace ncore
 
         void      reset() { m_index = llnode_t::NIL; }
         bool      is_nil() const { return m_index == llnode_t::NIL; }
-        void      insert(lldata_t& data, llindex_t item);      // Inserts 'item' at the head
-        void      insert_tail(lldata_t& data, llindex_t item); // Inserts 'item' at the tail end
+        void      insert(lldata_t& data, llindex_t item);       // Inserts 'item' at the head
+        void      insert_tail(lldata_t& data, llindex_t item);  // Inserts 'item' at the tail end
         llnode_t* remove_item(lldata_t& data, llindex_t item);
         llnode_t* remove_head(lldata_t& data);
         llnode_t* remove_tail(lldata_t& data);
@@ -46,29 +47,17 @@ namespace ncore
 
     struct lldata_t
     {
-        void* m_data;
-        u32   m_itemsize;
+        dexer_t* m_dexer;
+        u32      m_itemsize;
 
         lldata_t()
-            : m_data(nullptr)
+            : m_dexer(nullptr)
             , m_itemsize(0)
         {
         }
 
-        llnode_t* idx2node(llindex_t i)
-        {
-            if (i == llnode_t::NIL)
-                return nullptr;
-            return (llnode_t*)((ptr_t)m_data + ((ptr_t)m_itemsize * i));
-        }
-
-        llindex_t node2idx(llnode_t* node)
-        {
-            if (node == nullptr)
-                return llindex_t();
-            u32 const item_index = (u32)(((ptr_t)node - (ptr_t)m_data)) / m_itemsize;
-            return item_index;
-        }
+        llnode_t* idx2node(llindex_t i) { return m_dexer->idx2obj<llnode_t>(i); }
+        llindex_t node2idx(llnode_t* node) { return m_dexer->obj2idx(node); }
     };
 
     struct llist_t
@@ -95,8 +84,8 @@ namespace ncore
             m_head.reset();
         }
 
-        void      insert(lldata_t& data, llindex_t item);      // Inserts 'item' at the head
-        void      insert_tail(lldata_t& data, llindex_t item); // Inserts 'item' at the tail end
+        void      insert(lldata_t& data, llindex_t item);       // Inserts 'item' at the head
+        void      insert_tail(lldata_t& data, llindex_t item);  // Inserts 'item' at the tail end
         llnode_t* remove_item(lldata_t& data, llindex_t item);
         llnode_t* remove_head(lldata_t& data);
         llnode_t* remove_tail(lldata_t& data);
@@ -121,6 +110,6 @@ namespace ncore
         llhead_t m_head;
     };
 
-} // namespace ncore
+}  // namespace ncore
 
-#endif // __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
+#endif  // __CSUPERALLOC_DOUBLY_LINKED_LIST_H_

@@ -342,7 +342,7 @@ namespace ncore
         }
 
         // @note: The format of the returned index is u32[u8(segment-index):u24(item-index)]
-        class alloc_t
+        class alloc_t : public dexer_t
         {
         public:
             static const u32 NIL = 0xffffffff;
@@ -356,7 +356,7 @@ namespace ncore
             inline void* allocptr(u32 size) { return alloc_item(size).m_ptr; }
             inline void  deallocptr(void* ptr) { dealloc_item_ptr(ptr); }
 
-            inline void* idx2ptr(u32 i) const
+            void* v_idx2ptr(u32 i) const override final
             {
                 if (i == 0xffffffff)
                     return nullptr;
@@ -364,7 +364,7 @@ namespace ncore
                 return m_segments[c].idx2ptr(i);
             }
 
-            inline u32 ptr2idx(void const* ptr) const
+            u32 v_ptr2idx(void* ptr) const override final
             {
                 if (ptr == nullptr)
                     return 0xffffffff;
@@ -372,15 +372,6 @@ namespace ncore
                 ASSERT(segment_index < m_segments_array_size);
                 u32 const idx = ((segment_index & 0xFF) << 24) | m_segments[segment_index].ptr2idx(ptr);
                 return idx;
-            }
-
-            template <typename T>
-            inline T* idx2ptr(u32 i) const
-            {
-                if (i == 0xffffffff)
-                    return nullptr;
-                u32 const segment_index = (i >> 24) & 0xFF;
-                return (T*)m_segments[segment_index].idx2ptr(i);
             }
 
         private:
@@ -469,7 +460,7 @@ namespace ncore
             u32* l1 = l1len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
             u32* l2 = l2len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
             u32* l3 = l3len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-            m_segments_free_binmap.init_lazy_0(m_segments_array_size, l0len, l1, l1len, l2, l2len, l3, l3len);
+            m_segments_free_binmap.init_lazy_1(m_segments_array_size, l0len, l1, l1len, l2, l2len, l3, l3len);
             m_active_segment_binmap_per_blockcfg = (binmap_t*)m_heap->calloc(sizeof(binmap_t) * c_max_num_blocks);
 
             u32 attributes = 0;
@@ -534,7 +525,7 @@ namespace ncore
                     if (m_segments_free_index < m_segments_array_size)
                     {
                         segment_index = m_segments_free_index;
-                        m_segments_free_binmap.lazy_init_0(m_segments_free_index);
+                        m_segments_free_binmap.lazy_init_1(m_segments_free_index);
                         m_segments_free_index++;
                     }
                     else
@@ -684,21 +675,20 @@ namespace ncore
         };
 
         // 32 bytes (optimal)
-        struct chunk_t : public llnode_t
+        struct chunk_t
         {
-            u16 m_segment_index;          // The index of the segment in the superspace
-            u16 m_bin_index;              // The index of the bin that this chunk belongs to
-            u32 m_segment_chunk_index;    // The index of the chunk in the segment
-            u16 m_elem_used_count;        // The number of elements used in this chunk
-            u16 m_elem_free_index;        // The index of the first free chunk (used to quickly take a free element)
-            u32 m_elem_free_binmap_iptr;  // The binmap marking free elements for this chunk
-            u32 m_elem_tag_array_iptr;    // The index to an array which we use for set_tag/get_tag
-            u32 m_physical_pages;         // The number of physical pages that this chunk has committed
+            chunk_t* m_next;
+            u16      m_segment_index;          // The index of the segment in the superspace
+            u16      m_bin_index;              // The index of the bin that this chunk belongs to
+            u32      m_segment_chunk_index;    // The index of the chunk in the segment
+            u16      m_elem_used_count;        // The number of elements used in this chunk
+            u16      m_elem_free_index;        // The index of the first free chunk (used to quickly take a free element)
+            u32      m_elem_free_binmap_iptr;  // The binmap marking free elements for this chunk
+            u32      m_elem_tag_array_iptr;    // The index to an array which we use for set_tag/get_tag
+            u32      m_physical_pages;         // The number of physical pages that this chunk has committed
 
             void clear()
             {
-                m_next                  = llnode_t::NIL;
-                m_prev                  = llnode_t::NIL;
                 m_segment_index         = 0xffff;
                 m_bin_index             = 0xffff;
                 m_segment_chunk_index   = 0xffffffff;
@@ -881,7 +871,7 @@ namespace ncore
             u32* l1 = (l1len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
 
             chunk->m_elem_free_binmap_iptr = fsa->alloc(sizeof(binmap_t));
-            binmap_t* bm                   = fsa->idx2ptr<binmap_t>(chunk->m_elem_free_binmap_iptr);
+            binmap_t* bm                   = fsa->idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
             bm->init_lazy_1(bin.m_max_alloc_count, l0len, l1, l1len, l2, l2len, l3, l3len);
 
             chunk->m_elem_used_count = 0;
@@ -922,10 +912,11 @@ namespace ncore
             else if (segment->m_count_chunks_free > 0)
             {
                 segment->m_count_chunks_free -= 1;
-                segment_chunk_index     = segment->m_chunks_free_binmap.findandset();
-                u32 const chunk_iptr    = segment->m_chunks_array[segment_chunk_index];
-                chunk                   = (chunk_t*)m_fsa->idx2ptr(chunk_iptr);
-                already_committed_pages = chunk->m_physical_pages;
+                segment_chunk_index                          = segment->m_chunks_free_binmap.findandset();
+                u32 const chunk_iptr                         = m_fsa->alloc(sizeof(chunk_t));
+                chunk                                        = (chunk_t*)m_fsa->idx2ptr(chunk_iptr);
+                segment->m_chunks_array[segment_chunk_index] = chunk_iptr;
+                already_committed_pages                      = 0;
             }
             else
             {
@@ -974,21 +965,6 @@ namespace ncore
             return chunk;
         }
 
-        void deinitialize_chunk(nsuperfsa::alloc_t& fsa, superspace_t::chunk_t* chunk, binconfig_t const& bin)
-        {
-            fsa.dealloc(chunk->m_elem_tag_array_iptr);
-            chunk->m_elem_tag_array_iptr = nsuperfsa::alloc_t::NIL;
-
-            binmap_t* bm = fsa.idx2ptr<binmap_t>(chunk->m_elem_free_binmap_iptr);
-            for (u32 i = 0; i < bm->num_levels(); i++)
-            {
-                m_fsa->deallocptr(bm->m_l[i]);
-                bm->m_l[i] = nullptr;
-            }
-            fsa.deallocptr(bm);
-            chunk->m_elem_free_binmap_iptr = nsuperfsa::alloc_t::NIL;
-        }
-
         void release_segment(segment_t* segment)
         {
             ASSERT(segment->m_count_chunks_used == 0);
@@ -1003,7 +979,7 @@ namespace ncore
             {
                 s32 const segment_chunk_index = segment->m_chunks_cached_binmap.findandset();
                 u32 const chunk_iptr          = segment->m_chunks_array[segment_chunk_index];
-                chunk_t*  chunk               = m_fsa->idx2ptr<chunk_t>(chunk_iptr);
+                chunk_t*  chunk               = m_fsa->idx2obj<chunk_t>(chunk_iptr);
                 m_vmem->decommit(chunk_to_address(segment, chunk), 1 << m_page_size_shift, chunk->m_physical_pages);
                 deinitialize_chunk(*m_fsa, chunk, m_config->m_abinconfigs[chunk->m_bin_index]);
                 m_fsa->deallocptr(chunk);
@@ -1036,6 +1012,21 @@ namespace ncore
             m_segment_free_binmap->clr(segment->m_segment_index);
         }
 
+        void deinitialize_chunk(nsuperfsa::alloc_t& fsa, superspace_t::chunk_t* chunk, binconfig_t const& bin)
+        {
+            fsa.dealloc(chunk->m_elem_tag_array_iptr);
+            chunk->m_elem_tag_array_iptr = nsuperfsa::alloc_t::NIL;
+
+            binmap_t* bm = fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
+            for (u32 i = 0; i < bm->num_levels(); i++)
+            {
+                m_fsa->deallocptr(bm->m_l[i]);
+                bm->m_l[i] = nullptr;
+            }
+            fsa.deallocptr(bm);
+            chunk->m_elem_free_binmap_iptr = nsuperfsa::alloc_t::NIL;
+        }
+
         void release_chunk(chunk_t* chunk)
         {
             // See if this segment was full, if so we need to add it back to the list of active segments again so that
@@ -1047,12 +1038,14 @@ namespace ncore
                 m_segment_active_binmaps[chunk_info_index].clr(chunk->m_segment_index);
             }
 
-            m_used_physical_pages -= chunk->m_physical_pages;
-
             // TODO: Caching of chunks
             // segment->m_chunks_cached_binmap.clr(chunk->m_segment_chunk_index);
             // segment->m_count_chunks_used   -= 1;
             // segment->m_count_chunks_cached += 1;
+
+            // Uncommit the virtual memory of this chunk
+            m_vmem->decommit(chunk_to_address(segment, chunk), 1 << m_page_size_shift, chunk->m_physical_pages);
+            m_used_physical_pages -= chunk->m_physical_pages;
 
             // Release the tracking array that was allocated for this chunk
             deinitialize_chunk(*m_fsa, chunk, m_config->m_abinconfigs[chunk->m_bin_index]);
@@ -1171,7 +1164,7 @@ namespace ncore
         m_superspace = (superspace_t*)m_internal_heap.calloc(sizeof(superspace_t));
         m_superspace->initialize(vmem, config->m_total_address_size, config->m_segment_address_range_shift, &m_internal_heap, &m_internal_fsa, config);
 
-        m_chunk_list_data.m_data           = m_internal_fsa.base_address();
+        m_chunk_list_data.m_dexer          = &m_internal_fsa;
         m_chunk_list_data.m_itemsize       = sizeof(superspace_t::chunk_t);
         m_active_chunk_list_per_alloc_size = (llhead_t*)m_internal_heap.alloc(config->m_num_binconfigs * sizeof(llhead_t));
         for (u32 i = 0; i < config->m_num_binconfigs; i++)
@@ -1193,16 +1186,17 @@ namespace ncore
         alloc_size             = math::alignUp(alloc_size, alignment);
         binconfig_t const& bin = m_config->size2bin(alloc_size);
 
-        u32 const              chunk_iptr = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].m_index;
         superspace_t::chunk_t* chunk      = nullptr;
+        u32                    chunk_iptr = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].m_index;
         if (chunk_iptr == nsuperfsa::alloc_t::NIL)
         {
             chunk                                                     = m_superspace->checkout_chunk(bin);
-            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index] = m_internal_fsa.ptr2idx(chunk);
+            chunk_iptr                                                = m_internal_fsa.ptr2idx(chunk);
+            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index] = chunk_iptr;
         }
         else
         {
-            chunk = m_internal_fsa.idx2ptr<superspace_t::chunk_t>(chunk_iptr);
+            chunk = m_internal_fsa.idx2obj<superspace_t::chunk_t>(chunk_iptr);
         }
 
         ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
@@ -1217,14 +1211,14 @@ namespace ncore
         {  // seems all elements are used, lazy initialize binmap
             if ((chunk->m_elem_free_index & 0x1F) == 0)
             {
-                binmap_t* bm = m_internal_fsa.idx2ptr<binmap_t>(chunk->m_elem_free_binmap_iptr);
+                binmap_t* bm = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
                 bm->lazy_init_1(chunk->m_elem_free_index);
             }
             elem_index = chunk->m_elem_free_index++;
         }
         else
         {
-            binmap_t* bm = m_internal_fsa.idx2ptr<binmap_t>(chunk->m_elem_free_binmap_iptr);
+            binmap_t* bm = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
             elem_index   = bm->findandset();
         }
         ASSERT(elem_index < bin.m_max_alloc_count);
@@ -1238,7 +1232,7 @@ namespace ncore
         if (bin.m_max_alloc_count == chunk->m_elem_used_count)
         {
             // Chunk is full, so remove it from the list of active chunks
-            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_headi(m_chunk_list_data);
+            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, chunk_iptr);
         }
 
         ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
@@ -1260,7 +1254,7 @@ namespace ncore
             void* const              chunk_address = m_superspace->chunk_to_address(segment, chunk);
             u32 const                elem_index    = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
             ASSERT(elem_index < bin.m_max_alloc_count);
-            binmap_t* bm = m_internal_fsa.idx2ptr<binmap_t>(chunk->m_elem_free_binmap_iptr);
+            binmap_t* bm = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
             bm->clr(elem_index);
             u32* elem_tag_array = (u32*)m_internal_fsa.idx2ptr(chunk->m_elem_tag_array_iptr);
             ASSERT(elem_tag_array[elem_index] != 0xFEFEFEFE);  // Double freeing this element ?
@@ -1268,6 +1262,7 @@ namespace ncore
             alloc_size                 = bin.m_alloc_size;
         }
 
+        const u32 chunk_iptr = m_internal_fsa.ptr2idx(chunk);
         const bool chunk_was_full = (bin.m_max_alloc_count == chunk->m_elem_used_count);
 
         chunk->m_elem_used_count -= 1;
@@ -1276,14 +1271,14 @@ namespace ncore
             if (!chunk_was_full)
             {
                 // We are going to release this chunk, so remove it from the active chunk list before doing that.
-                m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, m_internal_fsa.ptr2idx(chunk));
+                m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, chunk_iptr);
             }
             m_superspace->release_chunk(chunk);
         }
         else if (chunk_was_full)
         {
             // Ok, this chunk can be used to allocate from again, so add it to the list of active chunks
-            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].insert(m_chunk_list_data, m_internal_fsa.ptr2idx(chunk));
+            m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].insert(m_chunk_list_data, chunk_iptr);
         }
 
         ASSERT(alloc_size <= bin.m_alloc_size);
