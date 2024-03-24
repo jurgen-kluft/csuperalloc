@@ -74,7 +74,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
         UNITTEST_TEST(init_release)
         {
             alloc_with_stats_t s_alloc;
-            void* mem = Allocator->allocate(100);
+            void*              mem = Allocator->allocate(100);
             Allocator->deallocate(mem);
             s_alloc.init(Allocator);
             s_alloc.release();
@@ -90,6 +90,46 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             CHECK_EQUAL(16, size);
             s_alloc.deallocate(ptr);
 
+            s_alloc.release();
+        }
+
+        UNITTEST_TEST(init_alloc_dealloc_10_release)
+        {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator);
+
+            for (s32 i = 0; i < 10; ++i)
+            {
+                void* ptr  = s_alloc.allocate(10);
+                u32   size = s_alloc.get_size(ptr);
+                CHECK_EQUAL(16, size);
+                s_alloc.deallocate(ptr);
+            }
+
+            s_alloc.release();
+        }
+
+        UNITTEST_TEST(init_alloc_10_dealloc_10_release)
+        {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator);
+
+            const s32 num_allocs = 10;
+            void*     ptr[num_allocs];
+            for (s32 i = 0; i < num_allocs; ++i)
+            {
+                void* ptr = s_alloc.allocate(10);
+            }
+            for (s32 i = 0; i < num_allocs; ++i)
+            {
+                u32 size = s_alloc.get_size(ptr);
+                CHECK_EQUAL(16, size);
+            }
+            for (s32 i = 0; i < num_allocs; ++i)
+            {
+                u32 size = s_alloc.deallocate(ptr);
+                CHECK_EQUAL(16, size);
+            }
             s_alloc.release();
         }
 
