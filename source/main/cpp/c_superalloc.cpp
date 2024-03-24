@@ -1164,8 +1164,7 @@ namespace ncore
         m_superspace = (superspace_t*)m_internal_heap.calloc(sizeof(superspace_t));
         m_superspace->initialize(vmem, config->m_total_address_size, config->m_segment_address_range_shift, &m_internal_heap, &m_internal_fsa, config);
 
-        m_chunk_list_data.m_dexer          = &m_internal_fsa;
-        m_chunk_list_data.m_itemsize       = sizeof(superspace_t::chunk_t);
+        m_chunk_list_data                  = {&m_internal_fsa};
         m_active_chunk_list_per_alloc_size = (llhead_t*)m_internal_heap.alloc(config->m_num_binconfigs * sizeof(llhead_t));
         for (u32 i = 0; i < config->m_num_binconfigs; i++)
             m_active_chunk_list_per_alloc_size[i].reset();
@@ -1262,7 +1261,7 @@ namespace ncore
             alloc_size                 = bin.m_alloc_size;
         }
 
-        const u32 chunk_iptr = m_internal_fsa.ptr2idx(chunk);
+        const u32  chunk_iptr     = m_internal_fsa.ptr2idx(chunk);
         const bool chunk_was_full = (bin.m_max_alloc_count == chunk->m_elem_used_count);
 
         chunk->m_elem_used_count -= 1;

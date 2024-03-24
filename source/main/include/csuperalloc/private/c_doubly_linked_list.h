@@ -47,17 +47,9 @@ namespace ncore
 
     struct lldata_t
     {
-        dexer_t* m_dexer;
-        u32      m_itemsize;
-
-        lldata_t()
-            : m_dexer(nullptr)
-            , m_itemsize(0)
-        {
-        }
-
-        llnode_t* idx2node(llindex_t i) { return m_dexer->idx2obj<llnode_t>(i); }
-        llindex_t node2idx(llnode_t* node) { return m_dexer->obj2idx(node); }
+        dexer_t*         m_dexer;
+        inline llnode_t* idx2node(llindex_t i) const { return m_dexer->idx2obj<llnode_t>(i); }
+        inline llindex_t node2idx(llnode_t* node) const { return m_dexer->obj2idx(node); }
     };
 
     struct llist_t
