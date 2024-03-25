@@ -318,7 +318,7 @@ namespace ncore
             }
 
 #ifdef SUPERALLOC_DEBUG
-            nmem::memset(address_of_block(free_block_index), 0xCDCDCDCD, 1 << m_block_config.m_block_size_shift);
+            nmem::memset(address_of_block(free_block_index), 0xCDCDCDCD, (int_t)1 << m_block_config.m_block_size_shift);
 #endif
             m_block_used_count++;
             block_t* block = &m_block_array[free_block_index];
@@ -443,7 +443,7 @@ namespace ncore
             m_heap                = heap;
             m_address_range       = address_range;
             m_segment_size_shift  = math::ilog2(segment_size);
-            m_segments_array_size = address_range / segment_size;
+            m_segments_array_size = (u32)(address_range >> m_segment_size_shift);
             m_segments            = (segment_t*)m_heap->calloc(sizeof(segment_t) * m_segments_array_size);
 
             m_segments_free_index = 0;
@@ -533,7 +533,7 @@ namespace ncore
                 segment->checkout(m_heap, m_segment_size_shift, blockcfg);
             }
 
-            ASSERT(segment_index >= 0 && segment_index < m_segments_array_size);
+            ASSERT(segment_index >= 0 && segment_index < (s32)m_segments_array_size);
             segment_t* segment = &m_segments[segment_index];
             block_t*   block   = segment->checkout_block(alloccfg);
             if (segment->is_empty())
@@ -552,7 +552,7 @@ namespace ncore
             // See if we have a segment available for this block size
             // If we do not have a segment available, we need to claim a new segment
             allocconfig_t const& alloccfg = alloc_size_to_alloc_config(alloc_size);
-            ASSERT(alloc_size <= (1 << alloccfg.m_alloc_size_shift));
+            ASSERT(alloc_size <= ((u32)1 << alloccfg.m_alloc_size_shift));
             block_t* block = m_active_block_list_per_allocsize[alloccfg.m_index];
             if (block == nullptr)
             {
@@ -690,7 +690,6 @@ namespace ncore
         nsuperfsa::alloc_t*        m_fsa;
         void*                      m_address_base;
         u64                        m_address_range;
-        u32                        m_page_size;
         s8                         m_page_size_shift;
         s8                         m_segment_shift;       // 1 << m_segment_shift = segment size
         u32                        m_segment_count;       // Space Address Range / Segment Size = Number of segments
@@ -705,7 +704,6 @@ namespace ncore
             : m_fsa(nullptr)
             , m_address_base(nullptr)
             , m_address_range(0)
-            , m_page_size(0)
             , m_page_size_shift(0)
             , m_segment_shift(0)
             , m_segment_count(0)
@@ -725,8 +723,9 @@ namespace ncore
             m_fsa           = fsa;
             m_address_range = address_range;
             u32 const attrs = 0;
-            vmem_t::reserve(address_range, m_page_size, attrs, m_address_base);
-            m_page_size_shift     = math::ilog2(m_page_size);
+            u32 page_size = 0;
+            vmem_t::reserve(address_range, page_size, attrs, m_address_base);
+            m_page_size_shift     = math::ilog2(page_size);
             m_used_physical_pages = 0;
             m_segment_shift       = segment_shift;
 
@@ -778,7 +777,6 @@ namespace ncore
             m_fsa                    = nullptr;
             m_address_base           = nullptr;
             m_address_range          = 0;
-            m_page_size              = 0;
             m_page_size_shift        = 0;
             m_segment_shift          = 0;
             m_segment_count          = 0;
@@ -866,7 +864,7 @@ namespace ncore
                 segment_index = checkout_segment(chunk_info_index);
                 m_segment_active_binmaps[chunk_info_index].clr(segment_index);
             }
-            ASSERT(segment_index < m_segment_count);
+            ASSERT(segment_index < (s32)m_segment_count);
 
             u32 const required_physical_pages = chunk_physical_pages(bin, m_page_size_shift);
 
