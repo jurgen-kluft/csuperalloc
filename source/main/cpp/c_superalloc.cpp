@@ -572,7 +572,7 @@ namespace ncore
             segment_t* segment       = &m_segments[segment_index];
 
             alloc.m_ptr = block->allocate_item(segment->address_of_block(block->m_segment_block_index), alloc.m_index);
-            if (block->is_empty())
+            if (block->is_full())
             {
                 block_t*& head = m_active_block_list_per_allocsize[alloccfg.m_index];
                 if (head == block)
@@ -888,7 +888,7 @@ namespace ncore
             else
             {
                 // Use segment->m_chunks_free_index to take the next free chunk index.
-                segment_chunk_index = segment->m_chunks_free_binmap.findandset();
+                segment_chunk_index = segment->m_chunks_free_binmap.find();
                 if (segment_chunk_index < 0)
                 {
                     segment_chunk_index = segment->m_chunks_free_index;
@@ -905,7 +905,7 @@ namespace ncore
             }
 
             activate_chunk(m_fsa, chunk, bin, segment_index, segment_chunk_index);
-            segment->m_chunks_cached_binmap.set(segment_chunk_index);
+            segment->m_chunks_free_binmap.set(segment_chunk_index);
 
             if (required_physical_pages < already_committed_pages)
             {
@@ -1017,18 +1017,16 @@ namespace ncore
             // Release the tracking array that was allocated for this chunk
             deinitialize_chunk(m_fsa, chunk, m_config->m_abinconfigs[chunk->m_bin_index]);
 
+            // Deallocate and unregister the chunk
+            m_fsa->deallocptr(chunk);
+            segment->m_chunks_free_binmap.clr(segment->m_segment_index);
+            segment->m_chunks_array[chunk->m_segment_chunk_index] = nsuperfsa::alloc_t::NIL;
+
             segment->m_count_chunks_used -= 1;
             if (segment->m_count_chunks_used == 0)
             {
                 // This segment is now empty, we need to release it
                 release_segment(segment);
-            }
-            else
-            {
-                // We are not releasing the segment so we need to manually release the chunk structure back to the fsa
-                m_fsa->deallocptr(chunk);
-                segment->m_chunks_free_binmap.clr(segment->m_segment_index);
-                segment->m_chunks_array[chunk->m_segment_chunk_index] = nsuperfsa::alloc_t::NIL;
             }
         }
 

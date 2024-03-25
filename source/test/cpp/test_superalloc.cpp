@@ -118,16 +118,16 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             void*     ptr[num_allocs];
             for (s32 i = 0; i < num_allocs; ++i)
             {
-                void* ptr = s_alloc.allocate(10);
+                ptr[i] = s_alloc.allocate(10);
             }
             for (s32 i = 0; i < num_allocs; ++i)
             {
-                u32 size = s_alloc.get_size(ptr);
+                u32 size = s_alloc.get_size(ptr[i]);
                 CHECK_EQUAL(16, size);
             }
             for (s32 i = 0; i < num_allocs; ++i)
             {
-                u32 size = s_alloc.deallocate(ptr);
+                u32 size = s_alloc.deallocate(ptr[i]);
                 CHECK_EQUAL(16, size);
             }
             s_alloc.release();
