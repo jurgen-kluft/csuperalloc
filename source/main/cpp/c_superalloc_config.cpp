@@ -41,7 +41,7 @@ namespace ncore
         bin.m_alloc_size      = src.m_alloc_size;
         bin.m_chunk_config    = src.m_chunk_config;
         bin.m_alloc_bin_index = src.m_alloc_bin_index;
-        bin.m_max_alloc_count = (u16)(((u32)1 << bin.m_chunk_config.m_chunk_size_shift) / bin.m_alloc_size);
+        bin.m_max_alloc_count = (((u32)1 << bin.m_chunk_config.m_chunk_size_shift) / bin.m_alloc_size);
     }
 
     // clang-format off
@@ -163,10 +163,12 @@ namespace ncore
         // sanity check on the binconfig_t config
         for (u32 s = 0; s < config->m_num_binconfigs; s++)
         {
+            ASSERT(config->m_abinconfigs[s].m_max_alloc_count >= 1);
             u32 const          rs   = config->m_abinconfigs[s].m_alloc_bin_index;
             u32 const          size = config->m_abinconfigs[rs].m_alloc_size;
             binconfig_t const& bin  = config->size2bin(size);
             ASSERT(size <= bin.m_alloc_size);
+            ASSERT(bin.m_max_alloc_count >= 1);
         }
 #endif
         return config;

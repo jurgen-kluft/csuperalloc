@@ -152,6 +152,9 @@ namespace ncore
 
             void initialize(u16 segment_index, u16 segment_block_index, allocconfig_t const& alloccfg)
             {
+                ASSERT(segment_index < 0xFF);
+                ASSERT(segment_block_index < 0xFF);
+
                 m_next                = nullptr;
                 m_prev                = nullptr;
                 m_segment_index       = segment_index;
@@ -170,7 +173,7 @@ namespace ncore
 
             void* allocate_item(void* block_address, u32& item_index)
             {
-                u16* item  = nullptr;
+                u16* item = nullptr;
                 if (m_item_freelist != NIL16)
                 {
                     item_index      = m_item_freelist;
@@ -184,14 +187,17 @@ namespace ncore
                 }
                 else
                 {
+                    ASSERT(false);  // panic
                     item_index = NIL;
-                    return item;  // panic
+                    return item;
                 }
 
                 m_item_count++;
 #ifdef SUPERALLOC_DEBUG
                 nmem::memset(item, 0xCDCDCDCD, ((u64)1 << m_alloc_config.m_alloc_size_shift));
 #endif
+                ASSERT(m_segment_index < 0xFF);
+                ASSERT(m_segment_block_index < 0xFF);
 
                 item_index |= ((u32)m_segment_index << 24) | ((u32)m_segment_block_index << 16);
                 return item;
@@ -257,7 +263,7 @@ namespace ncore
                 block_t const* const block         = &m_block_array[block_index];
                 void* const          block_address = address_of_block(block_index);
                 u32 const            elem_index    = block->ptr2idx(block_address, ptr);
-                return (m_segment_index<<24) | (block_index << 16) | (elem_index & 0xFFFF);
+                return (m_segment_index << 24) | (block_index << 16) | (elem_index & 0xFFFF);
             }
         };
 
@@ -272,7 +278,7 @@ namespace ncore
             m_block_max_count   = 0;
             m_block_used_count  = 0;
             m_block_array       = nullptr;
-            m_block_free_binmap = {};
+            m_block_free_binmap.reset();
         }
 
         void segment_t::checkout(nsuperheap::alloc_t* heap, s8 segment_size_shift, blockconfig_t const& blockcfg)
@@ -317,7 +323,7 @@ namespace ncore
                 else
                 {
                     // panic
-                    ASSERT(false); 
+                    ASSERT(false);
                     return nullptr;
                 }
             }
@@ -585,7 +591,7 @@ namespace ncore
                 {
                     head = block->m_next;
                     if (head == block)
-						head = nullptr;
+                        head = nullptr;
                 }
                 block->m_prev->m_next = block->m_next;
                 block->m_next->m_prev = block->m_prev;
@@ -623,10 +629,10 @@ namespace ncore
                 }
                 else
                 {
-                    block->m_next = head;
-					block->m_prev = head->m_prev;
-					head->m_prev->m_next = block;
-					head->m_prev        = block;
+                    block->m_next        = head;
+                    block->m_prev        = head->m_prev;
+                    head->m_prev->m_next = block;
+                    head->m_prev         = block;
                 }
             }
         }
@@ -729,10 +735,10 @@ namespace ncore
         {
             ASSERT(math::ispo2(address_range));
 
-            m_fsa           = fsa;
-            m_address_range = address_range;
-            u32 const attrs = 0;
-            u32 page_size = 0;
+            m_fsa               = fsa;
+            m_address_range     = address_range;
+            u32 const attrs     = 0;
+            u32       page_size = 0;
             vmem_t::reserve(address_range, page_size, attrs, m_address_base);
             m_page_size_shift     = math::ilog2(page_size);
             m_used_physical_pages = 0;
@@ -886,7 +892,7 @@ namespace ncore
             if (segment->m_count_chunks_cached > 0)
             {
                 segment->m_count_chunks_cached -= 1;
-                segment_chunk_index     = segment->m_chunks_cached_binmap.findandset();
+                segment_chunk_index = segment->m_chunks_cached_binmap.findandset();
                 ASSERT(segment_chunk_index >= 0 && segment_chunk_index < (s32)segment->m_chunks_free_index);
                 u32 const chunk_iptr    = segment->m_chunks_array[segment_chunk_index];
                 chunk                   = (chunk_t*)m_fsa->idx2ptr(chunk_iptr);
@@ -974,6 +980,7 @@ namespace ncore
                 m_fsa->deallocptr(bm->m_l[i]);
                 bm->m_l[i] = nullptr;
             }
+            bm->reset();
 
             bm = (binmap_t*)&segment->m_chunks_free_binmap;
             for (u32 i = 0; i < bm->num_levels(); i++)
@@ -981,6 +988,7 @@ namespace ncore
                 m_fsa->deallocptr(bm->m_l[i]);
                 bm->m_l[i] = nullptr;
             }
+            bm->reset();
 
             m_segment_free_binmap->clr(segment->m_segment_index);
         }
@@ -1177,20 +1185,15 @@ namespace ncore
 
         // If we have elements in the binmap, we can use it to get a free element.
         // If not, we need to use free_index as the free element.
-        u32 elem_index;
-        if (chunk->m_elem_used_count == chunk->m_elem_free_index && chunk->m_elem_free_index < bin.m_max_alloc_count)
-        {  // seems all elements are used, lazy initialize binmap
+        binmap_t* bm         = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
+        s32       elem_index = bm->findandset();
+        if (elem_index < 0)
+        {  
             if ((chunk->m_elem_free_index & 0x1F) == 0)
             {
-                binmap_t* bm = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
                 bm->lazy_init_1(chunk->m_elem_free_index);
             }
             elem_index = chunk->m_elem_free_index++;
-        }
-        else
-        {
-            binmap_t* bm = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
-            elem_index   = bm->findandset();
         }
         ASSERT(elem_index < bin.m_max_alloc_count);
         ptr = toaddress(ptr, (u64)elem_index * bin.m_alloc_size);

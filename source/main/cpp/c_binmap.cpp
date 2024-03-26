@@ -13,15 +13,6 @@ namespace ncore
     // l2 : 32K =  1K * u32
     // l3 :  1M = 32K * u32
 
-    // TODO, We could encode the level 'bits left' into m_count
-    // e.g.:
-    //       l0 = 2     (30 '0' bits, encode in 0x0000001F)
-    //       l1 = 60    ( 4 '0' bits, encode in 0x000003E0)
-    //       l2 = 1900  (20 '0' bits, encode in 0x00007C00)
-    //       l3 = 60790 (10 '0' bits, encode in 0x000F8000)
-
-    // You can then always compute the full count = ((32 - [l0]) * 32 - [l1]) * 32 - [l2]) * 32 - [l3]
-
     u32 binmap_t::compute_levels(u32 count, u32& l0, u32& l1, u32& l2, u32& l3)
     {
         ASSERT(count <= 1 * 1024 * 1024);  // maximum count is 1 Million (5 bits + 5 bits + 5 bits + 5 bits = 20 bits = 1 M)
@@ -88,7 +79,7 @@ namespace ncore
         u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
         m_count          = (levels << 30) | count;
 
-        m_l0 = (u32)((u64)0xffffffff << l0len);
+        m_l0   = (u32)((u64)0xffffffff << l0len);
         m_l[0] = nullptr;
         m_l[1] = nullptr;
         m_l[2] = nullptr;
@@ -108,7 +99,7 @@ namespace ncore
         u32 const levels = (l3len > 0) ? 3 : (l2len > 0) ? 2 : ((l1len > 0) ? 1 : 0);
         m_count          = (levels << 30) | count;
 
-        m_l0 = 0xffffffff;
+        m_l0   = 0xffffffff;
         m_l[0] = nullptr;
         m_l[1] = nullptr;
         m_l[2] = nullptr;
@@ -127,8 +118,8 @@ namespace ncore
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
             u32 const bi = (u32)1 << (wi & (32 - 1));
-            wi     = wi >> 5;
-            u32 wd = m_l[l][wi];
+            wi           = wi >> 5;
+            u32 wd       = m_l[l][wi];
             if (wd == 0xffffffff)
                 return;
             wd |= bi;
@@ -145,9 +136,9 @@ namespace ncore
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
             u32 const bi = (u32)1 << (wi & (32 - 1));
-            wi         = wi >> 5;
+            wi           = wi >> 5;
             const u32 wd = m_l[l][wi];
-            m_l[l][wi] = wd & ~bi;
+            m_l[l][wi]   = wd & ~bi;
             if (wd != 0xffffffff)
                 return;
         }
@@ -157,18 +148,12 @@ namespace ncore
     bool binmap_t::get(u32 bit) const
     {
         u32 const l = num_levels();
+        u32 const bi = (u32)1 << (bit & (32 - 1));
         if (l == 0)
-        {
-            u32 const bi0 = 1 << (bit & (32 - 1));
-            return (m_l0 & bi0) != 0;
-        }
-        else
-        {
-            u32 const wi2 = bit >> 5;
-            u32 const bi2 = (u32)1 << (bit & (32 - 1));
-            u32 const wd2 = m_l[l - 1][wi2];
-            return (wd2 & bi2) != 0;
-        }
+            return (m_l0 & bi) != 0;
+        u32 const wi = bit >> 5;
+        u32 const wd = m_l[l - 1][wi];
+        return (wd & bi) != 0;
     }
 
     s32 binmap_t::find() const
@@ -203,10 +188,10 @@ namespace ncore
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
             const u32 li = wi & (32 - 1);
-            wi         = wi >> 5;
+            wi           = wi >> 5;
             const u32 wd = (li == 0) ? 0xffffffff : m_l[l][wi];
             const u32 bi = (u32)1 << li;
-            m_l[l][wi] = wd & ~bi;
+            m_l[l][wi]   = wd & ~bi;
             if (wd != 0xffffffff)
                 return;
         }
@@ -219,8 +204,8 @@ namespace ncore
         for (s32 l = num_levels() - 1; l > 0; --l)
         {
             const u32 li = wi & (32 - 1);
-            wi = wi >> 5;
-            u32 wd = li == 0 ? 0xfffffffe : m_l[l][wi];
+            wi           = wi >> 5;
+            u32 wd       = li == 0 ? 0xfffffffe : m_l[l][wi];
             if (wd == 0xffffffff)
                 return;
             wd |= (u32)1 << li;
