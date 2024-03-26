@@ -9,6 +9,9 @@
 
 using namespace ncore;
 
+extern unsigned char allocdmp[];
+extern unsigned int  allocdmp_len;
+
 class alloc_with_stats_t : public alloc_t
 {
     valloc_t* mAllocator;
@@ -143,6 +146,39 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             u32 tag = s_alloc.get_tag(ptr);
             CHECK_EQUAL(0x12345678, tag);
             s_alloc.deallocate(ptr);
+
+            s_alloc.release();
+        }
+
+        UNITTEST_TEST(stress_test)
+        {
+            alloc_with_stats_t s_alloc;
+            s_alloc.init(Allocator);
+
+            s32*      allocations = (s32*)allocdmp;
+            s64 const num_allocs  = allocdmp_len / sizeof(u32);
+
+            s64 i = 0;
+            while (i < num_allocs)
+            {
+                s32 size = allocations[i];
+                if (size < 0)
+                {
+                    // this is a deallocation
+                    size                   = -size;
+                    s64       offset       = allocations[i + 1];
+                    void**    store        = (void**)(allocdmp + (offset * 8));
+                    void*     ptr          = *store;
+                    u32 const dealloc_size = s_alloc.deallocate(ptr);
+                }
+                else
+                {
+                    s64*   ptr   = (s64*)s_alloc.allocate(size);
+                    void** store = (void**)(allocdmp + (i * 4));
+                    *store       = ptr;  // store the pointer of the allocation
+                }
+                i += 2;
+            }
 
             s_alloc.release();
         }
