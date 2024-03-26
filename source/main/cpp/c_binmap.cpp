@@ -126,7 +126,7 @@ namespace ncore
         u32 wi = bit;
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
-            u32 bi = (u32)1 << (wi & (32 - 1));
+            u32 const bi = (u32)1 << (wi & (32 - 1));
             wi     = wi >> 5;
             u32 wd = m_l[l][wi];
             if (wd == 0xffffffff)
@@ -141,22 +141,17 @@ namespace ncore
 
     void binmap_t::clr(u32 bit)
     {
-        u32 bi;
         u32 wi = bit;
-        u32 wd;
-
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
-            bi         = (u32)1 << (wi & (32 - 1));
+            u32 const bi = (u32)1 << (wi & (32 - 1));
             wi         = wi >> 5;
-            wd         = m_l[l][wi];
+            const u32 wd = m_l[l][wi];
             m_l[l][wi] = wd & ~bi;
             if (wd != 0xffffffff)
                 return;
         }
-        bi   = 1 << (wi & (32 - 1));
-        wd   = m_l0 & ~bi;
-        m_l0 = wd;
+        m_l0 = m_l0 & ~(1 << (wi & (32 - 1)));
     }
 
     bool binmap_t::get(u32 bit) const
@@ -204,36 +199,28 @@ namespace ncore
 
     void binmap_t::lazy_init_0(u32 bit)
     {
-        u32 bi;
-        u32 li;
         u32 wi = bit;
-        u32 wd;
-
         for (s32 l = num_levels() - 1; l >= 0; --l)
         {
-            li         = wi & (32 - 1);
+            const u32 li = wi & (32 - 1);
             wi         = wi >> 5;
-            wd         = (li == 0) ? 0xffffffff : m_l[l][wi];
-            bi         = (u32)1 << li;
+            const u32 wd = (li == 0) ? 0xffffffff : m_l[l][wi];
+            const u32 bi = (u32)1 << li;
             m_l[l][wi] = wd & ~bi;
             if (wd != 0xffffffff)
                 return;
         }
-        li   = wi & (32 - 1);
-        m_l0 = m_l0 & ~((u32)1 << li);
+        m_l0 = m_l0 & ~((u32)1 << (wi & (32 - 1)));
     }
 
     void binmap_t::lazy_init_1(u32 bit)
     {
         u32 wi = bit;
-        u32 li;
-        u32 wd;
-
         for (s32 l = num_levels() - 1; l > 0; --l)
         {
-            li = wi & (32 - 1);
+            const u32 li = wi & (32 - 1);
             wi = wi >> 5;
-            wd = li == 0 ? 0xfffffffe : m_l[l][wi];
+            u32 wd = li == 0 ? 0xfffffffe : m_l[l][wi];
             if (wd == 0xffffffff)
                 return;
             wd |= (u32)1 << li;
@@ -241,8 +228,7 @@ namespace ncore
             if (wd != 0xffffffff)
                 return;
         }
-        li   = wi & (32 - 1);
-        m_l0 = m_l0 | ((u32)1 << li);
+        m_l0 = m_l0 | ((u32)1 << (wi & (32 - 1)));
     }
 
 }  // namespace ncore
