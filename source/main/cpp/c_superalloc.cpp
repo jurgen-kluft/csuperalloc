@@ -299,6 +299,7 @@ namespace ncore
             heap->dealloc(m_block_free_binmap.m_l[1]);
             heap->dealloc(m_block_free_binmap.m_l[2]);
             heap->dealloc(m_block_array);
+            vmem_t::decommit(m_address, (u32)1 << m_block_config.m_block_size_shift, m_block_max_count);
         }
 
         block_t* segment_t::checkout_block(allocconfig_t const& alloccfg)
@@ -502,6 +503,8 @@ namespace ncore
             heap->dealloc(m_segments_free_binmap.m_l[2]);
 
             heap->dealloc(m_segments);
+
+            vmem_t::release(m_address_base, m_address_range);
         }
 
         u32 alloc_t::sizeof_alloc(u32 alloc_size) const { return math::ceilpo2((alloc_size + (8 - 1)) & ~(8 - 1)); }
