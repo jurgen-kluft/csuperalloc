@@ -230,9 +230,9 @@ namespace ncore
             block_t*      m_block_array;
             binmap_t      m_block_free_binmap;
 
-            void     initialize(void* address, u32 address_range, u8 segment_index);
+            void     initialize(void* address, s8 segment_size_shift, u8 segment_index);
             void     deinitialize(nsuperheap::alloc_t* heap);
-            void     checkout(nsuperheap::alloc_t* heap, s8 segment_size_shift, blockconfig_t const& blockcfg);
+            void     checkout(nsuperheap::alloc_t* heap, void* address, s8 segment_size_shift, u8 segment_index, blockconfig_t const& blockcfg);
             block_t* checkout_block(allocconfig_t const& alloccfg);
             void     release_block(block_t* block);
             void*    address_of_block(u32 block) const { return toaddress(m_address, (u64)block << m_block_config.m_block_size_shift); }
@@ -267,26 +267,31 @@ namespace ncore
             }
         };
 
-        void segment_t::initialize(void* address, u32 address_range, u8 index)
+        void segment_t::initialize(void* address, s8 segment_size_shift, u8 segment_index)
         {
-            m_address           = address;
-            m_address_range     = address_range;
-            m_committed         = false;
-            m_segment_index     = index;
-            m_block_config      = {0};
-            m_block_free_index  = 0;
-            m_block_max_count   = 0;
-            m_block_used_count  = 0;
-            m_block_array       = nullptr;
+            m_address          = address;
+            m_address_range    = 1 << segment_size_shift;
+            m_committed        = false;
+            m_segment_index    = segment_index;
+            m_block_config     = {0};
+            m_block_free_index = 0;
+            m_block_max_count  = 0;
+            m_block_used_count = 0;
+            m_block_array      = nullptr;
             m_block_free_binmap.reset();
         }
 
-        void segment_t::checkout(nsuperheap::alloc_t* heap, s8 segment_size_shift, blockconfig_t const& blockcfg)
+        void segment_t::checkout(nsuperheap::alloc_t* heap, void* address, s8 segment_size_shift, u8 segment_index, blockconfig_t const& blockcfg)
         {
+            m_address          = address;
+            m_address_range    = 1 << segment_size_shift;
+            m_committed        = false;
+            m_segment_index    = segment_index;
             m_block_config     = blockcfg;
-            m_block_max_count  = 1 << (segment_size_shift - m_block_config.m_block_size_shift);
-            m_block_array      = (block_t*)heap->alloc(m_block_max_count * sizeof(block_t));
             m_block_free_index = 0;
+            m_block_max_count  = 1 << (segment_size_shift - m_block_config.m_block_size_shift);
+            m_block_used_count = 0;
+            m_block_array      = (block_t*)heap->alloc(m_block_max_count * sizeof(block_t));
 
             u32 l0len, l1len, l2len, l3len;
             binmap_t::compute_levels(m_block_max_count, l0len, l1len, l2len, l3len);
@@ -316,9 +321,8 @@ namespace ncore
             {
                 if (m_block_free_index < m_block_max_count)
                 {
-                    free_block_index = m_block_free_index;
-                    m_block_free_binmap.lazy_init_1(m_block_free_index);
-                    m_block_free_index++;
+                    free_block_index = m_block_free_index++;
+                    m_block_free_binmap.lazy_init_1(free_block_index);
                 }
                 else
                 {
@@ -534,15 +538,15 @@ namespace ncore
                     }
                     else
                     {
-                        // panic
+                        ASSERT(false);  // panic
+                        return nullptr;
                     }
                 }
                 m_active_segment_binmap_per_blockcfg[alloccfg.m_block_index].clr(segment_index);
 
                 segment_t* segment         = &m_segments[segment_index];
                 void*      segment_address = toaddress(m_address_base, (s64)segment_index << m_segment_size_shift);
-                segment->initialize(segment_address, 1 << m_segment_size_shift, segment_index);
-                segment->checkout(m_heap, m_segment_size_shift, blockcfg);
+                segment->checkout(m_heap, segment_address, m_segment_size_shift, segment_index, blockcfg);
             }
 
             ASSERT(segment_index >= 0 && segment_index < (s32)m_segments_array_size);
@@ -550,7 +554,7 @@ namespace ncore
             block_t*   block   = segment->checkout_block(alloccfg);
             if (segment->is_empty())
             {
-                // Segment is empty, remove it from the active list for this config
+                // Segment is empty, remove it from the active set for this block config
                 m_active_segment_binmap_per_blockcfg[alloccfg.m_block_index].set(segment_index);
             }
             return block;
@@ -616,7 +620,8 @@ namespace ncore
             u32 const alloc_config_index = block->m_alloc_config.m_index;
 
             bool const block_was_full = block->is_full();
-            block->deallocate_item(segment->m_address, elem_index);
+            void*      block_address  = segment->address_of_block(block_index);
+            block->deallocate_item(block_address, elem_index);
             if (block_was_full)
             {
                 // This block is available again, add it to the active list
@@ -1188,7 +1193,7 @@ namespace ncore
         binmap_t* bm         = m_internal_fsa.idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
         s32       elem_index = bm->findandset();
         if (elem_index < 0)
-        {  
+        {
             if ((chunk->m_elem_free_index & 0x1F) == 0)
             {
                 bm->lazy_init_1(chunk->m_elem_free_index);
