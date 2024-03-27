@@ -33,8 +33,7 @@ public:
 ```
 
 Note: Benchmarks are still to be done.  
-Note: A large running test (60 million alloc/free operations) was done without crashing, so this 
-      version is the first release candidate. (Needs to be rerun with the latest version)
+Note: Unittest contains a test called `stress test` that executes 500.000 operations (allocation / deallocation)
 
 ## WIP
 
