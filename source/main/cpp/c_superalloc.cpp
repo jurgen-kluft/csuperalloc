@@ -1199,10 +1199,6 @@ namespace ncore
         }
         ASSERT(elem_index < (s32)bin.m_max_alloc_count);  // This should never happen
 
-        superspace_t::segment_t* segment       = &m_superspace->m_segment_array[chunk->m_segment_index];
-        void*                    chunk_address = m_superspace->chunk_to_address(segment, chunk);
-        void*                    item_ptr      = toaddress(chunk_address, (u64)elem_index * bin.m_alloc_size);
-
         // Initialize the tag value for this element
         u32* elem_tag_array        = (u32*)m_internal_fsa.idx2ptr(chunk->m_elem_tag_array_iptr);
         elem_tag_array[elem_index] = 0;
@@ -1214,6 +1210,9 @@ namespace ncore
             m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, chunk_iptr);
         }
 
+        superspace_t::segment_t* segment       = &m_superspace->m_segment_array[chunk->m_segment_index];
+        void*                    chunk_address = m_superspace->chunk_to_address(segment, chunk);
+        void*                    item_ptr      = toaddress(chunk_address, (u64)elem_index * bin.m_alloc_size);
         ASSERT(item_ptr >= m_superspace->m_address_base && item_ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
         return item_ptr;
     }
@@ -1239,11 +1238,16 @@ namespace ncore
             elem_tag_array[elem_index] = 0xFEFEEFEE;           // Clear the tag for this element (mark it as freed)
         }
 
-        const u32  chunk_iptr     = m_internal_fsa.ptr2idx(chunk);
+        // We have deallocated an element from this chunk
         const bool chunk_was_full = (bin.m_max_alloc_count == chunk->m_elem_used_count);
+        chunk->m_elem_used_count--;
+        const bool chunk_is_empty = (0 == chunk->m_elem_used_count);
 
-        chunk->m_elem_used_count -= 1;
-        if (0 == chunk->m_elem_used_count)
+        // Check the state of this chunk, was it full before we deallocated an element?
+        // Or maybe now it has become empty ?
+        const u32  chunk_iptr     = m_internal_fsa.ptr2idx(chunk);
+
+        if (chunk_is_empty)
         {
             if (!chunk_was_full)
             {
