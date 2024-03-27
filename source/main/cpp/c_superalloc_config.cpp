@@ -133,8 +133,7 @@ namespace ncore
 
     superalloc_config_t const* gGetSuperAllocConfigWindowsDesktopApp25p()
     {
-        const u32 c_page_size                   = 4096;  // Windows OS page size
-        const u64 c_total_address_space         = 128 * cGB;
+        const u64 c_total_address_space         = 256 * cGB;
         const u64 c_segment_address_range       = 1 * cGB;
         const u32 c_internal_heap_address_range = 16 * cMB;
         const u32 c_internal_heap_pre_size      = 2 * cMB;
