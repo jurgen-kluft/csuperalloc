@@ -17,9 +17,9 @@ public:
         : mAllocator(allocator)
     {
     }
-    virtual void*      v_allocate(ncore::u32 size, ncore::u32 align) { return (*mAllocator)->Allocate(size, align); }
-    virtual ncore::u32 v_deallocate(void* p) { return (*mAllocator)->Deallocate(p); }
-    virtual void       v_release() {}
+    virtual void* v_allocate(ncore::u32 size, ncore::u32 align) { return (*mAllocator)->Allocate(size, align); }
+    virtual void  v_deallocate(void* p) { (*mAllocator)->Deallocate(p); }
+    virtual void  v_release() {}
 };
 
 #define UNITTEST_ALLOCATOR                     \

@@ -35,29 +35,21 @@ public:
     virtual void* v_allocate(u32 size, u32 alignment)
     {
         mNumAllocs++;
-        mMemoryAllocated += size;
-        return mAllocator->allocate(size, alignment);
+        void* ptr = mAllocator->allocate(size, alignment);
+        mMemoryAllocated += mAllocator->get_size(ptr);
+        return ptr;
     }
 
-    virtual u32 v_deallocate(void* mem)
+    virtual void v_deallocate(void* ptr)
     {
         mNumDeallocs++;
-        u32 const size = mAllocator->deallocate(mem);
-        mMemoryDeallocated += size;
-        return size;
+        mMemoryDeallocated += mAllocator->get_size(ptr);
+        mAllocator->deallocate(ptr);
     }
 
     inline u32  get_size(void* mem) const { return mAllocator->get_size(mem); }
     inline void set_tag(void* mem, u32 tag) { mAllocator->set_tag(mem, tag); }
     inline u32  get_tag(void* mem) const { return mAllocator->get_tag(mem); }
-
-    virtual void v_release()
-    {
-        if (mAllocator == nullptr)
-            return;
-        gDestroyVmAllocator(mAllocator);
-        mAllocator = nullptr;
-    }
 };
 
 UNITTEST_SUITE_BEGIN(main_allocator)
@@ -80,7 +72,6 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             void*              mem = Allocator->allocate(100);
             Allocator->deallocate(mem);
             s_alloc.init(Allocator);
-            s_alloc.release();
         }
 
         UNITTEST_TEST(init_alloc1_dealloc_release)
@@ -92,8 +83,6 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             u32   size = s_alloc.get_size(ptr);
             CHECK_EQUAL(16, size);
             s_alloc.deallocate(ptr);
-
-            s_alloc.release();
         }
 
         UNITTEST_TEST(init_alloc_dealloc_10_release)
@@ -108,8 +97,6 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 CHECK_EQUAL(16, size);
                 s_alloc.deallocate(ptr);
             }
-
-            s_alloc.release();
         }
 
         UNITTEST_TEST(init_alloc_10_dealloc_10_release)
@@ -130,10 +117,8 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             }
             for (s32 i = 0; i < num_allocs; ++i)
             {
-                u32 size = s_alloc.deallocate(ptr[i]);
-                CHECK_EQUAL(16, size);
+                s_alloc.deallocate(ptr[i]);
             }
-            s_alloc.release();
         }
 
         UNITTEST_TEST(init_alloc_tag_dealloc_release)
@@ -146,8 +131,6 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             u32 tag = s_alloc.get_tag(ptr);
             CHECK_EQUAL(0x12345678, tag);
             s_alloc.deallocate(ptr);
-
-            s_alloc.release();
         }
 
         UNITTEST_TEST(stress_test)
@@ -165,11 +148,11 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 if (size < 0)
                 {
                     // this is a deallocation
-                    size                   = -size;
-                    s64       offset       = allocations[i + 1];
-                    void**    store        = (void**)(allocdmp + (offset * 8));
-                    void*     ptr          = *store;
-                    u32 const dealloc_size = s_alloc.deallocate(ptr);
+                    size          = -size;
+                    s64    offset = allocations[i + 1];
+                    void** store  = (void**)(allocdmp + (offset * 8));
+                    void*  ptr    = *store;
+                    s_alloc.deallocate(ptr);
                 }
                 else
                 {
@@ -179,8 +162,6 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 }
                 i += 2;
             }
-
-            s_alloc.release();
         }
     }
 }

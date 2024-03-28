@@ -36,8 +36,7 @@ namespace ncore
         }
 
         virtual void* v_allocate(u32 size, u32 alignment) { return mAllocator->Allocate(size, alignment); }
-        virtual u32   v_deallocate(void* mem) { return mAllocator->Deallocate(mem); }
-        virtual void  v_release() {}
+        virtual void  v_deallocate(void* mem) { mAllocator->Deallocate(mem); }
     };
 } // namespace ncore
 

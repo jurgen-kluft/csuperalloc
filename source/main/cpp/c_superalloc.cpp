@@ -1133,7 +1133,7 @@ namespace ncore
         void deinitialize();
 
         void* v_allocate(u32 size, u32 alignment);
-        u32   v_deallocate(void* ptr);
+        void  v_deallocate(void* ptr);
         void  v_release() {}
         u32   v_get_size(void* ptr) const;
         void  v_set_tag(void* ptr, u32 assoc);
@@ -1217,10 +1217,10 @@ namespace ncore
         return item_ptr;
     }
 
-    u32 superalloc_t::v_deallocate(void* ptr)
+    void superalloc_t::v_deallocate(void* ptr)
     {
         if (ptr == nullptr)
-            return 0;
+            return;
 
         ASSERT(ptr >= m_superspace->m_address_base && ptr < ((u8*)m_superspace->m_address_base + m_superspace->m_address_range));
         superspace_t::chunk_t* chunk = m_superspace->address_to_chunk(ptr);
@@ -1245,7 +1245,7 @@ namespace ncore
 
         // Check the state of this chunk, was it full before we deallocated an element?
         // Or maybe now it has become empty ?
-        const u32  chunk_iptr     = m_internal_fsa.ptr2idx(chunk);
+        const u32 chunk_iptr = m_internal_fsa.ptr2idx(chunk);
 
         if (chunk_is_empty)
         {
@@ -1261,8 +1261,6 @@ namespace ncore
             // Ok, this chunk can be used to allocate from again, so add it to the list of active chunks
             m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].insert(m_chunk_list_data, chunk_iptr);
         }
-
-        return bin.m_alloc_size;
     }
 
     u32 superalloc_t::v_get_size(void* ptr) const
