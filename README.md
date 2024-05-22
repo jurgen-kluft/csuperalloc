@@ -6,6 +6,7 @@ Note: See [ccode](https://github.com/jurgen-kluft/ccode) on how to generate the 
 
 If you like my work and want to support me. Please consider to buy me a coffee!
 ![](bmacoffee.png | width=100)
+<img src="bmacoffee.png" width="100">
 
 ## Superalloc
 
