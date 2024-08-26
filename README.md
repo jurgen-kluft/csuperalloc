@@ -5,7 +5,8 @@ A library that provides cross-platform usage of a virtual memory allocator.
 Note: See [ccode](https://github.com/jurgen-kluft/ccode) on how to generate the buildfiles.
 
 If you like my work and want to support me. Please consider to buy me a coffee!
-<img src="bmacoffee.png" width="100">
+
+<script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="Jur93n" data-color="#FFDD00" data-emoji="" data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#ffffff" ></script>
 
 ## Superalloc
 
