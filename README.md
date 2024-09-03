@@ -12,12 +12,12 @@ If you like my work and want to support me. Please consider to buy me a [coffee!
 Currently this allocator, called 'superalloc', is implemented in C++ and is around 1200 lines 
 of code for the core.
 This allocator is very configurable and all book-keeping data is outside of the managed memory
-making it very suitable for different kind of memory (read-only, GPU etc..).
+making it very suitable for different types of memory (read-only, GPU etc..).
 
 It only uses the following data structures:
 
 * plain old c style arrays
-* binmap; 4 layer bit array (maximum of 2^20 items)
+* binmap; 4 layer bit array (maximum of 1 million (2^20) items)
 * doubly linked list
 
 ```c++
@@ -27,7 +27,7 @@ public:
       void* allocate(u32 size, u32 align);
       u32   deallocate(void*);
       
-      // You can tag an allocation, very useful for attaching debugging info to an allocation or
+      // You can tag an allocation, very useful for attaching debug info to an allocation or
       // using it as a CPU/GPU handle.
       void  set_tag(void*, u32);
       u32   get_tag(void*);
