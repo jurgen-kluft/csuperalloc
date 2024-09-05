@@ -61,7 +61,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
         UNITTEST_FIXTURE_SETUP()
         {
             // Initialize virtual memory
-            ncore::vmem_t::initialize();
+            ncore::nvmem::initialize();
         }
 
         UNITTEST_FIXTURE_TEARDOWN() {}

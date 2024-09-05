@@ -47,9 +47,9 @@ namespace ncore
 
         void alloc_t::initialize(u64 memory_range, u64 size_to_pre_allocate)
         {
-            vmem_protect_t attributes = {vmem_protect_t::ReadWrite};
+            nvmem::protect_t attributes = {nvmem::ReadWrite};
             m_address_range = memory_range;
-            vmem_t::reserve(memory_range, attributes, m_address);
+            nvmem::reserve(memory_range, attributes, m_address);
             m_page_size_shift     = math::ilog2(m_page_size);
             m_allocsize_alignment = 32;
             m_page_count_maximum  = (u32)(memory_range >> m_page_size_shift);
@@ -59,14 +59,14 @@ namespace ncore
             if (size_to_pre_allocate > 0)
             {
                 u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, (u64)m_page_size) >> m_page_size_shift);
-                vmem_t::commit(m_address, m_page_size * pages_to_commit);
+                nvmem::commit(m_address, m_page_size * pages_to_commit);
                 m_page_count_current = pages_to_commit;
             }
         }
 
         void alloc_t::deinitialize()
         {
-            vmem_t::release(m_address, m_address_range);
+            nvmem::release(m_address, m_address_range);
             m_address             = nullptr;
             m_address_range       = 0;
             m_allocsize_alignment = 0;
@@ -89,7 +89,7 @@ namespace ncore
                 u32 const page_count           = (u32)(math::alignUp(m_ptr + size, (u64)m_page_size) >> m_page_size_shift);
                 u32 const page_count_to_commit = page_count - m_page_count_current;
                 u64       commit_base          = ((u64)m_page_count_current << m_page_size_shift);
-                vmem_t::commit(toaddress(m_address, commit_base), m_page_size * page_count_to_commit);
+                nvmem::commit(toaddress(m_address, commit_base), m_page_size * page_count_to_commit);
                 m_page_count_current += page_count_to_commit;
             }
             void* ptr = (void*)((ptr_t)m_ptr + (ptr_t)m_address);
@@ -300,7 +300,7 @@ namespace ncore
             u32* l3 = l3len > 0 ? (u32*)heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
             m_block_free_binmap.init_lazy_1(m_block_max_count, l0len, l1, l1len, l2, l2len, l3, l3len);
 
-            vmem_t::commit(m_address, ((u32)1 << m_block_config.m_block_size_shift) * m_block_max_count);
+            nvmem::commit(m_address, ((u32)1 << m_block_config.m_block_size_shift) * m_block_max_count);
             m_committed = true;
         }
 
@@ -310,7 +310,7 @@ namespace ncore
             heap->dealloc(m_block_free_binmap.m_l[1]);
             heap->dealloc(m_block_free_binmap.m_l[2]);
             heap->dealloc(m_block_array);
-            vmem_t::decommit(m_address, ((u32)1 << m_block_config.m_block_size_shift) * m_block_max_count);
+            nvmem::decommit(m_address, ((u32)1 << m_block_config.m_block_size_shift) * m_block_max_count);
         }
 
         block_t* segment_t::checkout_block(allocconfig_t const& alloccfg)
@@ -469,9 +469,9 @@ namespace ncore
             m_segments_free_binmap.init_lazy_1(m_segments_array_size, l0len, l1, l1len, l2, l2len, l3, l3len);
             m_active_segment_binmap_per_blockcfg = (binmap_t*)m_heap->calloc(sizeof(binmap_t) * c_max_num_blocks);
 
-            vmem_protect_t attributes = {vmem_protect_t::ReadWrite};
+            nvmem::protect_t attributes = {nvmem::ReadWrite};
             u32 page_size  = 0;
-            vmem_t::reserve(address_range, attributes, m_address_base);
+            nvmem::reserve(address_range, attributes, m_address_base);
 
             void* segment_address = m_address_base;
             for (u32 i = 0; i < m_segments_array_size; i++)
@@ -514,7 +514,7 @@ namespace ncore
 
             heap->dealloc(m_segments);
 
-            vmem_t::release(m_address_base, m_address_range);
+            nvmem::release(m_address_base, m_address_range);
         }
 
         u32 alloc_t::sizeof_alloc(u32 alloc_size) const { return math::ceilpo2((alloc_size + (8 - 1)) & ~(8 - 1)); }
@@ -742,9 +742,9 @@ namespace ncore
 
             m_fsa               = fsa;
             m_address_range     = address_range;
-            vmem_protect_t attributes = {vmem_protect_t::ReadWrite};
+            nvmem::protect_t attributes = {nvmem::ReadWrite};
             u32            page_size  = 0;
-            vmem_t::reserve(address_range, attributes, m_address_base);
+            nvmem::reserve(address_range, attributes, m_address_base);
             m_page_size_shift     = math::ilog2(page_size);
             m_used_physical_pages = 0;
             m_segment_shift       = segment_shift;
@@ -776,7 +776,7 @@ namespace ncore
 
         void deinitialize(nsuperheap::alloc_t* heap)
         {
-            vmem_t::release(m_address_base, m_address_range);
+            nvmem::release(m_address_base, m_address_range);
 
             heap->dealloc(m_segment_array);
 
@@ -929,7 +929,7 @@ namespace ncore
                 // Overcommitted, uncommit tail pages
                 void* address = chunk_to_address(segment, chunk);
                 address       = toaddress(address, required_physical_pages << m_page_size_shift);
-                vmem_t::decommit(address, ((u32)1 << m_page_size_shift) * (already_committed_pages - required_physical_pages));
+                nvmem::decommit(address, ((u32)1 << m_page_size_shift) * (already_committed_pages - required_physical_pages));
                 chunk->m_physical_pages = required_physical_pages;
                 m_used_physical_pages -= (already_committed_pages - required_physical_pages);
             }
@@ -938,7 +938,7 @@ namespace ncore
                 // Undercommitted, commit necessary tail pages
                 void* address = chunk_to_address(segment, chunk);
                 address       = toaddress(address, already_committed_pages << m_page_size_shift);
-                vmem_t::commit(address, ((u32)1 << m_page_size_shift)* (required_physical_pages - already_committed_pages));
+                nvmem::commit(address, ((u32)1 << m_page_size_shift) * (required_physical_pages - already_committed_pages));
                 chunk->m_physical_pages = required_physical_pages;
                 m_used_physical_pages += (required_physical_pages - already_committed_pages);
             }
@@ -968,7 +968,7 @@ namespace ncore
                 s32 const segment_chunk_index = segment->m_chunks_cached_binmap.findandset();
                 u32 const chunk_iptr          = segment->m_chunks_array[segment_chunk_index];
                 chunk_t*  chunk               = m_fsa->idx2obj<chunk_t>(chunk_iptr);
-                vmem_t::decommit(chunk_to_address(segment, chunk), ((u32)1 << m_page_size_shift)* chunk->m_physical_pages);
+                nvmem::decommit(chunk_to_address(segment, chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
                 deinitialize_chunk(m_fsa, chunk, m_config->m_abinconfigs[chunk->m_bin_index]);
                 m_fsa->deallocptr(chunk);
                 segment->m_chunks_array[segment_chunk_index] = nsuperfsa::NIL;
@@ -1030,7 +1030,7 @@ namespace ncore
             // segment->m_count_chunks_cached += 1;
 
             // Uncommit the virtual memory of this chunk
-            vmem_t::decommit(chunk_to_address(segment, chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
+            nvmem::decommit(chunk_to_address(segment, chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
             m_used_physical_pages -= chunk->m_physical_pages;
 
             // Release the tracking array that was allocated for this chunk
