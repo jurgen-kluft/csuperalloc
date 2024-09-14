@@ -19,6 +19,9 @@ namespace ncore
         u32           m_alloc_size;       // The size of the allocation that this bin is managing
         chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
         u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
+
+        void copy_from(binconfig_t const& other);
+        void initialize();
     };
 
     struct superalloc_config_t

@@ -12,7 +12,11 @@
 
 ## Multi-Threading
 
-Not sure yet how to implement multi-threading, we could go into the direction
-of having a superallocator_t per thread, however when pointers are shared 
-between threads then we need to queue the free operation for the owning thread.
+Each thread could have a thread proxy that will queue the free operation of any
+non owning thread. A simple spin-lock can be used to synchronize access to the
+hierarchical bitmap. We can have 2 bitmaps, when the owning thread is requested
+to allocate memory, and if there are queued free operations, then it will swap 
+the bitmaps and process the free operations. We could also make the processing
+of the free operations explicit, so that the owning thread can process the free
+operations at a time that is convenient from a user perspective.
 

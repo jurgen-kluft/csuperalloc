@@ -12,6 +12,8 @@ namespace ncore
     // Forward declares
     class vmem_t;
 
+    // A 'virtual memory' allocator, suitable for CPU as well as GPU memory
+    // Note: This interface is not thread-safe
     class valloc_t : public alloc_t
     {
     public:
@@ -28,6 +30,7 @@ namespace ncore
     // A 'virtual memory' allocator, suitable for CPU as well as GPU memory
     extern valloc_t* gCreateVmAllocator(alloc_t* main_heap);
     extern void gDestroyVmAllocator(valloc_t* allocator);
+
 
 };  // namespace ncore
 
