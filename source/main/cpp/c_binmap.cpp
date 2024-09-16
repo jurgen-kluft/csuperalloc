@@ -145,7 +145,7 @@ namespace ncore
 
     bool binmap_t::get(u32 bit) const
     {
-        u32 const l = num_levels();
+        u32 const l  = num_levels();
         u32 const bi = (u32)1 << (bit & (32 - 1));
         if (l == 0)
             return (m_l0 & bi) != 0;

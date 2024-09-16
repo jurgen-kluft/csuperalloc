@@ -21,7 +21,7 @@ It only uses the following data structures:
 * doubly linked list
 
 ```c++
-class valloc_t
+class vmalloc_t : public alloc_t
 {
 public:
       void* allocate(u32 size, u32 align);
@@ -42,6 +42,6 @@ Note: Unittest contains a test called `stress test` that executes 500.000 operat
 
 Some things missing:
 
-- not multi-thread safe (yet)
+- not multi-thread safe (wip)
 - cached chunks are not limited so nothing is released back in terms of unused physical pages. 
 

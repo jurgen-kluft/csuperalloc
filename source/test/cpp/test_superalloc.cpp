@@ -14,11 +14,11 @@ extern unsigned int  allocdmp_len;
 
 class alloc_with_stats_t : public alloc_t
 {
-    valloc_t* mAllocator;
-    u32       mNumAllocs;
-    u32       mNumDeallocs;
-    u64       mMemoryAllocated;
-    u64       mMemoryDeallocated;
+    nvmalloc::vmalloc_t* mAllocator;
+    u32                  mNumAllocs;
+    u32                  mNumDeallocs;
+    u64                  mMemoryAllocated;
+    u64                  mMemoryDeallocated;
 
 public:
     alloc_with_stats_t()
@@ -31,6 +31,12 @@ public:
     }
 
     void init(alloc_t* allocator) { mAllocator = gCreateVmAllocator(allocator); }
+
+    void release(alloc_t* allocator)
+    {
+        gDestroyVmAllocator(mAllocator);
+        mAllocator = nullptr;
+    }
 
     virtual void* v_allocate(u32 size, u32 alignment)
     {
@@ -69,9 +75,8 @@ UNITTEST_SUITE_BEGIN(main_allocator)
         UNITTEST_TEST(init_release)
         {
             alloc_with_stats_t s_alloc;
-            void*              mem = Allocator->allocate(100);
-            Allocator->deallocate(mem);
             s_alloc.init(Allocator);
+            s_alloc.release(Allocator);
         }
 
         UNITTEST_TEST(init_alloc1_dealloc_release)
@@ -83,6 +88,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             u32   size = s_alloc.get_size(ptr);
             CHECK_EQUAL(16, size);
             s_alloc.deallocate(ptr);
+            s_alloc.release(Allocator);
         }
 
         UNITTEST_TEST(init_alloc_dealloc_10_release)
@@ -97,6 +103,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 CHECK_EQUAL(16, size);
                 s_alloc.deallocate(ptr);
             }
+            s_alloc.release(Allocator);
         }
 
         UNITTEST_TEST(init_alloc_10_dealloc_10_release)
@@ -119,6 +126,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             {
                 s_alloc.deallocate(ptr[i]);
             }
+            s_alloc.release(Allocator);
         }
 
         UNITTEST_TEST(init_alloc_tag_dealloc_release)
@@ -131,6 +139,8 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             u32 tag = s_alloc.get_tag(ptr);
             CHECK_EQUAL(0x12345678, tag);
             s_alloc.deallocate(ptr);
+
+            s_alloc.release(Allocator);
         }
 
         UNITTEST_TEST(stress_test)
@@ -162,6 +172,8 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 }
                 i += 2;
             }
+
+            s_alloc.release(Allocator);
         }
     }
 }

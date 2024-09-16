@@ -15,13 +15,24 @@ namespace ncore
 
     struct binconfig_t
     {
+        binconfig_t(u32 alloc_bin_index, u32 alloc_size, chunkconfig_t const& chunk_config)
+            : m_alloc_bin_index(alloc_bin_index)
+            , m_alloc_size(alloc_size)
+            , m_chunk_config(chunk_config)
+            , m_max_alloc_count((((u32)1 << chunk_config.m_chunk_size_shift) / alloc_size))
+        {
+        }
+        binconfig_t(const binconfig_t& other)
+            : m_alloc_bin_index(other.m_alloc_bin_index)
+            , m_alloc_size(other.m_alloc_size)
+            , m_chunk_config(other.m_chunk_config)
+            , m_max_alloc_count(other.m_max_alloc_count)
+        {
+        }
         u32           m_alloc_bin_index;  // The index of this bin, also used as an indirection (only one indirection allowed)
         u32           m_alloc_size;       // The size of the allocation that this bin is managing
         chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
         u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
-
-        void copy_from(binconfig_t const& other);
-        void initialize();
     };
 
     struct superalloc_config_t
