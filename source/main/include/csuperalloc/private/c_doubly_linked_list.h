@@ -19,38 +19,18 @@ namespace ncore
         llindex_t        m_prev, m_next;
     };
 
-    struct lldata_t;
+    inline void ll_reset(llindex_t& head) { head = llnode_t::NIL; }
+    inline bool ll_is_nil(llindex_t head) { return head == llnode_t::NIL; }
+    void        ll_insert(llindex_t& head, dexer_t* dexer, llindex_t item);       // Inserts 'item' at the head
+    void        ll_insert_tail(llindex_t& head, dexer_t* dexer, llindex_t item);  // Inserts 'item' at the tail end
+    llnode_t*   ll_remove_item(llindex_t& head, dexer_t* dexer, llindex_t item);
+    llnode_t*   ll_remove_head(llindex_t& head, dexer_t* dexer);
+    llnode_t*   ll_remove_tail(llindex_t& head, dexer_t* dexer);
+    llindex_t   ll_remove_headi(llindex_t& head, dexer_t* dexer);
+    llindex_t   ll_remove_taili(llindex_t& head, dexer_t* dexer);
 
-    struct llhead_t
-    {
-        llindex_t m_index;
-
-        inline llhead_t()
-            : m_index(llnode_t::NIL)
-        {
-        }
-
-        void      reset() { m_index = llnode_t::NIL; }
-        bool      is_nil() const { return m_index == llnode_t::NIL; }
-        void      insert(lldata_t& data, llindex_t item);       // Inserts 'item' at the head
-        void      insert_tail(lldata_t& data, llindex_t item);  // Inserts 'item' at the tail end
-        llnode_t* remove_item(lldata_t& data, llindex_t item);
-        llnode_t* remove_head(lldata_t& data);
-        llnode_t* remove_tail(lldata_t& data);
-        llindex_t remove_headi(lldata_t& data);
-        llindex_t remove_taili(lldata_t& data);
-
-        inline void operator=(u16 i) { m_index = i; }
-        inline void operator=(const llindex_t& index) { m_index = index; }
-        inline void operator=(const llhead_t& head) { m_index = head.m_index; }
-    };
-
-    struct lldata_t
-    {
-        dexer_t*         m_dexer;
-        inline llnode_t* idx2node(llindex_t i) const { return m_dexer->idx2obj<llnode_t>(i); }
-        inline llindex_t node2idx(llnode_t* node) const { return m_dexer->obj2idx(node); }
-    };
+    inline llnode_t* ll_idx2node(dexer_t* dexer, llindex_t i) { return dexer->idx2obj<llnode_t>(i); }
+    inline llindex_t ll_node2idx(dexer_t* dexer, llnode_t* node) { return dexer->obj2idx(node); }
 
     struct llist_t
     {
@@ -69,37 +49,37 @@ namespace ncore
         inline bool is_empty() const { return m_size == 0; }
         inline bool is_full() const { return m_size == m_size_max; }
 
-        void        initialize(lldata_t& data, u32 start, u32 size, u32 max_size);
+        inline void init() { reset(); }
         inline void reset()
         {
             m_size = 0;
-            m_head.reset();
+            m_head = llnode_t::NIL;
         }
 
-        void      insert(lldata_t& data, llindex_t item);       // Inserts 'item' at the head
-        void      insert_tail(lldata_t& data, llindex_t item);  // Inserts 'item' at the tail end
-        llnode_t* remove_item(lldata_t& data, llindex_t item);
-        llnode_t* remove_head(lldata_t& data);
-        llnode_t* remove_tail(lldata_t& data);
-        llindex_t remove_headi(lldata_t& data);
-        llindex_t remove_taili(lldata_t& data);
+        void      insert(dexer_t* dexer, llindex_t item);       // Inserts 'item' at the head
+        void      insert_tail(dexer_t* dexer, llindex_t item);  // Inserts 'item' at the tail end
+        llnode_t* remove_item(dexer_t* dexer, llindex_t item);
+        llnode_t* remove_head(dexer_t* dexer);
+        llnode_t* remove_tail(dexer_t* dexer);
+        llindex_t remove_headi(dexer_t* dexer);
+        llindex_t remove_taili(dexer_t* dexer);
 
-        llnode_t* idx2node(lldata_t& data, llindex_t i) const
+        llnode_t* idx2node(dexer_t* dexer, llindex_t i) const
         {
             ASSERT(i < m_size_max);
-            return data.idx2node(i);
+            return ll_idx2node(dexer, i);
         }
 
-        llindex_t node2idx(lldata_t& data, llnode_t* node) const
+        llindex_t node2idx(dexer_t* dexer, llnode_t* node) const
         {
-            llindex_t i = data.node2idx(node);
+            llindex_t i = ll_node2idx(dexer, node);
             ASSERT(i < m_size_max);
             return i;
         }
 
-        u32      m_size;
-        u32      m_size_max;
-        llhead_t m_head;
+        u32       m_size;
+        u32       m_size_max;
+        llindex_t m_head;
     };
 
 }  // namespace ncore

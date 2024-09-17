@@ -12,6 +12,20 @@ namespace ncore
 {
 #define SUPERALLOC_DEBUG
 
+    // TODO:
+    // Introduce multiple superspaces with a way to indentify when deallocating which superspace is owning that memory.
+
+    // On Windoes a process is given a virtual memory address space of 128 TB
+    // If our smallest superspace manages 16 GB, then we can have 8192 superspaces.
+    // However if we limit the actual number of superspaces to 256, then we can
+    // reduce the footprint of SuperMemory
+    struct SuperSpace;
+    struct SuperMemory
+    {
+        SuperSpace* m_superspaces[256];
+
+    };
+
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.

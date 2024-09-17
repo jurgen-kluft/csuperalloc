@@ -676,6 +676,7 @@ namespace ncore
         //
         namespace nsuperspace
         {
+            // 96 bytes
             struct segment_t
             {
                 u32           m_segment_index;
@@ -716,19 +717,21 @@ namespace ncore
                 }
             };
 
+            // 64 bytes
             struct alloc_t
             {
-                void*                      m_address_base;
-                u64                        m_address_range;
-                s8                         m_page_size_shift;
-                s8                         m_segment_shift;       // 1 << m_segment_shift = segment size
-                u32                        m_segment_count;       // Space Address Range / Segment Size = Number of segments
-                u32                        m_segment_free_index;  //
-                segment_t*                 m_segment_array;       // Array of segments
-                binmap_t*                  m_segment_free_binmap;
+                void*                      m_address_base;            //
+                u64                        m_address_range;           //
+                segment_t*                 m_segment_array;           // Array of segments
+                binmap_t*                  m_segment_free_binmap;     //
                 binmap_t*                  m_segment_active_binmaps;  // This needs to be per chunk-size
+                superalloc_config_t const* m_config;                  //
                 u32                        m_used_physical_pages;     // The number of pages that are currently committed
-                superalloc_config_t const* m_config;
+                u32                        m_segment_count;           // Space Address Range / Segment Size = Number of segments
+                u32                        m_segment_free_index;      //
+                s8                         m_page_size_shift;         //
+                s8                         m_segment_shift;           // 1 << m_segment_shift = segment size
+                s16                        m_padding0;                //
 
                 alloc_t()
                     : m_address_base(nullptr)
@@ -1116,8 +1119,8 @@ namespace ncore
             nsuperheap::alloc_t*       m_internal_heap;
             nsuperfsa::alloc_t*        m_internal_fsa;
             nsuperspace::alloc_t*      m_superspace;
-            lldata_t                   m_chunk_list_data;
-            llhead_t*                  m_active_chunk_list_per_alloc_size;
+            dexer_t*                   m_chunk_list_data;
+            llindex_t*                 m_active_chunk_list_per_alloc_size;
             alloc_t*                   m_main_allocator;
 
             superalloc_t(alloc_t* main_allocator)
@@ -1158,10 +1161,10 @@ namespace ncore
             m_superspace = (nsuperspace::alloc_t*)m_internal_heap->calloc(sizeof(nsuperspace::alloc_t));
             m_superspace->initialize(config->m_total_address_size, config->m_segment_address_range_shift, m_internal_heap, m_internal_fsa, config);
 
-            m_chunk_list_data.m_dexer          = m_internal_fsa;
-            m_active_chunk_list_per_alloc_size = (llhead_t*)m_internal_heap->alloc(config->m_num_binconfigs * sizeof(llhead_t));
+            m_chunk_list_data                  = m_internal_fsa;
+            m_active_chunk_list_per_alloc_size = (llindex_t*)m_internal_heap->alloc(config->m_num_binconfigs * sizeof(llindex_t));
             for (u32 i = 0; i < config->m_num_binconfigs; i++)
-                m_active_chunk_list_per_alloc_size[i].reset();
+                m_active_chunk_list_per_alloc_size[i] = llnode_t::NIL;
         }
 
         void superalloc_t::deinitialize()
@@ -1181,12 +1184,12 @@ namespace ncore
             binconfig_t const& bin = m_config->size2bin(alloc_size);
 
             nsuperspace::chunk_t* chunk      = nullptr;
-            u32                   chunk_iptr = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].m_index;
+            u32                   chunk_iptr = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index];
             if (chunk_iptr == nsuperfsa::NIL)
             {
                 chunk      = m_superspace->checkout_chunk(bin, m_internal_fsa);
                 chunk_iptr = m_internal_fsa->ptr2idx(chunk);
-                m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].insert(m_chunk_list_data, chunk_iptr);
+                ll_insert(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], m_chunk_list_data, chunk_iptr);
             }
             else
             {
@@ -1217,7 +1220,7 @@ namespace ncore
             if (bin.m_max_alloc_count == chunk->m_elem_used_count)
             {
                 // Chunk is full, so remove it from the list of active chunks
-                m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, chunk_iptr);
+                ll_remove_item(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], m_chunk_list_data, chunk_iptr);
             }
 
             nsuperspace::segment_t* segment       = &m_superspace->m_segment_array[chunk->m_segment_index];
@@ -1262,14 +1265,14 @@ namespace ncore
                 if (!chunk_was_full)
                 {
                     // We are going to release this chunk, so remove it from the active chunk list before doing that.
-                    m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].remove_item(m_chunk_list_data, chunk_iptr);
+                    ll_remove_item(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], m_chunk_list_data, chunk_iptr);
                 }
                 m_superspace->release_chunk(chunk, m_internal_fsa);
             }
             else if (chunk_was_full)
             {
                 // Ok, this chunk can be used to allocate from again, so add it to the list of active chunks
-                m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index].insert(m_chunk_list_data, chunk_iptr);
+                ll_insert(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], m_chunk_list_data, chunk_iptr);
             }
         }
 
