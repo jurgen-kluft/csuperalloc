@@ -68,7 +68,7 @@ namespace ncore
 
                 if (size_to_pre_allocate > 0)
                 {
-                    u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, (u64)(1 << m_page_size_shift)) >> m_page_size_shift);
+                    u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, ((u64)1 << m_page_size_shift)) >> m_page_size_shift);
                     nvmem::commit(m_address, (1 << m_page_size_shift) * pages_to_commit);
                     m_page_count_current = pages_to_commit;
                 }
