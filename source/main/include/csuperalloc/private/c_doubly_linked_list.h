@@ -37,11 +37,13 @@ namespace ncore
         inline llist_t()
             : m_size(0)
             , m_size_max(0)
+            , m_head(llnode_t::NIL)
         {
         }
         inline llist_t(u32 size, u32 size_max)
             : m_size(size)
             , m_size_max(size_max)
+            , m_head(llnode_t::NIL)
         {
         }
 

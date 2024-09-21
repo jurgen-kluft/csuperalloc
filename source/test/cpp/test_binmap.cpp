@@ -36,11 +36,11 @@ UNITTEST_SUITE_BEGIN(binmap)
                 u32 const count = i*1024 + ((1 - (i&1)) * 600);
                 binmap_t::compute_levels(count, l0len, l1len, l2len, l3len);
                 binmap_t bm;
-                bm.init_0(count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                bm.init_all_free(count, l0len, l1, l1len, l2, l2len, l3, l3len);
 
                 for (u32 b = 0; b < count; b += 2)
                 {
-                    bm.set(b);
+                    bm.set_used(b);
                 }
                 for (u32 b = 0; b < count; b++)
                 {
@@ -49,7 +49,7 @@ UNITTEST_SUITE_BEGIN(binmap)
                 }
                 for (u32 b = 1; b < count; b += 2)
                 {
-                    u32 const f = bm.findandset();
+                    u32 const f = bm.find_and_set();
                     CHECK_EQUAL(b, f);
                 }
 
@@ -82,17 +82,17 @@ UNITTEST_SUITE_BEGIN(binmap)
                 binmap_t::compute_levels(count, l0len, l1len, l2len, l3len);
 
                 binmap_t bm;
-                bm.init_lazy_0(count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                bm.init_all_free_lazy(count, l0len, l1, l1len, l2, l2len, l3, l3len);
 
                 for (u32 b = 0; b < count; ++b)
                 {
-                    bm.lazy_init_0(b);
+                    bm.init_all_free_lazy(b);
                 }
 
                 for (u32 b = 0; b < count; b += 2)
                 {
                     CHECK_FALSE(bm.get(b));
-                    bm.set(b);
+                    bm.set_used(b);
                     CHECK_TRUE(bm.get(b));
                 }
                 for (u32 b = 0; b < count; b++)
@@ -103,7 +103,7 @@ UNITTEST_SUITE_BEGIN(binmap)
 
                 for (u32 b = 1; b < count; b += 2)
                 {
-                    u32 const f = bm.findandset();
+                    u32 const f = bm.find_and_set();
                     CHECK_EQUAL(b, f);
                 }
 
