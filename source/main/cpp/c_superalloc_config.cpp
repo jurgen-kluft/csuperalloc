@@ -15,7 +15,7 @@ namespace ncore
     // TODO:
     // Introduce multiple superspaces with a way to indentify when deallocating which superspace is owning that memory.
 
-    // On Windoes a process is given a virtual memory address space of 128 TB
+    // On Windows a process is given a virtual memory address space of 8 TB ?
     // If our smallest superspace manages 16 GB, then we can have 8192 superspaces.
     // However if we limit the actual number of superspaces to 256, then we can
     // reduce the footprint of SuperMemory
@@ -23,44 +23,34 @@ namespace ncore
     struct SuperMemory
     {
         SuperSpace* m_superspaces[256];
-
     };
 
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.
 
-    static const chunkconfig_t c4KB               = {12, 0};
-    static const chunkconfig_t c16KB              = {14, 1};
-    static const chunkconfig_t c32KB              = {15, 2};
-    static const chunkconfig_t c64KB              = {16, 3};
-    static const chunkconfig_t c128KB             = {17, 4};
-    static const chunkconfig_t c256KB             = {18, 5};
-    static const chunkconfig_t c512KB             = {19, 6};
-    static const chunkconfig_t c1MB               = {20, 7};
-    static const chunkconfig_t c2MB               = {21, 8};
-    static const chunkconfig_t c4MB               = {22, 9};
-    static const chunkconfig_t c8MB               = {23, 10};
-    static const chunkconfig_t c16MB              = {24, 11};
-    static const chunkconfig_t c32MB              = {25, 12};
-    static const chunkconfig_t c64MB              = {26, 13};
-    static const chunkconfig_t c128MB             = {27, 14};
-    static const chunkconfig_t c256MB             = {28, 15};
-    static const chunkconfig_t c512MB             = {29, 16};
-    static const chunkconfig_t c_achunkconfigs[]  = {c4KB, c16KB, c32KB, c64KB, c128KB, c256KB, c512KB, c1MB, c2MB, c4MB, c8MB, c16MB, c32MB, c64MB, c128MB, c256MB, c512MB};
+    static const chunkconfig_t c64KB              = {16, 0};
+    static const chunkconfig_t c128KB             = {17, 1};
+    static const chunkconfig_t c512KB             = {19, 2};
+    static const chunkconfig_t c2MB               = {21, 3};
+    static const chunkconfig_t c8MB               = {23, 4};
+    static const chunkconfig_t c32MB              = {25, 5};
+    static const chunkconfig_t c128MB             = {27, 6};
+    static const chunkconfig_t c512MB             = {29, 7};
+    static const chunkconfig_t c_achunkconfigs[]  = {c64KB, c128KB, c512KB, c2MB, c8MB, c32MB, c128MB, c512MB};
     static const u32           c_num_chunkconfigs = sizeof(c_achunkconfigs) / sizeof(chunkconfig_t);
 
     namespace nsuperalloc_config_25p
     {
         // clang-format off
-        // binconfig_t(bin-index or remap, alloc-size, chunk-config)
+        // binconfig_t(bin-index, alloc-size, chunk-config)
         static const binconfig_t c_abinconfigs[] = {
-            {8,         8,  c64KB},                    {8,    8,  c64KB},                        // 8, 8
-            {8,         8,  c64KB},                    {8,    8,  c64KB},                        // 8, 8
-            {8,         8,  c64KB},                    {8,    8,  c64KB},                        // 8, 8
-            {8,         8,  c64KB},                    {8,    8,  c64KB},                        // 8, 8
-            {8,         8,  c64KB},                    {10,   10, c64KB},                        // 8, 12
-            {10,        12, c64KB},                    {12,   14, c64KB},                        // 12, 16
+            {0,         8,  c64KB},                    {1,    8,  c64KB},                        // 8, 8
+            {2,         8,  c64KB},                    {3,    8,  c64KB},                        // 8, 8
+            {4,         8,  c64KB},                    {5,    8,  c64KB},                        // 8, 8
+            {6,         8,  c64KB},                    {7,    8,  c64KB},                        // 8, 8
+            {8,         8,  c64KB},                    {9,   12,  c64KB},                        // 8, 12
+            {10,        12, c64KB},                    {11,   16, c64KB},                        // 12, 16
             {12,        16, c64KB},                    {13,   20, c64KB},                        // 16, 20
             {14,        24, c64KB},                    {15,   28, c64KB},                        // 24, 28
             {16,        32, c64KB},                    {17,   40, c64KB},                        // 32, 40
@@ -73,23 +63,23 @@ namespace ncore
             {30,       384, c64KB},                    {31,   448, c64KB},                       // 384, 448
             {32,       512, c64KB},                    {33,   640, c64KB},                       // 512, 640
             {34,       768, c64KB},                    {35,   896, c64KB},                       // 768, 896
-            {36,   1 * cKB, c64KB},                    {37,  1*cKB + 256, c128KB},               //   1KB, 1KB + 256
-            {38,   1 * cKB + 512, c128KB},             {39,  1*cKB + 768, c128KB},               //   1KB, 1KB + 768
-            {40,   2 * cKB, c128KB},                   {41,  2*cKB + 512, c128KB},               //   2KB, 2KB + 512
-            {42,   3 * cKB, c128KB},                   {43,  3*cKB + 512, c128KB},               //   3KB, 3KB + 512
-            {44,   4 * cKB, c128KB},                   {45,  5*cKB, c128KB},                     //   4KB, 5KB
+            {36,   1 * cKB, c64KB},                    {37,  1*cKB + 256, c64KB},               //   1KB, 1KB + 256
+            {38,   1 * cKB + 512, c64KB},             {39,  1*cKB + 768, c64KB},               //   1KB, 1KB + 768
+            {40,   2 * cKB, c64KB},                   {41,  2*cKB + 512, c64KB},               //   2KB, 2KB + 512
+            {42,   3 * cKB, c64KB},                   {43,  3*cKB + 512, c64KB},               //   3KB, 3KB + 512
+            {44,   4 * cKB, c64KB},                   {45,  5*cKB, c128KB},                     //   4KB, 5KB
             {46,   6 * cKB, c128KB},                   {47,  7*cKB, c128KB},                     //   6KB, 7KB
-            {48,   8 * cKB, c128KB},                   {49,  10*cKB, c128KB},                    //   8KB, 10KB
+            {48,   8 * cKB, c64KB},                    {49,  10*cKB, c128KB},                    //   8KB, 10KB
             {50,  12 * cKB, c128KB},                   {51,  14*cKB, c128KB},                    //  12KB, 14KB
-            {52,  16 * cKB, c128KB},                   {53,  20*cKB, c128KB},                    //  16KB, 20KB
+            {52,  16 * cKB, c64KB},                    {53,  20*cKB, c128KB},                    //  16KB, 20KB
             {54,  24 * cKB, c128KB},                   {55,  28*cKB, c128KB},                    //  24KB, 28KB
-            {56,  32 * cKB, c128KB},                   {57,  40*cKB, c512KB},                    //  32KB, 40KB
+            {56,  32 * cKB, c64KB},                    {57,  40*cKB, c512KB},                    //  32KB, 40KB
             {58,  48 * cKB, c512KB},                   {59,  56*cKB, c512KB},                    //  48KB, 56KB
             {60,  64 * cKB, c512KB},                   {61,  80*cKB, c512KB},                    //  64KB, 80KB
             {62,  96 * cKB, c512KB},                   {63,  112*cKB, c512KB},                   //  96KB, 112KB
-            {64, 128 * cKB, c512KB},                   {65,  160*cKB, c1MB},                     // 128KB, 160KB
-            {66, 192 * cKB, c1MB},                     {67,  224*cKB, c1MB},                     // 192KB, 224KB
-            {68, 256 * cKB, c1MB},                     {69,  320*cKB, c1MB},                     // 256KB, 320KB
+            {64, 128 * cKB, c512KB},                   {65,  160*cKB, c2MB},                     // 128KB, 160KB
+            {66, 192 * cKB, c2MB},                     {67,  224*cKB, c2MB},                     // 192KB, 224KB
+            {68, 256 * cKB, c2MB},                     {69,  320*cKB, c2MB},                     // 256KB, 320KB
             {70, 384 * cKB, c2MB},                     {71,  448*cKB, c2MB},                     // 384KB, 448KB
             {72, 512 * cKB, c2MB},                     {73,  640*cKB, c8MB},                     // 512KB, 640KB
             {74, 768 * cKB, c8MB},                     {75,  896*cKB, c8MB},                     // 768KB, 896KB
@@ -123,15 +113,14 @@ namespace ncore
         public:
             binconfig_t const& size2bin(u32 alloc_size) const override final
             {
-                const s32 w = math::countLeadingZeros(alloc_size);
-                const u32 f = (u32)0x80000000 >> w;
-                const u32 r = 0xFFFFFFFF << (29 - w);
-                const u32 t = ((f - 1) >> 2);
-                alloc_size  = (alloc_size + t) & ~t;
-                int i       = (int)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
-                i           = m_abinconfigs[i].m_alloc_bin_index;
-                ASSERT(alloc_size <= m_abinconfigs[i].m_alloc_size);
-                return m_abinconfigs[i];
+                const s32 w   = math::countLeadingZeros(alloc_size);
+                const u32 f   = (u32)0x80000000 >> w;
+                const u32 r   = 0xFFFFFFFF << (29 - w);
+                const u32 t   = ((f - 1) >> 2);
+                alloc_size    = (alloc_size + t) & ~t;
+                s32 const bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
+                ASSERT(alloc_size <= m_abinconfigs[bin].m_alloc_size);
+                return m_abinconfigs[bin];
             }
         };
 
@@ -161,15 +150,13 @@ namespace ncore
         config->m_num_binconfigs              = nsuperalloc_config_25p::c_num_binconfigs;
         config->m_num_chunkconfigs            = c_num_chunkconfigs;
         config->m_abinconfigs                 = nsuperalloc_config_25p::c_abinconfigs;
-        config->m_achunkconfigs               = c_achunkconfigs;
 
 #ifdef SUPERALLOC_DEBUG
         // sanity check the configuration
         for (u32 s = 0; s < config->m_num_binconfigs; s++)
         {
             ASSERT(config->m_abinconfigs[s].m_max_alloc_count >= 1);
-            u32 const          rs   = config->m_abinconfigs[s].m_alloc_bin_index;
-            u32 const          size = config->m_abinconfigs[rs].m_alloc_size;
+            u32 const          size = config->m_abinconfigs[s].m_alloc_size;
             binconfig_t const& bin  = config->size2bin(size);
             ASSERT(size <= bin.m_alloc_size);
             ASSERT(bin.m_max_alloc_count >= 1);
@@ -187,33 +174,33 @@ namespace ncore
             {8,   8, c64KB},                 {8,   8, c64KB},                 // 2, 3
             {8,   8, c64KB},                 {8,   8, c64KB},                 // 4, 5
             {8,   8, c64KB},                 {8,   8, c64KB},                 // 6, 7
-            {8,   8, c64KB},                 {12,   9, c64KB},                // 8, 9
-            {12,   10, c64KB},               {12,   11, c64KB},               // 10, 11
-            {12,   12, c64KB},               {16,   13, c64KB},               // 12, 13
-            {16,   14, c64KB},               {16,   15, c64KB},               // 14, 15
-            {16,   16, c64KB},               {18,   18, c64KB},               // 16, 17
-            {18,   20, c64KB},               {20,   22, c64KB},               // 18, 19
-            {20,   24, c64KB},               {22,   26, c64KB},               // 20, 21
-            {22,   28, c64KB},               {24,   30, c64KB},               // 22, 23
+            {8,   8, c64KB},                 {12,   12, c64KB},                // 8, 9
+            {12,   12, c64KB},               {12,   12, c64KB},               // 10, 11
+            {12,   12, c64KB},               {16,   16, c64KB},               // 12, 13
+            {16,   16, c64KB},               {16,   16, c64KB},               // 14, 15
+            {16,   16, c64KB},               {18,   20, c64KB},               // 16, 17
+            {18,   20, c64KB},               {20,   24, c64KB},               // 18, 19
+            {20,   24, c64KB},               {22,   28, c64KB},               // 20, 21
+            {22,   28, c64KB},               {24,   32, c64KB},               // 22, 23
             {24,   32, c64KB},               {25,   36, c64KB},               // 24, 25
             {26,   40, c64KB},               {27,   44, c64KB},               // 26, 27
-            {28,   48, c64KB},               {29,   52, c64KB},               // 28, 29
-            {30,   56, c64KB},               {31,   60, c64KB},               // 30, 31
-            {32,   64, c64KB},               {33,   72, c64KB},               // 32, 33
+            {28,   48, c64KB},               {29,   56, c64KB},               // 28, 29
+            {30,   56, c64KB},               {31,   64, c64KB},               // 30, 31
+            {32,   64, c64KB},               {33,   80, c64KB},               // 32, 33
             {34,   80, c64KB},               {35,   88, c64KB},               // 34, 35
-            {36,   96, c64KB},               {37,   104, c64KB},              // 36, 37
-            {38,   112, c64KB},              {39,   120, c64KB},              // 38, 39
-            {40,   128, c64KB},              {41,   144, c64KB},              // 40, 41
-            {42,   160, c64KB},              {43,   176, c64KB},              // 42, 43
-            {44,   192, c64KB},              {45,   208, c64KB},              // 44, 45
-            {46,   224, c64KB},              {47,   240, c64KB},              // 46, 47
+            {36,   96, c64KB},               {37,   112, c64KB},              // 36, 37
+            {38,   112, c64KB},              {39,   128, c64KB},              // 38, 39
+            {40,   128, c64KB},              {41,   160, c64KB},              // 40, 41
+            {42,   160, c64KB},              {43,   192, c64KB},              // 42, 43
+            {44,   192, c64KB},              {45,   224, c64KB},              // 44, 45
+            {46,   224, c64KB},              {47,   256, c64KB},              // 46, 47
             {48,   256, c64KB},              {49,   288, c64KB},              // 48, 49
             {50,   320, c64KB},              {51,   352, c64KB},              // 50, 51
-            {52,   384, c64KB},              {53,   416, c64KB},              // 52, 53
-            {54,   448, c64KB},              {55,   480, c64KB},              // 54, 55
-            {56,   512, c64KB},              {57,   576, c64KB},              // 56, 57
-            {58,   640, c64KB},              {59,   704, c64KB},              // 58, 59
-            {60,   768, c64KB},              {61,   832, c64KB},              // 60, 61
+            {52,   384, c64KB},              {53,   448, c64KB},              // 52, 53
+            {54,   448, c64KB},              {55,   512, c64KB},              // 54, 55
+            {56,   512, c64KB},              {57,   640, c64KB},              // 56, 57
+            {58,   640, c64KB},              {59,   768, c64KB},              // 58, 59
+            {60,   768, c64KB},              {61,   896, c64KB},              // 60, 61
             {62,   896, c64KB},              {63,   960, c64KB},              // 62, 63
             {64,  1*cKB, c64KB},             {65,  1*cKB + 128, c64KB},       // 64, 65
             {66,  1*cKB + 256, c128KB},      {67,  1*cKB + 384, c128KB},      // 66, 67
@@ -244,11 +231,11 @@ namespace ncore
             {116,  96*cKB, c512KB},          {117,  104*cKB, c512KB},         // 116, 117
             {118,  112*cKB, c512KB},         {119,  120*cKB, c512KB},         // 118, 119
             {120,  128*cKB, c512KB},         {121,  144*cKB, c64KB},          // 120, 121
-            {122,  160*cKB, c1MB},           {123,  176*cKB, c1MB},           // 122, 123
-            {124,  192*cKB, c1MB},           {125,  208*cKB, c1MB},           // 124, 125
-            {126,  224*cKB, c1MB},           {127,  240*cKB, c1MB},           // 126, 127
-            {128,  256*cKB, c1MB},           {129,  288*cKB, c1MB},           // 128, 129
-            {130,  320*cKB, c1MB},           {131,  352*cKB, c2MB},           // 130, 131
+            {122,  160*cKB, c2MB},           {123,  176*cKB, c2MB},           // 122, 123
+            {124,  192*cKB, c2MB},           {125,  208*cKB, c2MB},           // 124, 125
+            {126,  224*cKB, c2MB},           {127,  240*cKB, c2MB},           // 126, 127
+            {128,  256*cKB, c2MB},           {129,  288*cKB, c2MB},           // 128, 129
+            {130,  320*cKB, c2MB},           {131,  352*cKB, c2MB},           // 130, 131
             {132,  384*cKB, c2MB},           {133,  416*cKB, c2MB},           // 132, 133
             {134,  448*cKB, c2MB},           {135,  480*cKB, c2MB},           // 134, 135
             {136,  512*cKB, c2MB},           {137,  576*cKB, c8MB},           // 136, 137
@@ -282,13 +269,13 @@ namespace ncore
             {192, 64*cMB, c128MB},           {193, 72*cMB, c128MB},           // 192, 193
             {194, 80*cKB, c128MB},           {195, 88*cMB, c128MB},           // 194, 195
             {196, 96*cMB, c128MB},           {197, 104*cMB, c128MB},          // 196, 197
-            {198, 112*cMB, c128MB},          {199, 120*cKB, c128MB},          // 198, 199
-            {200, 128*cMB, c128MB},          {201, 144*cMB, c256MB},          // 200, 201
-            {202, 160*cKB, c256MB},          {203, 176*cMB, c256MB},          // 202, 203
-            {204, 192*cMB, c256MB},          {205, 208*cMB, c256MB},          // 204, 205
-            {206, 224*cMB, c256MB},          {207, 240*cKB, c256MB},          // 206, 207
-            {208, 256*cMB, c256MB},          {209, 288*cMB, c512MB},          // 208, 209
-            {210, 320*cKB, c512MB},          {211, 352*cMB, c512MB},          // 210, 211
+            {198, 112*cMB, c128MB},          {199, 120*cMB, c128MB},          // 198, 199
+            {200, 128*cMB, c128MB},          {201, 144*cMB, c512MB},          // 200, 201
+            {202, 160*cMB, c512MB},          {203, 176*cMB, c512MB},          // 202, 203
+            {204, 192*cMB, c512MB},          {205, 208*cMB, c512MB},          // 204, 205
+            {206, 224*cMB, c512MB},          {207, 240*cKB, c512MB},          // 206, 207
+            {208, 256*cMB, c512MB},          {209, 288*cMB, c512MB},          // 208, 209
+            {210, 320*cMB, c512MB},          {211, 352*cMB, c512MB},          // 210, 211
             {212, 384*cMB, c512MB},          {213, 416*cMB, c512MB},          // 212, 213
             {214, 448*cMB, c512MB},          {215, 480*cKB, c512MB},          // 214, 215
         };
@@ -303,15 +290,14 @@ namespace ncore
         public:
             binconfig_t const& size2bin(u32 alloc_size) const override final
             {
-                const s32 w = math::countLeadingZeros(alloc_size);
-                const u32 f = (u32)0x80000000 >> w;
-                const u32 r = 0xFFFFFFFF << (28 - w);
-                const u32 t = ((f - 1) >> 3);
-                alloc_size  = (alloc_size + t) & ~t;
-                int i       = (int)((alloc_size & r) >> (28 - w)) + ((28 - w) * 8);
-                i           = m_abinconfigs[i].m_alloc_bin_index;
-                ASSERT(alloc_size <= m_abinconfigs[i].m_alloc_size);
-                return m_abinconfigs[i];
+                const s32 w   = math::countLeadingZeros(alloc_size);
+                const u32 f   = (u32)0x80000000 >> w;
+                const u32 r   = 0xFFFFFFFF << (28 - w);
+                const u32 t   = ((f - 1) >> 3);
+                alloc_size    = (alloc_size + t) & ~t;
+                const s32 bin = (s32)((alloc_size & r) >> (28 - w)) + ((28 - w) * 8);
+                ASSERT(alloc_size <= m_abinconfigs[bin].m_alloc_size);
+                return m_abinconfigs[bin];
             }
         };
 
@@ -342,14 +328,12 @@ namespace ncore
         config->m_num_binconfigs              = nsuperalloc_config_10p::c_num_binconfigs;
         config->m_num_chunkconfigs            = c_num_chunkconfigs;
         config->m_abinconfigs                 = nsuperalloc_config_10p::c_abinconfigs;
-        config->m_achunkconfigs               = c_achunkconfigs;
 
 #ifdef SUPERALLOC_DEBUG
         // sanity check the configuration
         for (u32 s = 0; s < config->m_num_binconfigs; s++)
         {
-            u32 const          rs   = config->m_abinconfigs[s].m_alloc_bin_index;
-            u32 const          size = config->m_abinconfigs[rs].m_alloc_size;
+            u32 const          size = config->m_abinconfigs[s].m_alloc_size;
             binconfig_t const& bin  = config->size2bin(size);
             ASSERT(size <= bin.m_alloc_size);
         }
