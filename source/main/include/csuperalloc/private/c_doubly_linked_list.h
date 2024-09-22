@@ -15,7 +15,6 @@ namespace ncore
     struct llnode_t
     {
         static const u32 NIL = 0xFFFFFFFF;
-        inline bool      is_linked() const { return m_prev != NIL && m_next != NIL; }
         llindex_t        m_prev, m_next;
     };
 
@@ -28,9 +27,6 @@ namespace ncore
     llnode_t*   ll_remove_tail(llindex_t& head, dexer_t* dexer);
     llindex_t   ll_remove_headi(llindex_t& head, dexer_t* dexer);
     llindex_t   ll_remove_taili(llindex_t& head, dexer_t* dexer);
-
-    inline llnode_t* ll_idx2node(dexer_t* dexer, llindex_t i) { return dexer->idx2obj<llnode_t>(i); }
-    inline llindex_t ll_node2idx(dexer_t* dexer, llnode_t* node) { return dexer->obj2idx(node); }
 
     struct llist_t
     {
@@ -69,12 +65,12 @@ namespace ncore
         llnode_t* idx2node(dexer_t* dexer, llindex_t i) const
         {
             ASSERT(i < m_size_max);
-            return ll_idx2node(dexer, i);
+            return dexer->idx2obj<llnode_t>(i);
         }
 
         llindex_t node2idx(dexer_t* dexer, llnode_t* node) const
         {
-            llindex_t i = ll_node2idx(dexer, node);
+            llindex_t i = dexer->obj2idx(node);
             ASSERT(i < m_size_max);
             return i;
         }

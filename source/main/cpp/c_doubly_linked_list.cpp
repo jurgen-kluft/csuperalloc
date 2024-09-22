@@ -7,31 +7,9 @@
 
 namespace ncore
 {
-    void ll_insert(llindex_t& head, dexer_t* dexer, llindex_t item)
-    {
-        llnode_t* const pitem = ll_idx2node(dexer, item);
-        if (head == llnode_t::NIL)
-        {
-            pitem->m_prev = item;
-            pitem->m_next = item;
-        }
-        else
-        {
-            llindex_t const inext = head;
-            llnode_t* const pnext = ll_idx2node(dexer, inext);
-            llindex_t const iprev = pnext->m_prev;
-            llnode_t* const pprev = ll_idx2node(dexer, iprev);
-            pitem->m_prev         = iprev;
-            pitem->m_next         = inext;
-            pnext->m_prev         = item;
-            pprev->m_next         = item;
-        }
-        head = item;
-    }
-
     void ll_insert_tail(llindex_t& head, dexer_t* dexer, llindex_t item)
     {
-        llnode_t* const pitem = ll_idx2node(dexer, item);
+        llnode_t* const pitem = dexer->idx2obj<llnode_t>(item);
         if (head == llnode_t::NIL)
         {
             pitem->m_prev = item;
@@ -41,9 +19,9 @@ namespace ncore
         else
         {
             llindex_t const inext = head;
-            llnode_t* const pnext = ll_idx2node(dexer, inext);
+            llnode_t* const pnext = dexer->idx2obj<llnode_t>(inext);
             llindex_t const iprev = pnext->m_prev;
-            llnode_t* const pprev = ll_idx2node(dexer, iprev);
+            llnode_t* const pprev = dexer->idx2obj<llnode_t>(iprev);
             pitem->m_prev         = iprev;
             pitem->m_next         = inext;
             pnext->m_prev         = item;
@@ -51,10 +29,16 @@ namespace ncore
         }
     }
 
+    void ll_insert(llindex_t& head, dexer_t* dexer, llindex_t item)
+    {
+        ll_insert_tail(head, dexer, item);
+        head = item;
+    }
+
     static void s_remove_item(llindex_t& head, dexer_t* dexer, llindex_t item, llnode_t*& out_node)
     {
-        llnode_t* const pitem = ll_idx2node(dexer, item);
-        llnode_t* const phead = ll_idx2node(dexer, head);
+        llnode_t* const pitem = dexer->idx2obj<llnode_t>(item);
+        llnode_t* const phead = dexer->idx2obj<llnode_t>(head);
         if (phead->m_prev == head && phead->m_next == head)
         {
             ASSERT(head == item);
@@ -62,8 +46,8 @@ namespace ncore
         }
         else
         {
-            llnode_t* const pprev = ll_idx2node(dexer, pitem->m_prev);
-            llnode_t* const pnext = ll_idx2node(dexer, pitem->m_next);
+            llnode_t* const pprev = dexer->idx2obj<llnode_t>(pitem->m_prev);
+            llnode_t* const pnext = dexer->idx2obj<llnode_t>(pitem->m_next);
             pprev->m_next         = pitem->m_next;
             pnext->m_prev         = pitem->m_prev;
             if (item == head)
@@ -78,7 +62,7 @@ namespace ncore
     {
         if (head == llnode_t::NIL)
             return 0;
-        llnode_t* const phead = ll_idx2node(dexer, head);
+        llnode_t* const phead = dexer->idx2obj<llnode_t>(head);
         llindex_t       tail  = phead->m_prev;
         s_remove_item(head, dexer, tail, out_node);
         return 1;
@@ -125,7 +109,7 @@ namespace ncore
             return head;
         llnode_t* node;
         s_remove_tail(head, dexer, node);
-        return ll_node2idx(dexer, node);
+        return dexer->obj2idx(node);
     }
 
     void llist_t::insert(dexer_t* dexer, llindex_t item)

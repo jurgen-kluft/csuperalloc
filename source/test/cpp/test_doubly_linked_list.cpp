@@ -13,21 +13,27 @@ class list_dexer_t : public dexer_t
 public:
     list_dexer_t() {}
 
-    virtual void* v_idx2ptr(u32 i) const { return &m_data[i]; }
-    virtual u32   v_ptr2idx(void* obj) const { return (llindex_t)((llnode_t*)obj - m_data); }
+    virtual void* v_idx2ptr(u32 i) { return &m_data[i]; }
+    virtual u32   v_ptr2idx(void const* obj) const { return (llindex_t)((llnode_t*)obj - m_data); }
 
     DCORE_CLASS_PLACEMENT_NEW_DELETE
 
-    mutable llnode_t m_data[1024];
+    llnode_t* m_data;
 };
 
 dexer_t* gCreateList(alloc_t* alloc, u32 count)
 {
     list_dexer_t* list = alloc->construct<list_dexer_t>();
+    list->m_data       = (llnode_t*)alloc->allocate(sizeof(llnode_t) * count);
     return list;
 }
 
-void gDestroyList(alloc_t* alloc, dexer_t* list) { alloc->deallocate(list); }
+void gDestroyList(alloc_t* alloc, dexer_t* list)
+{
+    list_dexer_t* l = (list_dexer_t*)list;
+    alloc->deallocate(l->m_data);
+    alloc->destruct(l);
+}
 
 UNITTEST_SUITE_BEGIN(doubly_linked_list)
 {
@@ -40,14 +46,11 @@ UNITTEST_SUITE_BEGIN(doubly_linked_list)
 
         UNITTEST_TEST(init)
         {
-            dexer_t* lldata = gCreateList(Allocator, 1024);
             llist_t  list(0, 1024);
 
             CHECK_TRUE(list.is_empty());
             CHECK_EQUAL(0, list.size());
             CHECK_TRUE(ll_is_nil(list.m_head));
-
-            gDestroyList(Allocator, lldata);
         }
 
         UNITTEST_TEST(insert_1)
