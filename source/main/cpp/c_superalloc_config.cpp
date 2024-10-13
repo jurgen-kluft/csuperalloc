@@ -2,7 +2,6 @@
 #include "ccore/c_debug.h"
 #include "cbase/c_integer.h"
 
-#include "csuperalloc/private/c_binmap.h"
 #include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/c_superalloc_config.h"
 

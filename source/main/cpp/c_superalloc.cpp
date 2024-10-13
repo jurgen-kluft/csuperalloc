@@ -1,9 +1,10 @@
 #include "ccore/c_target.h"
 #include "ccore/c_debug.h"
+#include "ccore/c_memory.h"
 #include "cbase/c_integer.h"
+#include "cbase/c_hbb.h"
 
 #include "csuperalloc/private/c_doubly_linked_list.h"
-#include "csuperalloc/private/c_binmap.h"
 #include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/c_superalloc_config.h"
 
@@ -50,7 +51,7 @@ namespace ncore
                 {
                     u32 const size = sizeof(T);
                     void*     ptr  = alloc(size);
-                    return new (ncore::new_signature(), ptr) T();
+                    return new (ptr) T();
                 }
             };
 
@@ -68,7 +69,7 @@ namespace ncore
 
                 if (size_to_pre_allocate > 0)
                 {
-                    u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, ((u64)1 << m_page_size_shift)) >> m_page_size_shift);
+                    u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, ((u32)1 << m_page_size_shift)) >> m_page_size_shift);
                     nvmem::commit(m_address, (1 << m_page_size_shift) * pages_to_commit);
                     m_page_count_current = pages_to_commit;
                 }
@@ -96,7 +97,7 @@ namespace ncore
                 if ((m_ptr + size) > ptr_max)
                 {
                     // add more pages
-                    u32 const page_count           = (u32)(math::alignUp(m_ptr + size, (u64)1 << m_page_size_shift) >> m_page_size_shift);
+                    u32 const page_count           = (u32)(math::alignUp(m_ptr + size, (u32)1 << m_page_size_shift) >> m_page_size_shift);
                     u32 const page_count_to_commit = page_count - m_page_count_current;
                     u64       commit_base          = ((u64)m_page_count_current << m_page_size_shift);
                     nvmem::commit(toaddress(m_address, commit_base), (1 << m_page_size_shift) * page_count_to_commit);
@@ -332,7 +333,7 @@ namespace ncore
                     if (m_block_free_index < m_block_max_count)
                     {
                         free_block_index = m_block_free_index++;
-                        m_block_free_binmap.init_all_used_lazy(free_block_index);
+                        m_block_free_binmap.tick_all_used_lazy(free_block_index);
                     }
                     else
                     {
@@ -372,6 +373,8 @@ namespace ncore
                 inline void  dealloc(u32 index) { dealloc_item(index); }
                 inline void* allocptr(u32 size) { return alloc_item(size).m_ptr; }
                 inline void  deallocptr(void* ptr) { dealloc_item_ptr(ptr); }
+
+                DCORE_CLASS_PLACEMENT_NEW_DELETE
 
                 void* v_idx2ptr(u32 i) override final
                 {
@@ -541,7 +544,7 @@ namespace ncore
                         if (m_segments_free_index < m_segments_array_size)
                         {
                             segment_index = m_segments_free_index;
-                            m_segments_free_binmap.init_all_used_lazy(m_segments_free_index);
+                            m_segments_free_binmap.tick_all_used_lazy(m_segments_free_index);
                             m_segments_free_index++;
                         }
                         else
@@ -880,8 +883,8 @@ namespace ncore
                             segment_chunk_index = segment->m_chunks_free_index++;
                             if ((segment_chunk_index & 0x1F) == 0)
                             {  // If the lower 5 bits are 0, we need to clear a branch in the free and cached binmaps.
-                                segment->m_chunks_cached_binmap.init_all_used_lazy(segment_chunk_index);
-                                segment->m_chunks_free_binmap.init_all_used_lazy(segment_chunk_index);
+                                segment->m_chunks_cached_binmap.tick_all_used_lazy(segment_chunk_index);
+                                segment->m_chunks_free_binmap.tick_all_used_lazy(segment_chunk_index);
                             }
                         }
                         u32 const chunk_iptr                         = fsa->alloc(sizeof(chunk_t));
@@ -1197,7 +1200,7 @@ namespace ncore
                 elem_index = chunk->m_elem_free_index++;
                 if ((elem_index & 0x1F) == 0)
                 {
-                    bm->init_all_used_lazy(elem_index);
+                    bm->tick_all_used_lazy(elem_index);
                 }
             }
             ASSERT(elem_index < (s32)bin.m_max_alloc_count);  // This should never happen
