@@ -930,7 +930,7 @@ namespace ncore
                     chunk->m_elem_tag_array_iptr = nsuperfsa::NIL;
 
                     binmap_t* bm = fsa->idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
-                    for (u32 i = 0; i < bm->levels(); i++)
+                    for (s8 i = 0; i < bm->levels(); i++)
                         fsa->deallocptr(bm->m_l[i]);
                     fsa->dealloc(chunk->m_elem_free_binmap_iptr);
                     chunk->m_elem_free_binmap_iptr = nsuperfsa::NIL;
@@ -1040,12 +1040,12 @@ namespace ncore
                     segment->m_chunks_array = nullptr;
 
                     binmap_t* bm = (binmap_t*)&segment->m_chunks_cached_binmap;
-                    for (u32 i = 0; i < bm->levels(); i++)
+                    for (s8 i = 0; i < bm->levels(); i++)
                         fsa->deallocptr(bm->m_l[i]);
                     bm->reset();
 
                     bm = (binmap_t*)&segment->m_chunks_free_binmap;
-                    for (u32 i = 0; i < bm->levels(); i++)
+                    for (s8 i = 0; i < bm->levels(); i++)
                         fsa->deallocptr(bm->m_l[i]);
                     bm->reset();
 
