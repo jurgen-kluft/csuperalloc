@@ -16,6 +16,13 @@ namespace ncore
     {
         // A 'virtual memory' allocator, suitable for CPU as well as GPU memory
         // Note: This interface is not thread-safe
+        // Note: It is almost possible to even derive from dexer_t, the u32 index would consist of
+        //       - segment index (8 bits)
+        //       - chunk index (15 bits)
+        //       - item index (12 bits)
+        //       If the allocator would cover (2^32 * smallest alloc size) memory then the index
+        //       could fit into 32 bits.
+
         class vmalloc_t : public alloc_t
         {
         public:

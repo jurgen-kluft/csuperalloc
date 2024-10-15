@@ -20,12 +20,18 @@ It only uses the following data structures:
 * binmap; 4 layer bit array (maximum of 1 million (2^20) items)
 * doubly linked list
 
+Execution behaviour:
+
+* Allocation is done in O(1) time
+* Deallocation is done in O(1) time
+* Set / Get tag is done in O(1) time
+
 ```c++
 class vmalloc_t : public alloc_t
 {
 public:
       void* allocate(u32 size, u32 align);
-      u32   deallocate(void*);
+      void  deallocate(void*);
       
       // You can tag an allocation, very useful for attaching debug info to an allocation or
       // using it as a CPU/GPU handle.
