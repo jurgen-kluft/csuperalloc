@@ -2,7 +2,7 @@
 #include "ccore/c_debug.h"
 #include "ccore/c_memory.h"
 #include "cbase/c_integer.h"
-#include "cbase/c_hbb.h"
+#include "cbase/c_binmap.h"
 
 #include "csuperalloc/private/c_doubly_linked_list.h"
 #include "csuperalloc/c_superalloc.h"
@@ -304,12 +304,11 @@ namespace ncore
                 m_block_used_count = 0;
                 m_block_array      = (block_t*)heap->alloc(m_block_max_count * sizeof(block_t));
 
-                u32 l0len, l1len, l2len, l3len;
-                binmap_t::compute_levels(m_block_max_count, l0len, l1len, l2len, l3len);
-                u32* l1 = l1len > 0 ? (u32*)heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                u32* l2 = l2len > 0 ? (u32*)heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                u32* l3 = l3len > 0 ? (u32*)heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                m_block_free_binmap.init_all_used_lazy(m_block_max_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                binmap_t::config_t cfg = binmap_t::config_t::compute(m_block_max_count);
+                u32*               l1  = cfg.m_lnlen[0] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                u32*               l2  = cfg.m_lnlen[1] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                u32*               l3  = cfg.m_lnlen[2] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                m_block_free_binmap.init_all_used_lazy(cfg, l1, l2, l3);
 
                 nvmem::commit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
                 m_committed = true;
@@ -472,13 +471,15 @@ namespace ncore
                 m_segments_array_size = (u32)(address_range >> m_segment_size_shift);
                 m_segments            = (segment_t*)m_heap->calloc(sizeof(segment_t) * m_segments_array_size);
 
+                binmap_t::config_t const cfg = binmap_t::config_t::compute(m_segments_array_size);
+
                 m_segments_free_index = 0;
-                u32 l0len, l1len, l2len, l3len;
-                binmap_t::compute_levels(m_segments_array_size, l0len, l1len, l2len, l3len);
-                u32* l1 = l1len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                u32* l2 = l2len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                u32* l3 = l3len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                m_segments_free_binmap.init_all_used_lazy(m_segments_array_size, l0len, l1, l1len, l2, l2len, l3, l3len);
+                {
+                    u32* l1 = cfg.m_lnlen[0] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                    u32* l2 = cfg.m_lnlen[1] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                    u32* l3 = cfg.m_lnlen[2] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                    m_segments_free_binmap.init_all_used_lazy(cfg, l1, l2, l3);
+                }
                 m_active_segment_binmap_per_blockcfg = (binmap_t*)m_heap->calloc(sizeof(binmap_t) * c_max_num_blocks);
 
                 nvmem::protect_t const attributes = nvmem::ReadWrite;
@@ -494,11 +495,10 @@ namespace ncore
                 for (u32 i = 0; i < c_max_num_blocks; i++)
                 {
                     binmap_t& bm = m_active_segment_binmap_per_blockcfg[i];
-                    binmap_t::compute_levels(m_segments_array_size, l0len, l1len, l2len, l3len);
-                    l1 = l1len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                    l2 = l2len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                    l3 = l3len > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                    bm.init_all_used(m_segments_array_size, l0len, l1, l1len, l2, l2len, l3, l3len);
+                    u32*      l1 = cfg.m_lnlen[0] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                    u32*      l2 = cfg.m_lnlen[1] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                    u32*      l3 = cfg.m_lnlen[2] > 0 ? (u32*)m_heap->alloc(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                    bm.init_all_used(cfg, l1, l2, l3);
                 }
 
                 m_active_block_list_per_allocsize = (block_t**)m_heap->alloc(sizeof(block_t*) * c_max_num_sizes);
@@ -765,24 +765,23 @@ namespace ncore
 
                     m_config = config;
 
-                    u32 l0len, l1len, l2len, l3len;
+                    binmap_t::config_t cfg = binmap_t::config_t::compute(m_segment_count);
                     {
-                        binmap_t::compute_levels(m_segment_count, l0len, l1len, l2len, l3len);
-                        u32* l3               = (l3len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                        u32* l2               = (l2len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                        u32* l1               = (l1len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
                         m_segment_free_binmap = (binmap_t*)heap->alloc(sizeof(binmap_t));
-                        m_segment_free_binmap->init_all_free(m_segment_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+
+                        u32* l1 = cfg.m_lnlen[0] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                        u32* l2 = cfg.m_lnlen[1] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                        u32* l3 = cfg.m_lnlen[2] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                        m_segment_free_binmap->init_all_free(cfg, l1, l2, l3);
                     }
 
                     m_segment_active_binmaps = (binmap_t*)heap->calloc(config->m_num_chunkconfigs * sizeof(binmap_t));
                     for (u32 i = 0; i < config->m_num_chunkconfigs; i++)
                     {
-                        // binmap_t::compute_levels(m_segment_count, l0len, l1len, l2len, l3len);
-                        u32* l3 = (l3len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                        u32* l2 = (l2len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                        u32* l1 = (l1len > 0) ? (u32*)heap->alloc(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                        m_segment_active_binmaps[i].init_all_used(m_segment_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                        u32* l1 = cfg.m_lnlen[0] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                        u32* l2 = cfg.m_lnlen[1] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                        u32* l3 = cfg.m_lnlen[2] > 0 ? (u32*)heap->alloc(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                        m_segment_active_binmaps[i].init_all_used(cfg, l1, l2, l3);
                     }
                 }
 
@@ -831,16 +830,14 @@ namespace ncore
                     // Allocate allocation tag array
                     chunk->m_elem_tag_array_iptr = fsa->alloc(sizeof(u32) * bin.m_max_alloc_count);
 
-                    u32 l0len, l1len, l2len, l3len;
-                    binmap_t::compute_levels(bin.m_max_alloc_count, l0len, l1len, l2len, l3len);
+                    binmap_t::config_t cfg = binmap_t::config_t::compute(bin.m_max_alloc_count);
 
-                    u32* l3 = (l3len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                    u32* l2 = (l2len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                    u32* l1 = (l1len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-
+                    u32* l1                        = cfg.m_lnlen[0] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                    u32* l2                        = cfg.m_lnlen[1] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                    u32* l3                        = cfg.m_lnlen[2] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
                     chunk->m_elem_free_binmap_iptr = fsa->alloc(sizeof(binmap_t));
                     binmap_t* bm                   = fsa->idx2obj<binmap_t>(chunk->m_elem_free_binmap_iptr);
-                    bm->init_all_used_lazy(bin.m_max_alloc_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                    bm->init_all_used_lazy(cfg, l1, l2, l3);
                 }
 
                 chunk_t* checkout_chunk(binconfig_t const& bin, nsuperfsa::alloc_t* fsa)
@@ -990,18 +987,18 @@ namespace ncore
                     // call lazy_init on each binmap.
                     segment->m_chunks_free_index = 0;
 
-                    u32 l0len, l1len, l2len, l3len;
-                    binmap_t::compute_levels(segment_chunk_count, l0len, l1len, l2len, l3len);
+                    binmap_t::config_t cfg = binmap_t::config_t::compute(segment_chunk_count);
 
-                    u32* l3 = (l3len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                    u32* l2 = (l2len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                    u32* l1 = (l1len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                    segment->m_chunks_cached_binmap.init_all_used_lazy(segment_chunk_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                    u32* l1 = cfg.m_lnlen[0] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                    u32* l2 = cfg.m_lnlen[1] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                    u32* l3 = cfg.m_lnlen[2] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                    segment->m_chunks_cached_binmap.init_all_used_lazy(cfg, l1, l2, l3);
 
-                    l3 = (l3len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l3len + 31) >> 5)) : nullptr;
-                    l2 = (l2len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l2len + 31) >> 5)) : nullptr;
-                    l1 = (l1len > 0) ? (u32*)fsa->allocptr(sizeof(u32) * ((l1len + 31) >> 5)) : nullptr;
-                    segment->m_chunks_free_binmap.init_all_used_lazy(segment_chunk_count, l0len, l1, l1len, l2, l2len, l3, l3len);
+                    // TODO: Replace these 2 binmaps with a single duomap
+                    l1 = cfg.m_lnlen[0] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
+                    l2 = cfg.m_lnlen[1] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
+                    l3 = cfg.m_lnlen[2] > 0 ? (u32*)fsa->allocptr(sizeof(u32) * ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
+                    segment->m_chunks_free_binmap.init_all_used_lazy(cfg, l1, l2, l3);
 
                     segment->m_count_chunks_cached = 0;
                     segment->m_count_chunks_used   = 0;
