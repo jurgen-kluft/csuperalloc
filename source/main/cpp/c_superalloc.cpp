@@ -661,7 +661,7 @@ namespace ncore
         }  // namespace nsuperfsa
 
         // SuperSpace manages an array of Segments.
-        // Every Segment has an array of Chunks.
+        // Every Segment is dedicated to a particular chunk size and holds an array of Chunks.
         //
         // Functionality:
         //   Allocate

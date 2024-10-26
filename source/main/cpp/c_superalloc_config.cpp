@@ -1,6 +1,7 @@
 #include "ccore/c_target.h"
 #include "ccore/c_debug.h"
 #include "cbase/c_integer.h"
+#include "cbase/c_binmap.h"
 
 #include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/c_superalloc_config.h"
@@ -14,14 +15,40 @@ namespace ncore
     // TODO:
     // Introduce multiple superspaces with a way to indentify when deallocating which superspace is owning that memory.
 
-    // On Windows a process is given a virtual memory address space of 8 TB ?
-    // If our smallest superspace manages 16 GB, then we can have 8192 superspaces.
-    // However if we limit the actual number of superspaces to 256, then we can
-    // reduce the footprint of SuperMemory
-    struct SuperSpace;
-    struct SuperMemory
+    // On Windows a process is given a virtual memory address space of 8 TB, as a standard lets compute with 1 TB.
+    // SuperSpace(1TB) -> Segments(1TB/256=4GB) -> Section(4GB/Chunk-Size) -> Chunks
+    // A Segment is subdivided into Sections in a specialized manner, since we have different sized Sections.
+    // We do not want a Segment to lock itself to a particular Section size, so we have a Segment that can hold multiple Section sizes.
+
+    // The Section sizes are defined in the configuration, but here is an example:
+    // - 64 MB, 128 MB, 256 MB, 512 MB, 1 GB, 2 GB
+    // So for chunk sizes 64KB - 1MB we are configured to request 64 MB Sections.
+    // For chunk sizes 1MB - 4MB we are configured to request 128 MB Sections.
+    // For chunk sizes 4MB - 32MB we are configured to request 256 MB Sections.
+    // For chunk sizes 32MB - 128MB we are configured to request 512 MB Sections.
+    // For chunk sizes 128MB - 512MB we are configured to request 1 GB Sections.
+    // For chunk sizes 512MB - 1GB we are configured to request 2 GB Sections.
+    struct SuperChunk
     {
-        SuperSpace* m_superspaces[256];
+        binmap_t m_free_items;
+    };
+
+    struct SuperSection
+    {
+        // Dedicated chunk size for this Section
+        u32         m_chunk_size;
+        u32         m_chunk_count;
+        SuperChunk* m_chunks;
+    };
+
+    struct SuperSegment  // 4 GB
+    {
+        SuperSection* m_sections[64];
+    };
+
+    struct SuperSpace  // 1 TB
+    {
+        SuperSegment* m_segments[256];
     };
 
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
