@@ -13,6 +13,12 @@ namespace ncore
         s16 m_index;      // The index of this chunk config in the chunk config array
     };
 
+    struct sectionconfig_t
+    {
+        const s16 m_sizeshift;  // The shift of the section size (e.g. 26 for 64MB)
+        const s16 m_index;      // The index of this config in the section config array
+    };
+
     struct binconfig_t
     {
         binconfig_t(u16 alloc_bin_index, u32 alloc_size, chunkconfig_t const& chunk_config)
@@ -29,10 +35,10 @@ namespace ncore
             , m_max_alloc_count(other.m_max_alloc_count)
         {
         }
-        u16           m_alloc_bin_index;  // The index of this bin
-        u32           m_alloc_size;       // The size of the allocation that this bin is managing
-        chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
-        u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
+        const u64           m_alloc_bin_index : 16;  // The index of this bin
+        const u64           m_alloc_size : 48;       // The size of the allocation that this bin is managing
+        const chunkconfig_t m_chunk_config;          // The index of the chunk size that this bin requires
+        const u32           m_max_alloc_count;       // The maximum number of allocations that can be made from a single chunk
     };
 
     struct superalloc_config_t

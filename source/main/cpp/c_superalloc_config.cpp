@@ -12,48 +12,18 @@ namespace ncore
 {
 #define SUPERALLOC_DEBUG
 
-    // TODO:
-    // Introduce multiple superspaces with a way to indentify when deallocating which superspace is owning that memory.
-
-    // On Windows a process is given a virtual memory address space of 8 TB, as a standard lets compute with 1 TB.
-    // SuperSpace(1TB) -> Segments(1TB/256=4GB) -> Section(4GB/Chunk-Size) -> Chunks
-    // A Segment is subdivided into Sections in a specialized manner, since we have different sized Sections.
-    // We do not want a Segment to lock itself to a particular Section size, so we have a Segment that can hold multiple Section sizes.
-
-    // The Section sizes are defined in the configuration, but here is an example:
-    // - 64 MB, 128 MB, 256 MB, 512 MB, 1 GB, 2 GB
-    // So for chunk sizes 64KB - 1MB we are configured to request 64 MB Sections.
-    // For chunk sizes 1MB - 4MB we are configured to request 128 MB Sections.
-    // For chunk sizes 4MB - 32MB we are configured to request 256 MB Sections.
-    // For chunk sizes 32MB - 128MB we are configured to request 512 MB Sections.
-    // For chunk sizes 128MB - 512MB we are configured to request 1 GB Sections.
-    // For chunk sizes 512MB - 1GB we are configured to request 2 GB Sections.
-    struct SuperChunk
-    {
-        binmap_t m_free_items;
-    };
-
-    struct SuperSection
-    {
-        // Dedicated chunk size for this Section
-        u32         m_chunk_size;
-        u32         m_chunk_count;
-        SuperChunk* m_chunks;
-    };
-
-    struct SuperSegment  // 4 GB
-    {
-        SuperSection* m_sections[64];
-    };
-
-    struct SuperSpace  // 1 TB
-    {
-        SuperSegment* m_segments[256];
-    };
-
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
     /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.
+
+    static const sectionconfig_t s32MB                = {25, 0};
+    static const sectionconfig_t s64MB                = {26, 0};
+    static const sectionconfig_t s128MB               = {27, 1};
+    static const sectionconfig_t s256MB               = {28, 1};
+    static const sectionconfig_t s512MB               = {29, 2};
+    static const sectionconfig_t s1GB                 = {30, 3};
+    static const sectionconfig_t c_asectionconfigs[]  = {s32MB, s64MB, s128MB, s256MB, s512MB, s1GB};
+    static const u32             c_num_sectionconfigs = sizeof(c_asectionconfigs) / sizeof(sectionconfig_t);
 
     static const chunkconfig_t c64KB              = {16, 0};
     static const chunkconfig_t c128KB             = {17, 1};
@@ -89,11 +59,11 @@ namespace ncore
             {30,       384, c64KB},                    {31,   448, c64KB},                       // 384, 448
             {32,       512, c64KB},                    {33,   640, c64KB},                       // 512, 640
             {34,       768, c64KB},                    {35,   896, c64KB},                       // 768, 896
-            {36,   1 * cKB, c64KB},                    {37,  1*cKB + 256, c64KB},               //   1KB, 1KB + 256
-            {38,   1 * cKB + 512, c64KB},             {39,  1*cKB + 768, c64KB},               //   1KB, 1KB + 768
-            {40,   2 * cKB, c64KB},                   {41,  2*cKB + 512, c64KB},               //   2KB, 2KB + 512
-            {42,   3 * cKB, c64KB},                   {43,  3*cKB + 512, c64KB},               //   3KB, 3KB + 512
-            {44,   4 * cKB, c64KB},                   {45,  5*cKB, c128KB},                     //   4KB, 5KB
+            {36,   1 * cKB, c64KB},                    {37,  1*cKB + 256, c64KB},                //   1KB, 1KB + 256
+            {38,   1 * cKB + 512, c64KB},              {39,  1*cKB + 768, c64KB},                //   1KB, 1KB + 768
+            {40,   2 * cKB, c64KB},                    {41,  2*cKB + 512, c64KB},                //   2KB, 2KB + 512
+            {42,   3 * cKB, c64KB},                    {43,  3*cKB + 512, c64KB},                //   3KB, 3KB + 512
+            {44,   4 * cKB, c64KB},                    {45,  5*cKB, c128KB},                     //   4KB, 5KB
             {46,   6 * cKB, c128KB},                   {47,  7*cKB, c128KB},                     //   6KB, 7KB
             {48,   8 * cKB, c64KB},                    {49,  10*cKB, c128KB},                    //   8KB, 10KB
             {50,  12 * cKB, c128KB},                   {51,  14*cKB, c128KB},                    //  12KB, 14KB
