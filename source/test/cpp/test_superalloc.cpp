@@ -13,7 +13,7 @@ extern unsigned int  allocdmp_len;
 
 class alloc_with_stats_t : public alloc_t
 {
-    nvmalloc::vmalloc_t* mAllocator;
+    nsuperalloc::vmalloc_t* mAllocator;
     u32                  mNumAllocs;
     u32                  mNumDeallocs;
     u64                  mMemoryAllocated;

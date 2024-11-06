@@ -12,7 +12,7 @@ namespace ncore
     // Forward declares
     class vmem_t;
 
-    namespace nvmalloc
+    namespace nsuperalloc
     {
         // A 'virtual memory' allocator, suitable for CPU as well as GPU memory
         // Note: This interface is not thread-safe
@@ -35,11 +35,11 @@ namespace ncore
             virtual void v_set_tag(void* ptr, u32 assoc) = 0;
             virtual u32  v_get_tag(void* ptr) const      = 0;
         };
-    }  // namespace nvmalloc
+    }  // namespace nsuperalloc
 
     // A 'virtual memory' allocator, suitable for CPU as well as GPU memory
-    extern nvmalloc::vmalloc_t* gCreateVmAllocator(alloc_t* main_heap);
-    extern void                 gDestroyVmAllocator(nvmalloc::vmalloc_t* allocator);
+    extern nsuperalloc::vmalloc_t* gCreateVmAllocator(alloc_t* main_heap);
+    extern void                    gDestroyVmAllocator(nsuperalloc::vmalloc_t* allocator);
 
     // --------------------------------------------------------------------------------------------
     // A 'virtual memory' allocator, multi-thread safe
