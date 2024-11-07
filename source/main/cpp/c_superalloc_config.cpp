@@ -18,31 +18,31 @@ namespace ncore
         /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.
-        static const s8 sSi32MB  = 0;
-        static const s8 sSi64MB  = 1;
-        static const s8 sSi128MB = 2;
-        static const s8 sSi256MB = 3;
-        static const s8 sSi512MB = 4;
-        static const s8 sSi1GB   = 5;
+        static const s8 sSectionIndex32MB  = 0;
+        static const s8 sSectionIndex64MB  = 1;
+        static const s8 sSectionIndex128MB = 2;
+        static const s8 sSectionIndex256MB = 3;
+        static const s8 sSectionIndex512MB = 4;
+        static const s8 sSectionIndex1GB   = 5;
 
-        static const sectionconfig_t s32MB                = {25, sSi32MB};
-        static const sectionconfig_t s64MB                = {26, sSi64MB};
-        static const sectionconfig_t s128MB               = {27, sSi128MB};
-        static const sectionconfig_t s256MB               = {28, sSi256MB};
-        static const sectionconfig_t s512MB               = {29, sSi512MB};
-        static const sectionconfig_t s1GB                 = {30, sSi1GB};
+        static const sectionconfig_t s32MB                = {25, sSectionIndex32MB};
+        static const sectionconfig_t s64MB                = {26, sSectionIndex64MB};
+        static const sectionconfig_t s128MB               = {27, sSectionIndex128MB};
+        static const sectionconfig_t s256MB               = {28, sSectionIndex256MB};
+        static const sectionconfig_t s512MB               = {29, sSectionIndex512MB};
+        static const sectionconfig_t s1GB                 = {30, sSectionIndex1GB};
         static const sectionconfig_t c_asectionconfigs[]  = {s32MB, s64MB, s128MB, s256MB, s512MB, s1GB};
         static const u32             c_num_sectionconfigs = sizeof(c_asectionconfigs) / sizeof(sectionconfig_t);
 
-        static const chunkconfig_t c64KB              = {16, 0, sSi64MB};
-        static const chunkconfig_t c128KB             = {17, 1, sSi64MB};
-        static const chunkconfig_t c256KB             = {18, 2, sSi64MB};
-        static const chunkconfig_t c512KB             = {19, 3, sSi128MB};
-        static const chunkconfig_t c2MB               = {21, 4, sSi256MB};
-        static const chunkconfig_t c8MB               = {23, 5, sSi512MB};
-        static const chunkconfig_t c32MB              = {25, 6, sSi512MB};
-        static const chunkconfig_t c128MB             = {27, 7, sSi512MB};
-        static const chunkconfig_t c512MB             = {29, 8, sSi1GB};
+        static const chunkconfig_t c64KB              = {16, 0, sSectionIndex64MB};
+        static const chunkconfig_t c128KB             = {17, 1, sSectionIndex64MB};
+        static const chunkconfig_t c256KB             = {18, 2, sSectionIndex64MB};
+        static const chunkconfig_t c512KB             = {19, 3, sSectionIndex128MB};
+        static const chunkconfig_t c2MB               = {21, 4, sSectionIndex256MB};
+        static const chunkconfig_t c8MB               = {23, 5, sSectionIndex512MB};
+        static const chunkconfig_t c32MB              = {25, 6, sSectionIndex512MB};
+        static const chunkconfig_t c128MB             = {27, 7, sSectionIndex512MB};
+        static const chunkconfig_t c512MB             = {29, 8, sSectionIndex1GB};
         static const chunkconfig_t c_achunkconfigs[]  = {c64KB, c128KB, c256KB, c512KB, c2MB, c8MB, c32MB, c128MB, c512MB};
         static const u32           c_num_chunkconfigs = sizeof(c_achunkconfigs) / sizeof(chunkconfig_t);
 
