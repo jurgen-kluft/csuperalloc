@@ -155,8 +155,9 @@ namespace ncore
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_min_size_shift      = 26;  // 64MB
             config->m_section_max_size_shift      = 32;  // 4GB
-            config->m_num_binconfigs              = nsuperalloc_config_25p::c_num_binconfigs;
+            config->m_num_sectionconfigs          = c_num_sectionconfigs;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
+            config->m_num_binconfigs              = nsuperalloc_config_25p::c_num_binconfigs;
             config->m_asectionconfigs             = c_asectionconfigs;
             config->m_achunkconfigs               = c_achunkconfigs;
             config->m_abinconfigs                 = nsuperalloc_config_25p::c_abinconfigs;
@@ -336,8 +337,9 @@ namespace ncore
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_min_size_shift      = 26;  // 32MB
             config->m_section_max_size_shift      = 32;  // 4GB
-            config->m_num_binconfigs              = nsuperalloc_config_10p::c_num_binconfigs;
+            config->m_num_sectionconfigs          = c_num_sectionconfigs;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
+            config->m_num_binconfigs              = nsuperalloc_config_10p::c_num_binconfigs;
             config->m_asectionconfigs             = c_asectionconfigs;
             config->m_achunkconfigs               = c_achunkconfigs;
             config->m_abinconfigs                 = nsuperalloc_config_10p::c_abinconfigs;

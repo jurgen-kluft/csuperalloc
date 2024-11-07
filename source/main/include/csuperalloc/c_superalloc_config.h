@@ -11,15 +11,15 @@ namespace ncore
     {
         struct sectionconfig_t
         {
-            const s16 m_sizeshift;            // The shift of the section size (e.g. 26 for 64MB)
-            const s16 m_sectionconfig_index;  // The index of this config in the section config array
+            s16 m_sizeshift;            // The shift of the section size (e.g. 26 for 64MB)
+            s16 m_sectionconfig_index;  // The index of this config in the section config array
         };
 
         struct chunkconfig_t
         {
-            s16 m_sizeshift;          // The shift of the chunk size (e.g. 12 for 4KB)
-            s8  m_chunkconfig_index;  // The index of this chunk config in the chunk config array
-            s8  m_sectionconfig_index;
+            s16 m_sizeshift;            // The shift of the chunk size (e.g. 12 for 4KB)
+            s8  m_chunkconfig_index;    // The index of this chunk config in the chunk config array
+            s8  m_sectionconfig_index;  // The index of the section config that this chunk config requires
         };
 
         struct binconfig_t
@@ -56,8 +56,9 @@ namespace ncore
                 , m_internal_fsa_address_range(0)
                 , m_internal_fsa_segment_size(0)
                 , m_internal_fsa_pre_size(0)
-                , m_num_binconfigs(0)
+                , m_num_sectionconfigs(0)
                 , m_num_chunkconfigs(0)
+                , m_num_binconfigs(0)
                 , m_asectionconfigs(nullptr)
                 , m_achunkconfigs(nullptr)
                 , m_abinconfigs(nullptr)
@@ -75,8 +76,9 @@ namespace ncore
             u32                    m_internal_fsa_address_range;
             u32                    m_internal_fsa_segment_size;
             u32                    m_internal_fsa_pre_size;
-            u32                    m_num_binconfigs;
+            u32                    m_num_sectionconfigs;
             u32                    m_num_chunkconfigs;
+            u32                    m_num_binconfigs;
             sectionconfig_t const* m_asectionconfigs;
             chunkconfig_t const*   m_achunkconfigs;
             binconfig_t const*     m_abinconfigs;
