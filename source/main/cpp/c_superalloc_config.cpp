@@ -134,7 +134,7 @@ namespace ncore
             static config_25p_t s_config;
         }  // namespace nsuperalloc_config_25p
 
-        config_t const* gGetSuperAllocConfigWindowsDesktopApp25p()
+        config_t const* gConfigWindowsDesktopApp25p()
         {
             const u64 c_total_address_space         = 1 * cTB;
             const u64 c_section_address_range       = 4 * cGB;
@@ -171,6 +171,7 @@ namespace ncore
                 binconfig_t const& bin  = config->size2bin(size);
                 ASSERT(size <= bin.m_alloc_size);
                 ASSERT(bin.m_max_alloc_count >= 1);
+                ASSERT(bin.m_max_alloc_count <= 4096);  // The binmap we use can only handle max 4096 bits
             }
 #endif
             return config;
@@ -316,7 +317,7 @@ namespace ncore
 
         }  // namespace nsuperalloc_config_10p
 
-        config_t const* gGetSuperAllocConfigWindowsDesktopApp10p()
+        config_t const* gConfigWindowsDesktopApp10p()
         {
             const u64 c_total_address_space         = 1 * cTB;
             const u64 c_section_address_range       = 4 * cGB;
@@ -351,6 +352,8 @@ namespace ncore
                 u32 const          size = config->m_abinconfigs[s].m_alloc_size;
                 binconfig_t const& bin  = config->size2bin(size);
                 ASSERT(size <= bin.m_alloc_size);
+                ASSERT(bin.m_max_alloc_count >= 1);     // Zero is not allowed
+                ASSERT(bin.m_max_alloc_count <= 4096);  // The binmap we use can only handle max 4096 bits
             }
 #endif
             return config;

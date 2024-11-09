@@ -84,8 +84,8 @@ namespace ncore
             binconfig_t const*     m_abinconfigs;
         };
 
-        extern config_t const* gGetSuperAllocConfigWindowsDesktopApp10p();
-        extern config_t const* gGetSuperAllocConfigWindowsDesktopApp25p();
+        extern config_t const* gConfigWindowsDesktopApp10p();
+        extern config_t const* gConfigWindowsDesktopApp25p();
     }  // namespace nsuperalloc
 };  // namespace ncore
 
