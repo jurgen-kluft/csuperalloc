@@ -17,9 +17,10 @@ namespace ncore
 
         struct chunkconfig_t
         {
-            s16 m_sizeshift;            // The shift of the chunk size (e.g. 12 for 4KB)
-            s8  m_chunkconfig_index;    // The index of this chunk config in the chunk config array
-            s8  m_sectionconfig_index;  // The index of the section config that this chunk config requires
+            s8 m_sizeshift;            // The shift of the chunk size (e.g. 12 for 4KB)
+            s8 m_chunkconfig_index;    // The index of this chunk config in the chunk config array
+            s8 m_cacheshift;           // The shift of the cache size (e.g. 6 for 64, -1 for none)
+            s8 m_sectionconfig_index;  // The index of the section config that this chunk config requires
         };
 
         struct binconfig_t

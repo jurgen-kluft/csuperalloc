@@ -28,9 +28,10 @@ namespace ncore
             return (ptr_t)((ptr_t)ptr - (ptr_t)base);
         }
 
-        // Can only allocate, used internally to allocate memory needed at initialization and runtime
         namespace nsuperheap
         {
+            // Can only allocate, used internally to allocate memory needed at initialization and runtime
+
             class alloc_t : public ncore::alloc_t
             {
             public:
@@ -51,8 +52,8 @@ namespace ncore
 
             void alloc_t::initialize(u64 memory_range, u64 size_to_pre_allocate)
             {
-                m_address_range             = memory_range;
-                nvmem::protect_t attributes = nvmem::ReadWrite;
+                m_address_range                     = memory_range;
+                nvmem::nprotect::value_t attributes = nvmem::nprotect::ReadWrite;
                 nvmem::reserve(memory_range, attributes, m_address);
                 u32 const page_size   = nvmem::get_page_size();
                 m_page_size_shift     = math::ilog2(page_size);
@@ -476,7 +477,7 @@ namespace ncore
                 // m_active_segment_binmap_per_blockcfg = (binmap_t*)m_heap->alloc_and_clear(sizeof(binmap_t) * c_max_num_blocks);
                 m_active_segment_binmap_per_blockcfg = g_allocate_array<binmap_t>(m_heap, c_max_num_blocks);
 
-                nvmem::protect_t const attributes = nvmem::ReadWrite;
+                nvmem::nprotect::value_t const attributes = nvmem::nprotect::ReadWrite;
                 nvmem::reserve(address_range, attributes, m_address_base);
 
                 void* segment_address = m_address_base;
@@ -778,8 +779,8 @@ namespace ncore
                 {
                     ASSERT(math::ispo2(config->m_total_address_size));
 
-                    m_address_range             = config->m_total_address_size;
-                    nvmem::protect_t attributes = nvmem::ReadWrite;
+                    m_address_range                     = config->m_total_address_size;
+                    nvmem::nprotect::value_t attributes = nvmem::nprotect::ReadWrite;
                     nvmem::reserve(m_address_range, attributes, (void*&)m_address_base);
                     const u32 page_size       = nvmem::get_page_size();
                     m_section_active_array    = g_allocate_array_and_clear<section_t*>(heap, config->m_num_sectionconfigs);

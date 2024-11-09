@@ -34,15 +34,15 @@ namespace ncore
         static const sectionconfig_t c_asectionconfigs[]  = {s32MB, s64MB, s128MB, s256MB, s512MB, s1GB};
         static const u32             c_num_sectionconfigs = sizeof(c_asectionconfigs) / sizeof(sectionconfig_t);
 
-        static const chunkconfig_t c64KB              = {16, 0, sSectionIndex64MB};
-        static const chunkconfig_t c128KB             = {17, 1, sSectionIndex64MB};
-        static const chunkconfig_t c256KB             = {18, 2, sSectionIndex64MB};
-        static const chunkconfig_t c512KB             = {19, 3, sSectionIndex128MB};
-        static const chunkconfig_t c2MB               = {21, 4, sSectionIndex256MB};
-        static const chunkconfig_t c8MB               = {23, 5, sSectionIndex512MB};
-        static const chunkconfig_t c32MB              = {25, 6, sSectionIndex512MB};
-        static const chunkconfig_t c128MB             = {27, 7, sSectionIndex512MB};
-        static const chunkconfig_t c512MB             = {29, 8, sSectionIndex1GB};
+        static const chunkconfig_t c64KB              = {16, 0, 4, sSectionIndex64MB};
+        static const chunkconfig_t c128KB             = {17, 1, 2, sSectionIndex64MB};
+        static const chunkconfig_t c256KB             = {18, 2, 1, sSectionIndex64MB};
+        static const chunkconfig_t c512KB             = {19, 3, 0, sSectionIndex128MB};
+        static const chunkconfig_t c2MB               = {21, 4, -1, sSectionIndex256MB};
+        static const chunkconfig_t c8MB               = {23, 5, -1, sSectionIndex512MB};
+        static const chunkconfig_t c32MB              = {25, 6, -1, sSectionIndex512MB};
+        static const chunkconfig_t c128MB             = {27, 7, -1, sSectionIndex512MB};
+        static const chunkconfig_t c512MB             = {29, 8, -1, sSectionIndex1GB};
         static const chunkconfig_t c_achunkconfigs[]  = {c64KB, c128KB, c256KB, c512KB, c2MB, c8MB, c32MB, c128MB, c512MB};
         static const u32           c_num_chunkconfigs = sizeof(c_achunkconfigs) / sizeof(chunkconfig_t);
 
