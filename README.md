@@ -16,33 +16,37 @@ making it very suitable for different types of memory (read-only, GPU etc..).
 
 It only uses the following data structures:
 
-* plain old c style arrays
-* binmap; 4 layer bit array (maximum of 1 million (2^20) items)
-* doubly linked list
+* array; plain old c style arrays
+* list; doubly linked list
+* binmap; 2 layer bit array (maximum of 4096 (2^12) items)
 
 Execution behaviour:
 
 * Allocation is done in O(1) time
 * Deallocation is done in O(1) time
+* Get size is done in O(1) time
 * Set / Get tag is done in O(1) time
 
 ```c++
 class vmalloc_t : public alloc_t
 {
 public:
-      void* allocate(u32 size, u32 align);
-      void  deallocate(void*);
+    void* allocate(u32 size, u32 align);
+    void  deallocate(void*);
+
+    // Return the size that this allocation can use
+    u32 get_size(void*) const; 
       
-      // You can tag an allocation, very useful for attaching debug info to an allocation or
-      // using it as a CPU/GPU handle.
-      void  set_tag(void*, u32);
-      u32   get_tag(void*);
-      u32   get_size(void*);
+    // You can tag an allocation, very useful for attaching debug info 
+    // to an allocation or using it as a CPU/GPU handle.
+    void  set_tag(void*, u32);
+    u32   get_tag(void*);
+    u32   get_size(void*);
 };
 ```
 
 Note: Benchmarks are still to be done.  
-Note: Unittest contains a test called `stress test` that executes 500.000 operations (allocation / deallocation)
+Note: Unittest contains a test called `stress test` that executes 512K operations (allocation / deallocation)
 
 ## WIP
 
