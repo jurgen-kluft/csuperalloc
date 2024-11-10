@@ -18,31 +18,22 @@ namespace ncore
         /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         /// ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
         /// The following is a strict data-drive initialization of the bins and allocators, please know what you are doing when modifying any of this.
-        static const s8 sSectionIndex32MB  = 0;
-        static const s8 sSectionIndex64MB  = 1;
-        static const s8 sSectionIndex128MB = 2;
-        static const s8 sSectionIndex256MB = 3;
-        static const s8 sSectionIndex512MB = 4;
-        static const s8 sSectionIndex1GB   = 5;
 
-        static const sectionconfig_t s32MB                = {25, sSectionIndex32MB};
-        static const sectionconfig_t s64MB                = {26, sSectionIndex64MB};
-        static const sectionconfig_t s128MB               = {27, sSectionIndex128MB};
-        static const sectionconfig_t s256MB               = {28, sSectionIndex256MB};
-        static const sectionconfig_t s512MB               = {29, sSectionIndex512MB};
-        static const sectionconfig_t s1GB                 = {30, sSectionIndex1GB};
-        static const sectionconfig_t c_asectionconfigs[]  = {s32MB, s64MB, s128MB, s256MB, s512MB, s1GB};
-        static const u32             c_num_sectionconfigs = sizeof(c_asectionconfigs) / sizeof(sectionconfig_t);
+        static const s8 sSectionSize_64MB  = 26;  // 2^26 = 64MB
+        static const s8 sSectionSize_128MB = 27;  //
+        static const s8 sSectionSize_256MB = 28;  //
+        static const s8 sSectionSize_512MB = 29;  //
+        static const s8 sSectionSize_1GB   = 30;  //
 
-        static const chunkconfig_t c64KB              = {16, 0, 4, sSectionIndex64MB};
-        static const chunkconfig_t c128KB             = {17, 1, 2, sSectionIndex64MB};
-        static const chunkconfig_t c256KB             = {18, 2, 1, sSectionIndex64MB};
-        static const chunkconfig_t c512KB             = {19, 3, 0, sSectionIndex128MB};
-        static const chunkconfig_t c2MB               = {21, 4, -1, sSectionIndex256MB};
-        static const chunkconfig_t c8MB               = {23, 5, -1, sSectionIndex512MB};
-        static const chunkconfig_t c32MB              = {25, 6, -1, sSectionIndex512MB};
-        static const chunkconfig_t c128MB             = {27, 7, -1, sSectionIndex512MB};
-        static const chunkconfig_t c512MB             = {29, 8, -1, sSectionIndex1GB};
+        static const chunkconfig_t c64KB              = {16, 0, 4, sSectionSize_64MB};
+        static const chunkconfig_t c128KB             = {17, 1, 2, sSectionSize_64MB};
+        static const chunkconfig_t c256KB             = {18, 2, 1, sSectionSize_64MB};
+        static const chunkconfig_t c512KB             = {19, 3, 0, sSectionSize_128MB};
+        static const chunkconfig_t c2MB               = {21, 4, -1, sSectionSize_256MB};
+        static const chunkconfig_t c8MB               = {23, 5, -1, sSectionSize_512MB};
+        static const chunkconfig_t c32MB              = {25, 6, -1, sSectionSize_512MB};
+        static const chunkconfig_t c128MB             = {27, 7, -1, sSectionSize_512MB};
+        static const chunkconfig_t c512MB             = {29, 8, -1, sSectionSize_1GB};
         static const chunkconfig_t c_achunkconfigs[]  = {c64KB, c128KB, c256KB, c512KB, c2MB, c8MB, c32MB, c128MB, c512MB};
         static const u32           c_num_chunkconfigs = sizeof(c_achunkconfigs) / sizeof(chunkconfig_t);
 
@@ -155,10 +146,8 @@ namespace ncore
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_min_size_shift      = 26;  // 64MB
             config->m_section_max_size_shift      = 32;  // 4GB
-            config->m_num_sectionconfigs          = c_num_sectionconfigs;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
             config->m_num_binconfigs              = nsuperalloc_config_25p::c_num_binconfigs;
-            config->m_asectionconfigs             = c_asectionconfigs;
             config->m_achunkconfigs               = c_achunkconfigs;
             config->m_abinconfigs                 = nsuperalloc_config_25p::c_abinconfigs;
 
@@ -338,10 +327,8 @@ namespace ncore
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_min_size_shift      = 26;  // 32MB
             config->m_section_max_size_shift      = 32;  // 4GB
-            config->m_num_sectionconfigs          = c_num_sectionconfigs;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
             config->m_num_binconfigs              = nsuperalloc_config_10p::c_num_binconfigs;
-            config->m_asectionconfigs             = c_asectionconfigs;
             config->m_achunkconfigs               = c_achunkconfigs;
             config->m_abinconfigs                 = nsuperalloc_config_10p::c_abinconfigs;
 

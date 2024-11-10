@@ -14,10 +14,10 @@ extern unsigned int  allocdmp_len;
 class alloc_with_stats_t : public alloc_t
 {
     nsuperalloc::vmalloc_t* mAllocator;
-    u32                  mNumAllocs;
-    u32                  mNumDeallocs;
-    u64                  mMemoryAllocated;
-    u64                  mMemoryDeallocated;
+    u32                     mNumAllocs;
+    u32                     mNumDeallocs;
+    u64                     mMemoryAllocated;
+    u64                     mMemoryDeallocated;
 
 public:
     alloc_with_stats_t()
@@ -157,17 +157,22 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 if (size < 0)
                 {
                     // this is a deallocation
-                    size          = -size;
-                    s64    offset = allocations[i + 1];
-                    void** store  = (void**)(allocdmp + (offset * 8));
-                    void*  ptr    = *store;
-                    s_alloc.deallocate(ptr);
+                    size                = -size;
+                    s64       offset    = allocations[i + 1];
+                    void**    store     = (void**)(allocdmp + (offset * 8));
+                    void*     alloc_ptr = *store;
+                    u32 const ptr_size  = s_alloc.get_size(alloc_ptr);
+                    CHECK_EQUAL(size, ptr_size);
+                    u32 const ptr_tag = s_alloc.get_tag(alloc_ptr);
+                    CHECK_EQUAL(size, ptr_tag);
+                    s_alloc.deallocate(alloc_ptr);
                 }
                 else
                 {
-                    s64*   ptr   = (s64*)s_alloc.allocate(size);
+                    s64* alloc_ptr = (s64*)s_alloc.allocate(size);
+                    s_alloc.set_tag(alloc_ptr, size);
                     void** store = (void**)(allocdmp + (i * 4));
-                    *store       = ptr;  // store the pointer of the allocation
+                    *store       = alloc_ptr;  // store the pointer of the allocation
                 }
                 i += 2;
             }
