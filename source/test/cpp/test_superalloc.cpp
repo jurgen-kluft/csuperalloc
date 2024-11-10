@@ -157,13 +157,13 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                 if (size < 0)
                 {
                     // this is a deallocation
-                    size                = -size;
-                    s64       offset    = allocations[i + 1];
-                    void**    store     = (void**)(allocdmp + (offset * 8));
-                    void*     alloc_ptr = *store;
-                    u32 const ptr_size  = s_alloc.get_size(alloc_ptr);
-                    CHECK_EQUAL(size, ptr_size);
-                    u32 const ptr_tag = s_alloc.get_tag(alloc_ptr);
+                    size             = -size;
+                    s64    offset    = allocations[i + 1];
+                    void** store     = (void**)(allocdmp + (offset * 8));
+                    void*  alloc_ptr = *store;
+                    u32    ptr_size  = s_alloc.get_size(alloc_ptr);
+                    CHECK_TRUE(size <= ptr_size);
+                    u32 ptr_tag = s_alloc.get_tag(alloc_ptr);
                     CHECK_EQUAL(size, ptr_tag);
                     s_alloc.deallocate(alloc_ptr);
                 }

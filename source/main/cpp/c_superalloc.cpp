@@ -681,7 +681,7 @@ namespace ncore
             {
                 u16         m_elem_used_count;      // The number of elements used in this chunk
                 u16         m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
-                u16         m_bin_index;            // The index of the bin that this chunk is used for
+                s16         m_bin_index;            // The index of the bin that this chunk is used for
                 u16         m_section_chunk_index;  // index of the chunk in the section
                 u32         m_physical_pages;       // number of physical pages that this chunk has committed
                 section_t*  m_section;              // The section that this chunk belongs to
@@ -707,17 +707,17 @@ namespace ncore
 
             struct section_t  // 64 bytes
             {
-                section_t*      m_next;                 // managing a list of active, cached or used sections
-                section_t*      m_prev;                 //
-                chunk_t**       m_chunk_array;          // array of chunk
-                chunk_t*        m_chunks_cached_list;   // list of cached chunks
-                binmap12_t*     m_chunks_free_binmap;   // binmap of free chunks
-                void*           m_section_address;      // The address of the section
-                u16             m_chunks_free_index;    // index of the first free chunk in the array
-                u16             m_count_chunks_cached;  // number of chunks that are cached
-                u16             m_count_chunks_used;    // number of chunks that are in use
-                u16             m_count_chunks_max;     // maximum number of chunks that can be used in this segment
-                chunkconfig_t   m_chunk_config;         // chunk config
+                section_t*    m_next;                 // managing a list of active, cached or used sections
+                section_t*    m_prev;                 //
+                chunk_t**     m_chunk_array;          // array of chunk
+                chunk_t*      m_chunks_cached_list;   // list of cached chunks
+                binmap12_t*   m_chunks_free_binmap;   // binmap of free chunks
+                void*         m_section_address;      // The address of the section
+                u16           m_chunks_free_index;    // index of the first free chunk in the array
+                u16           m_count_chunks_cached;  // number of chunks that are cached
+                u16           m_count_chunks_used;    // number of chunks that are in use
+                u16           m_count_chunks_max;     // maximum number of chunks that can be used in this segment
+                chunkconfig_t m_chunk_config;         // chunk config
 
                 void clear()
                 {
@@ -921,6 +921,10 @@ namespace ncore
                         fsa->deallocate(chunk->m_elem_free_binmap);
                         chunk->m_elem_tag_array   = nullptr;
                         chunk->m_elem_free_binmap = nullptr;
+
+                        chunk->m_bin_index       = -1;
+                        chunk->m_elem_used_count = 0;
+                        chunk->m_elem_free_index = 0;
                     }
 
                     // TODO: Caching of chunks, should we make this part of the configuration where a
@@ -971,10 +975,9 @@ namespace ncore
                     if (section == nullptr)
                     {
                         section = &m_sections_array[m_sections_free_index++];
-                        section->clear();
                     }
-                    section->m_section_address = m_address_base + ((u64)node << m_section_min_size_shift);
-
+                    section->clear();
+                    section->m_section_address     = m_address_base + ((u64)node << m_section_min_size_shift);
                     u32 const section_chunk_count  = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
                     section->m_chunk_array         = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
                     section->m_chunks_free_index   = 0;
@@ -996,7 +999,7 @@ namespace ncore
                     // How many nodes do we span in the full mapping, based on our section size.
                     // For that whole span we need to fill in our section index, so that the
                     // deallocation can quickly obtain the section_t* for a given memory pointer.
-                    u32 const node_count    = (u32)(1 << (m_section_max_size_shift - chunk_config.m_section_sizeshift));
+                    u32 const node_count    = (u32)(1 << (chunk_config.m_section_sizeshift - m_section_min_size_shift));
                     u32 const section_index = (u32)(section - m_sections_array);
                     for (u32 o = 0; o < node_count; o++)
                         m_section_map[node + o] = section_index;
@@ -1090,7 +1093,12 @@ namespace ncore
                     ASSERT(section_mapped_index != 0xFFFF && section_mapped_index < m_sections_free_index);
                     section_t* const section             = &m_sections_array[section_mapped_index];
                     u32 const        section_chunk_index = (u32)(todistance(section->m_section_address, ptr) >> (section->m_chunk_config.m_sizeshift));
-                    return section->m_chunk_array[section_chunk_index];
+                    chunk_t*         chunk               = section->m_chunk_array[section_chunk_index];
+                    if (chunk == nullptr || chunk == (void*)0xCDCDCDCDCDCDCDCDul)
+                    {
+                        ASSERT(false);
+                    }
+                    return chunk;
                 }
 
                 inline void* chunk_to_address(chunk_t const* chunk) const
@@ -1170,10 +1178,11 @@ namespace ncore
             alloc_size             = math::alignUp(alloc_size, alignment);
             binconfig_t const& bin = m_config->size2bin(alloc_size);
 
-            nsuperspace::chunk_t* chunk = ll_pop(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index]);
+            nsuperspace::chunk_t* chunk = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index];
             if (chunk == nullptr)
             {
                 chunk = m_superspace->checkout_chunk(bin, m_internal_fsa);
+                ll_insert(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], chunk);
             }
 
             ASSERT(chunk->m_bin_index == bin.m_alloc_bin_index);
@@ -1187,16 +1196,19 @@ namespace ncore
                 elem_index = chunk->m_elem_free_index++;
                 g_tick_used_lazy(chunk->m_elem_free_binmap, m_config->m_abinconfigs[bin.m_alloc_bin_index].m_max_alloc_count, elem_index);
             }
-            ASSERT(elem_index < (s32)bin.m_max_alloc_count);  // This should never happen
+            else if (elem_index >= (s32)bin.m_max_alloc_count)
+            {
+                ASSERT(false);
+            }
 
             // Initialize the tag value for this element
             chunk->m_elem_tag_array[elem_index] = 0;
 
             chunk->m_elem_used_count += 1;
-            if (chunk->m_elem_used_count < bin.m_max_alloc_count)
+            if (chunk->m_elem_used_count >= bin.m_max_alloc_count)
             {
                 // Chunk is not full yet, so add it to the list of active chunks
-                ll_insert(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], chunk);
+                ll_remove(m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index], chunk);
             }
 
             void* chunk_address = m_superspace->chunk_to_address(chunk);

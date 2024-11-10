@@ -42,16 +42,16 @@ namespace ncore
             // clang-format off
             // binconfig_t(bin-index, alloc-size, chunk-config)
             static const binconfig_t c_abinconfigs[] = {
-                {0,         16, c64KB},                    {1,    16, c64KB},                        // 16, 16
-                {2,         16, c64KB},                    {3,    16, c64KB},                        // 16, 16
-                {4,         16, c64KB},                    {5,    16, c64KB},                        // 16, 16
-                {6,         16, c64KB},                    {7,    16, c64KB},                        // 16, 16
-                {8,         16, c64KB},                    {9,    16, c64KB},                        // 16, 16
-                {10,        16, c64KB},                    {11,   16, c64KB},                        // 16, 16
-                {12,        16, c64KB},                    {13,   32, c64KB},                        // 16, 32
-                {14,        32, c64KB},                    {15,   32, c64KB},                        // 32, 32
-                {16,        32, c64KB},                    {17,   48, c64KB},                        // 32, 48
-                {18,        48, c64KB},                    {19,   64, c64KB},                        // 48, 64
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {12,   16, c64KB},                        // 16, 16
+                {12,        16, c64KB},                    {16,   32, c64KB},                        // 16, 32
+                {16,        32, c64KB},                    {16,   32, c64KB},                        // 32, 32
+                {16,        32, c64KB},                    {18,   48, c64KB},                        // 32, 48
+                {18,        48, c64KB},                    {20,   64, c64KB},                        // 48, 64
                 {20,        64, c64KB},                    {21,   80, c64KB},                        // 64, 80
                 {22,        96, c64KB},                    {23,   112, c64KB},                       // 96, 112
                 {24,       128, c64KB},                    {25,   160, c64KB},                       // 128, 160
@@ -97,8 +97,8 @@ namespace ncore
                 {104, 128 * cMB, c128MB},                  {105, 160*cMB, c512MB},                   // 128MB, 160MB
                 {106, 192 * cMB, c512MB},                  {107, 224*cMB, c512MB},                   // 192MB, 224MB
                 {108, 256 * cMB, c512MB},                  {109, 320*cMB, c512MB},                   // 256MB, 320MB
-                {110, 384 * cMB, c512MB},                  {111, 448*cMB, c512MB},                   // 384MB, 448MB
-                {110, 512 * cMB, c512MB},                                                            // 512MB
+                {110, 384 * cMB, c512MB},                  {112, 448*cMB, c512MB},                   // 384MB, 448MB
+                {112, 512 * cMB, c512MB},                                                            // 512MB
             };
             static const s32        c_num_binconfigs = sizeof(c_abinconfigs) / sizeof(binconfig_t);
             // clang-format on
@@ -118,7 +118,7 @@ namespace ncore
                     alloc_size    = (alloc_size + t) & ~t;
                     s32 const bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
                     ASSERT(alloc_size <= m_abinconfigs[bin].m_alloc_size);
-                    return m_abinconfigs[bin];
+                    return m_abinconfigs[m_abinconfigs[bin].m_alloc_bin_index];
                 }
             };
 
