@@ -1077,7 +1077,7 @@ namespace ncore
                 {
                     ASSERT(ptr >= m_address_base && ptr < ((u8*)m_address_base + m_config->m_total_address_size));
                     chunk_t const* chunk     = address_to_chunk(ptr);
-                    u32 const      sbinindex = chunk->m_bin_index;
+                    s16 const      sbinindex = chunk->m_bin_index;
                     ASSERT(sbinindex < m_config->m_num_binconfigs);
                     binconfig_t const& bin                 = m_config->m_abinconfigs[sbinindex];
                     void* const        chunk_address       = chunk_to_address(chunk);
@@ -1158,7 +1158,7 @@ namespace ncore
             m_superspace->initialize(config, m_internal_heap, m_internal_fsa);
 
             m_active_chunk_list_per_alloc_size = g_allocate_array_and_clear<nsuperspace::chunk_t*>(m_internal_heap, config->m_num_binconfigs);
-            for (u32 i = 0; i < config->m_num_binconfigs; i++)
+            for (s16 i = 0; i < config->m_num_binconfigs; i++)
                 m_active_chunk_list_per_alloc_size[i] = nullptr;
         }
 

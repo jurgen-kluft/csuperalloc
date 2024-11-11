@@ -153,7 +153,7 @@ namespace ncore
 
 #ifdef SUPERALLOC_DEBUG
             // sanity check the configuration
-            for (u32 s = 0; s < config->m_num_binconfigs; s++)
+            for (s16 s = 0; s < config->m_num_binconfigs; s++)
             {
                 ASSERT(config->m_abinconfigs[s].m_max_alloc_count >= 1);
                 u32 const          size = config->m_abinconfigs[s].m_alloc_size;
@@ -334,7 +334,7 @@ namespace ncore
 
 #ifdef SUPERALLOC_DEBUG
             // sanity check the configuration
-            for (u32 s = 0; s < config->m_num_binconfigs; s++)
+            for (s16 s = 0; s < config->m_num_binconfigs; s++)
             {
                 u32 const          size = config->m_abinconfigs[s].m_alloc_size;
                 binconfig_t const& bin  = config->size2bin(size);

@@ -69,8 +69,8 @@ namespace ncore
             u32                    m_internal_fsa_address_range;
             u32                    m_internal_fsa_segment_size;
             u32                    m_internal_fsa_pre_size;
-            u32                    m_num_chunkconfigs;
-            u32                    m_num_binconfigs;
+            s16                    m_num_chunkconfigs;
+            s16                    m_num_binconfigs;
             chunkconfig_t const*   m_achunkconfigs;
             binconfig_t const*     m_abinconfigs;
         };
