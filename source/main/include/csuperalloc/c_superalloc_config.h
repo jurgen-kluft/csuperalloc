@@ -44,8 +44,8 @@ namespace ncore
             config_t()
                 : m_total_address_size(0)
                 , m_section_address_range(0)
-                , m_section_min_size_shift(0)
-                , m_section_max_size_shift(0)
+                , m_section_minsize_shift(0)
+                , m_section_maxsize_shift(0)
                 , m_internal_heap_address_range(0)
                 , m_internal_heap_pre_size(0)
                 , m_internal_fsa_address_range(0)
@@ -62,8 +62,8 @@ namespace ncore
 
             u64                    m_total_address_size;
             u64                    m_section_address_range;
-            s8                     m_section_min_size_shift;
-            s8                     m_section_max_size_shift;
+            s8                     m_section_minsize_shift;
+            s8                     m_section_maxsize_shift;
             u32                    m_internal_heap_address_range;
             u32                    m_internal_heap_pre_size;
             u32                    m_internal_fsa_address_range;

@@ -143,23 +143,23 @@ namespace ncore
                 block_t*      m_next;
                 block_t*      m_prev;
                 u16           m_section_index;
-                u16           m_segment_block_index;
-                u16           m_item_freepos;
+                u16           m_section_block_index;
+                u16           m_item_freeindex;
                 u16           m_item_count;
                 u16           m_item_count_max;
                 u16           m_item_freelist;
                 allocconfig_t m_alloc_config;
 
-                void initialize(u16 segment_index, u16 segment_block_index, allocconfig_t const& alloccfg)
+                void initialize(u16 section_index, u16 section_block_index, allocconfig_t const& alloccfg)
                 {
-                    ASSERT(segment_index < 0xFF);
-                    ASSERT(segment_block_index < 0xFF);
+                    ASSERT(section_index < 0xFF);
+                    ASSERT(section_block_index < 0xFF);
 
                     m_next                = nullptr;
                     m_prev                = nullptr;
-                    m_section_index       = segment_index;
-                    m_segment_block_index = segment_block_index;
-                    m_item_freepos        = 0;
+                    m_section_index       = section_index;
+                    m_section_block_index = section_block_index;
+                    m_item_freeindex      = 0;
                     m_item_count          = 0;
                     m_item_count_max      = (1 << (alloccfg.m_block.m_sizeshift - alloccfg.m_sizeshift));
                     m_item_freelist       = NIL16;
@@ -180,9 +180,9 @@ namespace ncore
                         item            = (u16*)idx2ptr(block_address, item_index);
                         m_item_freelist = item[0];
                     }
-                    else if (m_item_freepos < m_item_count_max)
+                    else if (m_item_freeindex < m_item_count_max)
                     {
-                        item_index = m_item_freepos++;
+                        item_index = m_item_freeindex++;
                         item       = (u16*)idx2ptr(block_address, item_index);
                     }
                     else
@@ -197,16 +197,16 @@ namespace ncore
                     nmem::memset(item, 0xCDCDCDCD, ((u64)1 << m_alloc_config.m_sizeshift));
 #endif
                     ASSERT(m_section_index < 0xFF);
-                    ASSERT(m_segment_block_index < 0xFF);
+                    ASSERT(m_section_block_index < 0xFF);
 
-                    item_index |= ((u32)m_section_index << 24) | ((u32)m_segment_block_index << 16);
+                    item_index |= ((u32)m_section_index << 24) | ((u32)m_section_block_index << 16);
                     return item;
                 }
 
                 void deallocate_item(void* block_address, u16 item_index)
                 {
                     ASSERT(m_item_count > 0);
-                    ASSERT(item_index < m_item_freepos);
+                    ASSERT(item_index < m_item_freeindex);
                     u16* const pelem = (u16*)idx2ptr(block_address, item_index);
 #ifdef SUPERALLOC_DEBUG
                     nmem::memset(pelem, 0xFEFEFEFE, ((u64)1 << m_alloc_config.m_sizeshift));
@@ -221,18 +221,17 @@ namespace ncore
             {
                 void*         m_address;
                 u32           m_address_range;
-                bool          m_committed;
                 u32           m_section_index;
+                u16           m_block_free_index;
+                u16           m_block_used_count;
+                u16           m_block_max_count;
                 blockconfig_t m_block_config;
-                u32           m_block_free_index;
-                u32           m_block_used_count;
-                u32           m_block_max_count;
                 block_t*      m_block_array;
-                binmap_t      m_block_free_binmap;
+                binmap8_t     m_block_free_binmap;
 
-                void     initialize(void* address, s8 segment_size_shift, u8 segment_index);
+                void     initialize(void* address, s8 section_size_shift, u8 section_index);
                 void     deinitialize(nsuperheap::alloc_t* heap);
-                void     checkout(nsuperheap::alloc_t* heap, void* address, s8 segment_size_shift, u8 segment_index, blockconfig_t const& blockcfg);
+                void     checkout(nsuperheap::alloc_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg);
                 block_t* checkout_block(allocconfig_t const& alloccfg);
                 void     release_block(block_t* block);
                 void*    address_of_block(u32 block) const { return toaddress(m_address, (u64)block << m_block_config.m_sizeshift); }
@@ -267,47 +266,38 @@ namespace ncore
                 }
             };
 
-            void section_t::initialize(void* address, s8 segment_size_shift, u8 segment_index)
+            void section_t::initialize(void* address, s8 section_size_shift, u8 section_index)
             {
                 m_address          = address;
-                m_address_range    = 1 << segment_size_shift;
-                m_committed        = false;
-                m_section_index    = segment_index;
+                m_address_range    = 1 << section_size_shift;
+                m_section_index    = section_index;
                 m_block_config     = {0};
                 m_block_free_index = 0;
                 m_block_max_count  = 0;
                 m_block_used_count = 0;
                 m_block_array      = nullptr;
-                m_block_free_binmap.reset();
+                g_clear(&m_block_free_binmap);
             }
 
-            void section_t::checkout(nsuperheap::alloc_t* heap, void* address, s8 segment_size_shift, u8 segment_index, blockconfig_t const& blockcfg)
+            void section_t::checkout(nsuperheap::alloc_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg)
             {
                 m_address          = address;
-                m_address_range    = 1 << segment_size_shift;
-                m_committed        = false;
-                m_section_index    = segment_index;
+                m_address_range    = 1 << section_size_shift;
+                m_section_index    = section_index;
                 m_block_config     = blockcfg;
                 m_block_free_index = 0;
-                m_block_max_count  = 1 << (segment_size_shift - m_block_config.m_sizeshift);
+                m_block_max_count  = 1 << (section_size_shift - m_block_config.m_sizeshift);
                 m_block_used_count = 0;
                 m_block_array      = g_allocate_array<block_t>(heap, m_block_max_count);
 
-                binmap_t::config_t cfg = binmap_t::config_t::compute(m_block_max_count);
-                u32*               l1  = cfg.m_lnlen[0] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
-                u32*               l2  = cfg.m_lnlen[1] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
-                u32*               l3  = cfg.m_lnlen[2] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
-                m_block_free_binmap.init_all_used_lazy(cfg, l1, l2, l3);
+                ASSERT(m_block_max_count <= 256);
+                g_setup_used(&m_block_free_binmap);
 
                 nvmem::commit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
-                m_committed = true;
             }
 
             void section_t::deinitialize(nsuperheap::alloc_t* heap)
             {
-                heap->deallocate(m_block_free_binmap.m_l[0]);
-                heap->deallocate(m_block_free_binmap.m_l[1]);
-                heap->deallocate(m_block_free_binmap.m_l[2]);
                 heap->deallocate(m_block_array);
                 nvmem::decommit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
             }
@@ -315,13 +305,12 @@ namespace ncore
             block_t* section_t::checkout_block(allocconfig_t const& alloccfg)
             {
                 // Get a block and initialize it for this size
-                s32 free_block_index = m_block_free_binmap.find_and_set();
+                s32 free_block_index = g_find_and_set(&m_block_free_binmap, m_block_max_count);
                 if (free_block_index < 0)
                 {
                     if (m_block_free_index < m_block_max_count)
                     {
                         free_block_index = m_block_free_index++;
-                        m_block_free_binmap.tick_all_used_lazy(free_block_index);
                     }
                     else
                     {
@@ -343,16 +332,16 @@ namespace ncore
             void section_t::release_block(block_t* block)
             {
 #ifdef SUPERALLOC_DEBUG
-                nmem::memset(address_of_block(block->m_segment_block_index), 0xFEFEFEFE, (int_t)1 << m_block_config.m_sizeshift);
+                nmem::memset(address_of_block(block->m_section_block_index), 0xFEFEFEFE, (int_t)1 << m_block_config.m_sizeshift);
 #endif
                 m_block_used_count--;
-                m_block_free_binmap.set_free(block->m_segment_block_index);
+                g_clr(&m_block_free_binmap, m_block_max_count, block->m_section_block_index);
             }
 
             class alloc_t : public ncore::alloc_t
             {
             public:
-                void         initialize(nsuperheap::alloc_t* heap, u64 address_range, u32 segment_size);
+                void         initialize(nsuperheap::alloc_t* heap, u64 address_range, u32 section_size);
                 void         deinitialize(nsuperheap::alloc_t* heap);
                 u32          sizeof_alloc(u32 size) const;
                 inline void* base_address() const { return m_address_base; }
@@ -387,17 +376,17 @@ namespace ncore
                     if (i == NIL)
                         return nullptr;
                     u32 const c = (i >> 24) & 0xFF;
-                    ASSERT(c < m_segments_array_size);
-                    return m_segments[c].idx2ptr(i);
+                    ASSERT(c < m_sections_array_size);
+                    return m_sections[c].idx2ptr(i);
                 }
 
                 u32 v_ptr2idx(void const* ptr) const
                 {
                     if (ptr == nullptr)
                         return NIL;
-                    u32 const segment_index = (u32)(todistance(m_address_base, ptr) >> m_section_max_size_shift);
-                    ASSERT(segment_index < m_segments_array_size);
-                    u32 const idx = ((segment_index & 0xFF) << 24) | m_segments[segment_index].ptr2idx(ptr);
+                    u32 const section_index = (u32)(todistance(m_address_base, ptr) >> m_section_maxsize_shift);
+                    ASSERT(section_index < m_sections_array_size);
+                    u32 const idx = ((section_index & 0xFF) << 24) | m_sections[section_index].ptr2idx(ptr);
                     return idx;
                 }
 
@@ -417,12 +406,12 @@ namespace ncore
                 nsuperheap::alloc_t* m_heap;
                 void*                m_address_base;
                 u64                  m_address_range;
-                s8                   m_section_max_size_shift;
-                u32                  m_segments_array_size;
-                section_t*           m_segments;
-                u32                  m_segments_free_index;
-                binmap_t             m_segments_free_binmap;
-                binmap_t*            m_active_segment_binmap_per_blockcfg;  // segments that still have available free blocks
+                s8                   m_section_maxsize_shift;
+                u32                  m_sections_array_size;
+                section_t*           m_sections;
+                u32                  m_sections_free_index;
+                binmap8_t            m_sections_free_binmap;
+                binmap8_t*           m_active_section_binmap_per_blockcfg;  // segments that still have available free blocks
                 block_t**            m_active_block_list_per_allocsize;     // blocks that still have available free items, a list per allocation size
             };
 
@@ -434,7 +423,7 @@ namespace ncore
 
             const blockconfig_t alloc_t::c_ablock_config[] = {c64KB, c256KB, c1MB, c4MB};
             const allocconfig_t alloc_t::c_aalloc_config[] = {
-              // alloc-config { index, sizeshift }, block-config
+              // alloc-config { index, sizeshift, block-config}
               {0, 3, c64KB},     // 0,         8
               {1, 4, c64KB},     // 1,        16
               {2, 5, c64KB},     // 2,        32
@@ -459,43 +448,33 @@ namespace ncore
             const s16 alloc_t::c_max_num_blocks = (s16)(sizeof(c_ablock_config) / sizeof(blockconfig_t));
             const s16 alloc_t::c_max_num_sizes  = (s16)(sizeof(c_aalloc_config) / sizeof(allocconfig_t));
 
-            void alloc_t::initialize(nsuperheap::alloc_t* heap, u64 address_range, u32 segment_size)
+            void alloc_t::initialize(nsuperheap::alloc_t* heap, u64 address_range, u32 section_size)
             {
-                m_heap                   = heap;
-                m_address_range          = address_range;
-                m_section_max_size_shift = math::ilog2(segment_size);
-                m_segments_array_size    = (u32)(address_range >> m_section_max_size_shift);
-                m_segments               = g_allocate_array<section_t>(m_heap, m_segments_array_size);
+                m_heap                  = heap;
+                m_address_range         = address_range;
+                m_section_maxsize_shift = math::ilog2(section_size);
+                m_sections_array_size   = (u32)(address_range >> m_section_maxsize_shift);
+                m_sections              = g_allocate_array<section_t>(m_heap, m_sections_array_size);
 
-                binmap_t::config_t const cfg = binmap_t::config_t::compute(m_segments_array_size);
+                ASSERT(m_sections_array_size <= 256);
 
-                m_segments_free_index = 0;
-                {
-                    u32* l1 = cfg.m_lnlen[0] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
-                    u32* l2 = cfg.m_lnlen[1] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
-                    u32* l3 = cfg.m_lnlen[2] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
-                    m_segments_free_binmap.init_all_used_lazy(cfg, l1, l2, l3);
-                }
-                // m_active_segment_binmap_per_blockcfg = (binmap_t*)m_heap->alloc_and_clear(sizeof(binmap_t) * c_max_num_blocks);
-                m_active_segment_binmap_per_blockcfg = g_allocate_array<binmap_t>(m_heap, c_max_num_blocks);
+                m_sections_free_index = 0;
+                g_setup_used(&m_sections_free_binmap);
 
                 nvmem::nprotect::value_t const attributes = nvmem::nprotect::ReadWrite;
                 nvmem::reserve(address_range, attributes, m_address_base);
 
-                void* segment_address = m_address_base;
-                for (u32 i = 0; i < m_segments_array_size; i++)
+                void* section_address = m_address_base;
+                for (u32 i = 0; i < m_sections_array_size; i++)
                 {
-                    m_segments[i].initialize(segment_address, segment_size, i);
-                    segment_address = toaddress(segment_address, segment_size);
+                    m_sections[i].initialize(section_address, section_size, i);
+                    section_address = toaddress(section_address, section_size);
                 }
 
+                m_active_section_binmap_per_blockcfg = g_allocate_array<binmap8_t>(m_heap, c_max_num_blocks);
                 for (u32 i = 0; i < c_max_num_blocks; i++)
                 {
-                    binmap_t& bm = m_active_segment_binmap_per_blockcfg[i];
-                    u32*      l1 = cfg.m_lnlen[0] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[0] + 31) >> 5)) : nullptr;
-                    u32*      l2 = cfg.m_lnlen[1] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[1] + 31) >> 5)) : nullptr;
-                    u32*      l3 = cfg.m_lnlen[2] > 0 ? g_allocate_array<u32>(heap, ((cfg.m_lnlen[2] + 31) >> 5)) : nullptr;
-                    bm.init_all_used(cfg, l1, l2, l3);
+                    g_setup_used(&m_active_section_binmap_per_blockcfg[i]);
                 }
 
                 m_active_block_list_per_allocsize = g_allocate_array<block_t*>(m_heap, c_max_num_sizes);
@@ -505,22 +484,11 @@ namespace ncore
 
             void alloc_t::deinitialize(nsuperheap::alloc_t* heap)
             {
-                for (u32 i = 0; i < m_segments_free_index; i++)
-                    m_segments[i].deinitialize(heap);
+                for (u32 i = 0; i < m_sections_free_index; i++)
+                    m_sections[i].deinitialize(heap);
 
-                for (u32 i = 0; i < c_max_num_blocks; i++)
-                {
-                    heap->deallocate(m_active_segment_binmap_per_blockcfg[i].m_l[0]);
-                    heap->deallocate(m_active_segment_binmap_per_blockcfg[i].m_l[1]);
-                    heap->deallocate(m_active_segment_binmap_per_blockcfg[i].m_l[2]);
-                }
-                heap->deallocate(m_active_segment_binmap_per_blockcfg);
-
-                heap->deallocate(m_segments_free_binmap.m_l[0]);
-                heap->deallocate(m_segments_free_binmap.m_l[1]);
-                heap->deallocate(m_segments_free_binmap.m_l[2]);
-
-                heap->deallocate(m_segments);
+                heap->deallocate(m_active_section_binmap_per_blockcfg);
+                heap->deallocate(m_sections);
 
                 nvmem::release(m_address_base, m_address_range);
             }
@@ -532,17 +500,16 @@ namespace ncore
                 s16 const            config_index = alloccfg.m_index;
                 blockconfig_t const& blockcfg     = c_ablock_config[alloccfg.m_block.m_index];
 
-                s32 segment_index = m_active_segment_binmap_per_blockcfg[alloccfg.m_block.m_index].find();
-                if (segment_index < 0)
+                s32 section_index = g_find(&m_active_section_binmap_per_blockcfg[alloccfg.m_block.m_index], m_sections_array_size);
+                if (section_index < 0)
                 {
-                    segment_index = m_segments_free_binmap.find_and_set();
-                    if (segment_index < 0)
+                    section_index = g_find_and_set(&m_sections_free_binmap, m_sections_array_size);
+                    if (section_index < 0)
                     {
-                        if (m_segments_free_index < m_segments_array_size)
+                        if (m_sections_free_index < m_sections_array_size)
                         {
-                            segment_index = m_segments_free_index;
-                            m_segments_free_binmap.tick_all_used_lazy(m_segments_free_index);
-                            m_segments_free_index++;
+                            section_index = m_sections_free_index;
+                            m_sections_free_index++;
                         }
                         else
                         {
@@ -550,20 +517,20 @@ namespace ncore
                             return nullptr;
                         }
                     }
-                    m_active_segment_binmap_per_blockcfg[alloccfg.m_block.m_index].set_free(segment_index);
+                    g_clr(&m_active_section_binmap_per_blockcfg[alloccfg.m_block.m_index], section_index, m_sections_array_size);
 
-                    section_t* segment         = &m_segments[segment_index];
-                    void*      segment_address = toaddress(m_address_base, (s64)segment_index << m_section_max_size_shift);
-                    segment->checkout(m_heap, segment_address, m_section_max_size_shift, segment_index, blockcfg);
+                    section_t* segment         = &m_sections[section_index];
+                    void*      section_address = toaddress(m_address_base, (s64)section_index << m_section_maxsize_shift);
+                    segment->checkout(m_heap, section_address, m_section_maxsize_shift, section_index, blockcfg);
                 }
 
-                ASSERT(segment_index >= 0 && segment_index < (s32)m_segments_array_size);
-                section_t* segment = &m_segments[segment_index];
+                ASSERT(section_index >= 0 && section_index < (s32)m_sections_array_size);
+                section_t* segment = &m_sections[section_index];
                 block_t*   block   = segment->checkout_block(alloccfg);
                 if (segment->is_empty())
                 {
                     // Segment is empty, remove it from the active set for this block config
-                    m_active_segment_binmap_per_blockcfg[alloccfg.m_block.m_index].set_used(segment_index);
+                    g_set(&m_active_section_binmap_per_blockcfg[alloccfg.m_block.m_index], section_index, m_sections_array_size);
                 }
                 return block;
             }
@@ -592,10 +559,10 @@ namespace ncore
                 }
 
                 // Allocate item from active block, if it becomes full then remove it from the active list
-                u32 const  segment_index = block->m_section_index;
-                section_t* segment       = &m_segments[segment_index];
+                u32 const  section_index = block->m_section_index;
+                section_t* segment       = &m_sections[section_index];
 
-                alloc.m_ptr = block->allocate_item(segment->address_of_block(block->m_segment_block_index), alloc.m_index);
+                alloc.m_ptr = block->allocate_item(segment->address_of_block(block->m_section_block_index), alloc.m_index);
                 if (block->is_full())
                 {
                     block_t*& head = m_active_block_list_per_allocsize[alloccfg.m_index];
@@ -610,21 +577,21 @@ namespace ncore
                 }
 
                 // The allocation index also needs to encode the segment and block indices
-                ASSERT(segment_index < m_segments_array_size && segment_index <= 0xFE);
-                ASSERT(block->m_segment_block_index < m_segments[segment_index].m_block_max_count && block->m_segment_block_index <= 0xFE);
+                ASSERT(section_index < m_sections_array_size && section_index <= 0xFE);
+                ASSERT(block->m_section_block_index < m_sections[section_index].m_block_max_count && block->m_section_block_index <= 0xFE);
                 return alloc;
             }
 
             void alloc_t::dealloc_item(u32 item_index)
             {
-                u32 const segment_index = (item_index >> 24) & 0xFF;
+                u32 const section_index = (item_index >> 24) & 0xFF;
                 u32 const block_index   = (item_index >> 16) & 0xFF;
                 u32 const elem_index    = item_index & 0xFFFF;
-                ASSERT(segment_index < m_segments_array_size);
-                section_t* segment = &m_segments[segment_index];
+                ASSERT(section_index < m_sections_array_size);
+                section_t* segment = &m_sections[section_index];
                 ASSERT(block_index < segment->m_block_max_count);
                 block_t* block = &segment->m_block_array[block_index];
-                ASSERT(elem_index < block->m_item_freepos);
+                ASSERT(elem_index < block->m_item_freeindex);
                 u32 const alloc_config_index = block->m_alloc_config.m_index;
 
                 bool const block_was_full = block->is_full();
@@ -747,8 +714,8 @@ namespace ncore
 
                 // Sections
                 section_t**                  m_section_active_array;     // This needs to be per section config
-                s8                           m_section_max_size_shift;   // 1 << m_section_max_size_shift = segment size
-                u8                           m_section_min_size_shift;   // The minimum size of a section in log2
+                s8                           m_section_maxsize_shift;    // 1 << m_section_maxsize_shift = segment size
+                u8                           m_section_minsize_shift;    // The minimum size of a section in log2
                 nsegmented::allocator_t<u16> m_section_allocator;        // Allocator for obtaining a new section with a power-of-two size
                 u16*                         m_section_map;              // This a full memory mapping of index to section_t* (16 bits)
                 u32                          m_sections_array_capacity;  // The capacity of sections array
@@ -764,8 +731,8 @@ namespace ncore
                     , m_page_size_shift(0)
                     , m_chunk_active_array(nullptr)
                     , m_section_active_array(nullptr)
-                    , m_section_max_size_shift(0)
-                    , m_section_min_size_shift(0)
+                    , m_section_maxsize_shift(0)
+                    , m_section_minsize_shift(0)
                     , m_section_map(nullptr)
                     , m_sections_array_capacity(0)
                     , m_sections_free_index(0)
@@ -787,17 +754,17 @@ namespace ncore
                     m_config                  = config;
                     m_used_physical_pages     = 0;
                     m_page_size_shift         = math::ilog2(page_size);
-                    m_section_max_size_shift  = config->m_section_max_size_shift;
-                    m_section_min_size_shift  = config->m_section_min_size_shift;
-                    m_section_map             = g_allocate_array_and_memset<u16>(heap, (u32)(m_address_range >> m_section_min_size_shift), 0xFFFFFFFF);
-                    m_sections_array_capacity = (u32)(m_address_range >> m_section_max_size_shift);  // @note: This should be coming from configuration
+                    m_section_maxsize_shift   = config->m_section_maxsize_shift;
+                    m_section_minsize_shift   = config->m_section_minsize_shift;
+                    m_section_map             = g_allocate_array_and_memset<u16>(heap, (u32)(m_address_range >> m_section_minsize_shift), 0xFFFFFFFF);
+                    m_sections_array_capacity = (u32)(m_address_range >> m_section_maxsize_shift);  // @note: This should be coming from configuration
                     m_sections_free_index     = 0;
                     m_section_free_list       = nullptr;
                     m_sections_array          = g_allocate_array_and_clear<section_t>(heap, m_sections_array_capacity);
 
                     // 1TB address range, minimum section size 64MB, maximum section size 4GB
                     // @note: This should be coming from configuration
-                    m_section_allocator.setup(heap, math::ilog2(m_address_range) - m_section_min_size_shift, m_section_max_size_shift - m_section_min_size_shift);
+                    m_section_allocator.setup(heap, math::ilog2(m_address_range) - m_section_minsize_shift, m_section_maxsize_shift - m_section_minsize_shift);
                 }
 
                 void deinitialize(nsuperheap::alloc_t* heap)
@@ -808,12 +775,12 @@ namespace ncore
                     heap->deallocate(m_chunk_active_array);
                     heap->deallocate(m_sections_array);
 
-                    m_address_base           = nullptr;
-                    m_address_range          = 0;
-                    m_page_size_shift        = 0;
-                    m_section_max_size_shift = 0;
-                    m_used_physical_pages    = 0;
-                    m_config                 = nullptr;
+                    m_address_base          = nullptr;
+                    m_address_range         = 0;
+                    m_page_size_shift       = 0;
+                    m_section_maxsize_shift = 0;
+                    m_used_physical_pages   = 0;
+                    m_config                = nullptr;
                 }
 
                 inline static u32 s_chunk_physical_pages(binconfig_t const& bin, s8 page_size_shift) { return (u32)((bin.m_alloc_size * bin.m_max_alloc_count) + (((u64)1 << page_size_shift) - 1)) >> page_size_shift; }
@@ -963,13 +930,13 @@ namespace ncore
                 section_t* checkout_section(chunkconfig_t const& chunk_config, nsuperfsa::alloc_t* fsa)
                 {
                     // section allocator, we are allocating number of nodes, where each node has the size
-                    // equal to (1 << m_section_min_size_shift) so the number of nodes is equal to size:
-                    // size = 'number of nodes' * (1 << m_section_min_size_shift)
-                    ASSERT(chunk_config.m_section_sizeshift >= m_section_min_size_shift && chunk_config.m_section_sizeshift <= m_section_max_size_shift);
+                    // equal to (1 << m_section_minsize_shift) so the number of nodes is equal to size:
+                    // size = 'number of nodes' * (1 << m_section_minsize_shift)
+                    ASSERT(chunk_config.m_section_sizeshift >= m_section_minsize_shift && chunk_config.m_section_sizeshift <= m_section_maxsize_shift);
 
-                    // num nodes we need to allocatate = (1 << sectionconfig.m_sizeshift) / (1 << m_section_min_size_shift)
+                    // num nodes we need to allocatate = (1 << sectionconfig.m_sizeshift) / (1 << m_section_minsize_shift)
                     u16 node = 0;
-                    m_section_allocator.allocate(1 << (chunk_config.m_section_sizeshift - m_section_min_size_shift), node);
+                    m_section_allocator.allocate(1 << (chunk_config.m_section_sizeshift - m_section_minsize_shift), node);
 
                     section_t* section = ll_pop(m_section_free_list);
                     if (section == nullptr)
@@ -977,7 +944,7 @@ namespace ncore
                         section = &m_sections_array[m_sections_free_index++];
                     }
                     section->clear();
-                    section->m_section_address     = m_address_base + ((u64)node << m_section_min_size_shift);
+                    section->m_section_address     = m_address_base + ((u64)node << m_section_minsize_shift);
                     u32 const section_chunk_count  = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
                     section->m_chunk_array         = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
                     section->m_chunks_free_index   = 0;
@@ -999,7 +966,7 @@ namespace ncore
                     // How many nodes do we span in the full mapping, based on our section size.
                     // For that whole span we need to fill in our section index, so that the
                     // deallocation can quickly obtain the section_t* for a given memory pointer.
-                    u32 const node_count    = (u32)(1 << (chunk_config.m_section_sizeshift - m_section_min_size_shift));
+                    u32 const node_count    = (u32)(1 << (chunk_config.m_section_sizeshift - m_section_minsize_shift));
                     u32 const section_index = (u32)(section - m_sections_array);
                     for (u32 o = 0; o < node_count; o++)
                         m_section_map[node + o] = section_index;
@@ -1044,12 +1011,12 @@ namespace ncore
                     g_release(fsa, section->m_chunks_free_binmap);
 
                     // Deallocate the memory segment that was associated with this section
-                    u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_min_size_shift) & 0xFFFFFFFF);
+                    u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_minsize_shift) & 0xFFFFFFFF);
                     m_section_allocator.deallocate(node);
 
                     // Clear our index from the section map array
                     u32 const node_offset = (u32)node;
-                    u32 const node_count  = (u32)(1 << (section->m_chunk_config.m_section_sizeshift - m_section_min_size_shift));
+                    u32 const node_count  = (u32)(1 << (section->m_chunk_config.m_section_sizeshift - m_section_minsize_shift));
                     for (u32 o = 0; o < node_count; o++)
                         m_section_map[node_offset + o] = 0xFFFF;
 
@@ -1087,7 +1054,7 @@ namespace ncore
 
                 inline chunk_t* address_to_chunk(void* ptr) const
                 {
-                    u32 const mapped_index = (u32)((todistance(m_address_base, ptr) >> m_section_min_size_shift) & 0xFFFFFFFF);
+                    u32 const mapped_index = (u32)((todistance(m_address_base, ptr) >> m_section_minsize_shift) & 0xFFFFFFFF);
                     ASSERT(mapped_index < m_sections_array_capacity);
                     u32 const section_mapped_index = m_section_map[mapped_index];
                     ASSERT(section_mapped_index != 0xFFFF && section_mapped_index < m_sections_free_index);
