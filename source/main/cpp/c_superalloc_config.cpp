@@ -1,12 +1,8 @@
 #include "ccore/c_target.h"
 #include "ccore/c_debug.h"
-#include "cbase/c_integer.h"
-#include "cbase/c_binmap.h"
+#include "ccore/c_math.h"
 
-#include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/c_superalloc_config.h"
-
-#include "cvmem/c_virtual_memory.h"
 
 namespace ncore
 {
