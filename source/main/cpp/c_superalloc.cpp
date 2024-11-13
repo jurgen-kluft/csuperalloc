@@ -57,7 +57,7 @@ namespace ncore
                 nvmem::nprotect::value_t attributes = nvmem::nprotect::ReadWrite;
                 nvmem::reserve(memory_range, attributes, m_address);
                 u32 const page_size   = nvmem::get_page_size();
-                m_page_size_shift     = math::ilog2(page_size);
+                m_page_size_shift     = math::g_ilog2(page_size);
                 m_allocsize_alignment = 32;
                 m_page_count_maximum  = (u32)(memory_range >> m_page_size_shift);
                 m_page_count_current  = 0;
@@ -65,7 +65,7 @@ namespace ncore
 
                 if (size_to_pre_allocate > 0)
                 {
-                    u32 const pages_to_commit = (u32)(math::alignUp(size_to_pre_allocate, ((u32)1 << m_page_size_shift)) >> m_page_size_shift);
+                    u32 const pages_to_commit = (u32)(math::g_alignUp(size_to_pre_allocate, ((u32)1 << m_page_size_shift)) >> m_page_size_shift);
                     nvmem::commit(m_address, (1 << m_page_size_shift) * pages_to_commit);
                     m_page_count_current = pages_to_commit;
                 }
@@ -88,12 +88,12 @@ namespace ncore
                 if (size == 0)
                     return nullptr;
 
-                size        = math::alignUp(size, m_allocsize_alignment);
+                size        = math::g_alignUp(size, m_allocsize_alignment);
                 u64 ptr_max = ((u64)m_page_count_current << m_page_size_shift);
                 if ((m_ptr + size) > ptr_max)
                 {
                     // add more pages
-                    u32 const page_count           = (u32)(math::alignUp(m_ptr + size, (u32)1 << m_page_size_shift) >> m_page_size_shift);
+                    u32 const page_count           = (u32)(math::g_alignUp(m_ptr + size, (u32)1 << m_page_size_shift) >> m_page_size_shift);
                     u32 const page_count_to_commit = page_count - m_page_count_current;
                     u64       commit_base          = ((u64)m_page_count_current << m_page_size_shift);
                     nvmem::commit(toaddress(m_address, commit_base), (1 << m_page_size_shift) * page_count_to_commit);
@@ -397,8 +397,8 @@ namespace ncore
                 static inline allocconfig_t const& alloc_size_to_alloc_config(u32 alloc_size)
                 {
                     alloc_size = (alloc_size + 7) & ~7;
-                    alloc_size = math::ceilpo2(alloc_size);
-                    s8 const c = math::countTrailingZeros(alloc_size) - 3;
+                    alloc_size = math::g_ceilpo2(alloc_size);
+                    s8 const c = math::g_countTrailingZeros(alloc_size) - 3;
                     return c_aalloc_config[c];
                 }
 
@@ -451,7 +451,7 @@ namespace ncore
             {
                 m_heap                  = heap;
                 m_address_range         = address_range;
-                m_section_maxsize_shift = math::ilog2(section_size);
+                m_section_maxsize_shift = math::g_ilog2(section_size);
                 m_sections_array_size   = (u32)(address_range >> m_section_maxsize_shift);
                 m_sections              = g_allocate_array<section_t>(m_heap, m_sections_array_size);
 
@@ -492,7 +492,7 @@ namespace ncore
                 nvmem::release(m_address_base, m_address_range);
             }
 
-            u32 alloc_t::sizeof_alloc(u32 alloc_size) const { return math::ceilpo2((alloc_size + (8 - 1)) & ~(8 - 1)); }
+            u32 alloc_t::sizeof_alloc(u32 alloc_size) const { return math::g_ceilpo2((alloc_size + (8 - 1)) & ~(8 - 1)); }
 
             block_t* alloc_t::checkout_block(allocconfig_t const& alloccfg)
             {
@@ -742,7 +742,7 @@ namespace ncore
 
                 void initialize(config_t const* config, nsuperheap::alloc_t* heap, nsuperfsa::alloc_t* fsa)
                 {
-                    ASSERT(math::ispo2(config->m_total_address_size));
+                    ASSERT(math::g_ispo2(config->m_total_address_size));
 
                     m_address_range                     = config->m_total_address_size;
                     nvmem::nprotect::value_t attributes = nvmem::nprotect::ReadWrite;
@@ -752,7 +752,7 @@ namespace ncore
                     m_chunk_active_array      = g_allocate_array_and_clear<chunk_t*>(heap, config->m_num_chunkconfigs);
                     m_config                  = config;
                     m_used_physical_pages     = 0;
-                    m_page_size_shift         = math::ilog2(page_size);
+                    m_page_size_shift         = math::g_ilog2(page_size);
                     m_section_maxsize_shift   = config->m_section_maxsize_shift;
                     m_section_minsize_shift   = config->m_section_minsize_shift;
                     m_section_map             = g_allocate_array_and_memset<u16>(heap, (u32)(m_address_range >> m_section_minsize_shift), 0xFFFFFFFF);
@@ -763,7 +763,7 @@ namespace ncore
 
                     // 1TB address range, minimum section size 64MB, maximum section size 4GB
                     // @note: This should be coming from configuration
-                    m_section_allocator.setup(heap, math::ilog2(m_address_range) - m_section_minsize_shift, m_section_maxsize_shift - m_section_minsize_shift);
+                    m_section_allocator.setup(heap, math::g_ilog2(m_address_range) - m_section_minsize_shift, m_section_maxsize_shift - m_section_minsize_shift);
                 }
 
                 void deinitialize(nsuperheap::alloc_t* heap)
@@ -1141,7 +1141,7 @@ namespace ncore
 
         void* superalloc_t::v_allocate(u32 alloc_size, u32 alignment)
         {
-            alloc_size             = math::alignUp(alloc_size, alignment);
+            alloc_size             = math::g_alignUp(alloc_size, alignment);
             binconfig_t const& bin = m_config->size2bin(alloc_size);
 
             nsuperspace::chunk_t* chunk = m_active_chunk_list_per_alloc_size[bin.m_alloc_bin_index];
