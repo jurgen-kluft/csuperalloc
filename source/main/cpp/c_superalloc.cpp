@@ -21,11 +21,7 @@ namespace ncore
 #define SUPERALLOC_DEBUG
 
         static inline void* toaddress(void* base, u64 offset) { return (void*)((ptr_t)base + offset); }
-        static inline ptr_t todistance(void const* base, void const* ptr)
-        {
-            ASSERT(ptr >= base);
-            return (ptr_t)((ptr_t)ptr - (ptr_t)base);
-        }
+        static inline ptr_t todistance(void const* base, void const* ptr) { return (ptr_t)((ptr_t)ptr - (ptr_t)base); }
 
         namespace nsuperheap
         {
@@ -134,7 +130,8 @@ namespace ncore
                 blockconfig_t m_block;
             };
 
-            // Maximum number of items in a block is 2^16 = 65536 items
+            // Maximum number of items in a block is 32768 items
+            // This struct is 32 bytes on a 64-bit system
             struct block_t
             {
                 static const u16 NIL16 = 0xffff;
@@ -153,6 +150,7 @@ namespace ncore
                 {
                     ASSERT(section_index < 0xFF);
                     ASSERT(section_block_index < 0xFF);
+                    ASSERT((1 << (alloccfg.m_block.m_sizeshift - alloccfg.m_sizeshift)) <= 32768);
 
                     m_next                = nullptr;
                     m_prev                = nullptr;
@@ -233,14 +231,19 @@ namespace ncore
                 void     checkout(nsuperheap::alloc_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg);
                 block_t* checkout_block(allocconfig_t const& alloccfg);
                 void     release_block(block_t* block);
-                void*    address_of_block(u32 block) const { return toaddress(m_address, (u64)block << m_block_config.m_sizeshift); }
-                bool     is_empty() const { return m_block_used_count == m_block_max_count; }
-
-                block_t* get_block_from_address(void const* ptr) const
+                bool     is_ptr_inside(void const* ptr) const { return ptr >= m_address && ptr < toaddress(m_address, m_address_range); }
+                u32      index_of_block(void const* ptr) const
                 {
-                    ASSERT(ptr >= m_address && ptr < toaddress(m_address, m_address_range));
-                    return &m_block_array[(u32)(todistance(m_address, ptr) >> m_block_config.m_sizeshift)];
+                    ASSERT(is_ptr_inside(ptr));
+                    return (u32)(todistance(m_address, ptr) >> m_block_config.m_sizeshift);
                 }
+                void* address_of_block(u32 block) const
+                {
+                    void* block_ptr = toaddress(m_address, (u64)block << m_block_config.m_sizeshift);
+                    ASSERT(is_ptr_inside(block_ptr));
+                    return block_ptr;
+                }
+                bool is_empty() const { return m_block_used_count == m_block_max_count; }
 
                 inline void* idx2ptr(u32 i) const
                 {
@@ -257,7 +260,8 @@ namespace ncore
                 {
                     if (ptr == nullptr)
                         return NIL;
-                    u32 const            block_index   = (u32)(todistance(m_address, ptr) >> m_block_config.m_sizeshift);
+
+                    u32 const            block_index   = index_of_block(ptr);
                     block_t const* const block         = &m_block_array[block_index];
                     void* const          block_address = address_of_block(block_index);
                     u32 const            elem_index    = block->ptr2idx(block_address, ptr);
