@@ -27,15 +27,15 @@ func GetPackage() *denv.Package {
 	mainpkg.AddPackage(callocatorpkg)
 
 	// 'csuperalloc' library
-	mainlib := denv.SetupDefaultCppLibProject("csuperalloc", "github.com\\jurgen-kluft\\csuperalloc")
-	mainlib.Dependencies = append(mainlib.Dependencies, ccorepkg.GetMainLib())
-	mainlib.Dependencies = append(mainlib.Dependencies, cbasepkg.GetMainLib())
-	mainlib.Dependencies = append(mainlib.Dependencies, cvmempkg.GetMainLib())
-	mainlib.Dependencies = append(mainlib.Dependencies, callocatorpkg.GetMainLib())
+	mainlib := denv.SetupCppLibProject("csuperalloc", "github.com\\jurgen-kluft\\csuperalloc")
+	mainlib.AddDependencies(ccorepkg.GetMainLib()...)
+	mainlib.AddDependencies(cbasepkg.GetMainLib()...)
+	mainlib.AddDependencies(cvmempkg.GetMainLib()...)
+	mainlib.AddDependencies(callocatorpkg.GetMainLib()...)
 
 	// 'csuperalloc' unittest project
 	maintest := denv.SetupDefaultCppTestProject("csuperalloc"+"_test", "github.com\\jurgen-kluft\\csuperalloc")
-	maintest.Dependencies = append(maintest.Dependencies, cunittestpkg.GetMainLib())
+	maintest.AddDependencies(cunittestpkg.GetMainLib()...)
 	maintest.Dependencies = append(maintest.Dependencies, mainlib)
 
 	mainpkg.AddMainLib(mainlib)
