@@ -9,36 +9,50 @@ import (
 	cvmem "github.com/jurgen-kluft/cvmem/package"
 )
 
-// GetPackage returns the package object of 'csuperalloc'
+const (
+	repo_path = "github.com\\jurgen-kluft\\"
+	repo_name = "callocator"
+)
+
 func GetPackage() *denv.Package {
-	// Dependencies
+	name := repo_name
+
+	// dependencies
 	cunittestpkg := cunittest.GetPackage()
 	cbasepkg := cbase.GetPackage()
 	ccorepkg := ccore.GetPackage()
 	cvmempkg := cvmem.GetPackage()
 	callocatorpkg := callocator.GetPackage()
 
-	// The main (csuperalloc) package
-	mainpkg := denv.NewPackage("csuperalloc")
+	// main package
+	mainpkg := denv.NewPackage(repo_path, repo_name)
 	mainpkg.AddPackage(cunittestpkg)
 	mainpkg.AddPackage(cbasepkg)
 	mainpkg.AddPackage(ccorepkg)
 	mainpkg.AddPackage(cvmempkg)
 	mainpkg.AddPackage(callocatorpkg)
 
-	// 'csuperalloc' library
-	mainlib := denv.SetupCppLibProject("csuperalloc", "github.com\\jurgen-kluft\\csuperalloc")
+	// main library
+	mainlib := denv.SetupCppLibProject(mainpkg, name)
 	mainlib.AddDependencies(ccorepkg.GetMainLib()...)
 	mainlib.AddDependencies(cbasepkg.GetMainLib()...)
 	mainlib.AddDependencies(cvmempkg.GetMainLib()...)
 	mainlib.AddDependencies(callocatorpkg.GetMainLib()...)
 
-	// 'csuperalloc' unittest project
-	maintest := denv.SetupDefaultCppTestProject("csuperalloc"+"_test", "github.com\\jurgen-kluft\\csuperalloc")
+	// test library
+	testlib := denv.SetupCppTestLibProject(mainpkg, name)
+	testlib.AddDependencies(ccorepkg.GetTestLib()...)
+	testlib.AddDependencies(cbasepkg.GetTestLib()...)
+	testlib.AddDependencies(cvmempkg.GetTestLib()...)
+	testlib.AddDependencies(callocatorpkg.GetTestLib()...)
+
+	// unittest project
+	maintest := denv.SetupCppTestProject(mainpkg, name)
 	maintest.AddDependencies(cunittestpkg.GetMainLib()...)
-	maintest.Dependencies = append(maintest.Dependencies, mainlib)
+	maintest.AddDependency(mainlib)
 
 	mainpkg.AddMainLib(mainlib)
+	mainpkg.AddTestLib(testlib)
 	mainpkg.AddUnittest(maintest)
 	return mainpkg
 }
