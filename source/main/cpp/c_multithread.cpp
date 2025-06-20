@@ -14,6 +14,6 @@
 
 // static inline void heap_lock_release(void)
 // {
-// 	rpmalloc_assert((uintptr_t)atomic_load_explicit(&global_heap_lock, memory_order_relaxed) == get_thread_id(), "Bad heap lock");
+// 	assert((uintptr_t)atomic_load_explicit(&global_heap_lock, memory_order_relaxed) == get_thread_id(), "Bad heap lock");
 // 	atomic_store_explicit(&global_heap_lock, 0, memory_order_release);
 // }
