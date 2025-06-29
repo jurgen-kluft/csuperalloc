@@ -1,5 +1,7 @@
 # TODO for xvmem
 
+- Investigate the use of madvise(MADV_FREE) to decommit memory on Mac, madvise(MADV_DONTNEED) on Linux, and VirtualAlloc(MEM_RESET).
+  Especially for segments, sections and chunks.
 - Create a supermemory_t that holds superregion_t[], every superregion_t can
   have its own page size, memory protect setting and memory type attributes.
 - Multiple superallocator_t instances can use the same superregion_t instance.
@@ -12,13 +14,6 @@
 
 ## Multi-Threading
 
-`nsuperspace` will be shared among the threads, but `nsuperheap` and `nsuperfsa` will
-have an instance per thread.
-So we extract `nsuperheap` and `nsuperfsa` from `superallocator` and make them dedicated 
-per thread. This means that we have a certain instance per thread that is used for
-allocating and deallocating memory. When allocating the instance is using `nsuperspace` to
-request a `segment`, and a `segment` is used
-
-
+TBD
 
 

@@ -9,7 +9,7 @@ backgroundImage: url('superalloc-background.jpg')
 
 # **SuperAlloc**
 
-Virtual Memory Allocator for 64-bit Games and Applications
+Virtual Memory Allocator for 64-bit Applications
 
 ---
 
@@ -101,6 +101,8 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * Mapped in pages
 * x64 supports:
   * 4 KB and 2 MB pages
+* Mac OSX uses:
+  * 16 KB 
 * PlayStation 4 OS uses:
   * 16 KB (4x4 KB) and 2 MB
 * GPU has more sizes
@@ -132,7 +134,7 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * Every `segment` is dedicated to one specific `chunk` size
 * Every `segment` is divided into `chunks`
 * All bookkeeping data is outside of the managed memory
-* A superalloc allocator manages a range of allocation sizes
+* A superalloc allocator manages a full range of allocation sizes
 * Only uses 2 data structures:
   * Doubly Linked List using indices instead of pointers (260 lines)
   * BinMap (3 level hierarchical bitmap) (180 lines)

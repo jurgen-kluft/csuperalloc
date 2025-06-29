@@ -19,24 +19,24 @@ namespace ncore
 
         struct binconfig_t
         {
-            binconfig_t(u16 alloc_bin_index, u32 alloc_size, chunkconfig_t const& chunk_config)
-                : m_alloc_bin_index(alloc_bin_index)
+            binconfig_t(u16 index, u32 alloc_size, chunkconfig_t const& chunk_config)
+                : m_index(index)
                 , m_alloc_size(alloc_size)
                 , m_chunk_config(chunk_config)
                 , m_max_alloc_count((((u32)1 << chunk_config.m_sizeshift) / alloc_size))
             {
             }
             binconfig_t(const binconfig_t& other)
-                : m_alloc_bin_index(other.m_alloc_bin_index)
+                : m_index(other.m_index)
                 , m_alloc_size(other.m_alloc_size)
                 , m_chunk_config(other.m_chunk_config)
                 , m_max_alloc_count(other.m_max_alloc_count)
             {
             }
-            const u64           m_alloc_bin_index : 16;  // The index of this bin
-            const u64           m_alloc_size : 48;       // The size of the allocation that this bin is managing
-            const chunkconfig_t m_chunk_config;          // The index of the chunk size that this bin requires
-            const u32           m_max_alloc_count;       // The maximum number of allocations that can be made from a single chunk
+            const u64           m_index : 16;       // The index of this bin
+            const u64           m_alloc_size : 48;  // The size of the allocation that this bin is managing
+            const chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
+            const u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
         };
 
         struct config_t
@@ -60,19 +60,19 @@ namespace ncore
 
             virtual binconfig_t const& size2bin(u32 size) const = 0;
 
-            u64                    m_total_address_size;
-            u64                    m_section_address_range;
-            s8                     m_section_minsize_shift;
-            s8                     m_section_maxsize_shift;
-            u32                    m_internal_heap_address_range;
-            u32                    m_internal_heap_pre_size;
-            u32                    m_internal_fsa_address_range;
-            u32                    m_internal_fsa_segment_size;
-            u32                    m_internal_fsa_pre_size;
-            s16                    m_num_chunkconfigs;
-            s16                    m_num_binconfigs;
-            chunkconfig_t const*   m_achunkconfigs;
-            binconfig_t const*     m_abinconfigs;
+            u64                  m_total_address_size;
+            u64                  m_section_address_range;
+            s8                   m_section_minsize_shift;
+            s8                   m_section_maxsize_shift;
+            u32                  m_internal_heap_address_range;
+            u32                  m_internal_heap_pre_size;
+            u32                  m_internal_fsa_address_range;
+            u32                  m_internal_fsa_segment_size;
+            u32                  m_internal_fsa_pre_size;
+            s16                  m_num_chunkconfigs;
+            s16                  m_num_binconfigs;
+            chunkconfig_t const* m_achunkconfigs;
+            binconfig_t const*   m_abinconfigs;
         };
 
         extern config_t const* gConfigWindowsDesktopApp10p();
