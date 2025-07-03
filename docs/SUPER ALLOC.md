@@ -136,9 +136,9 @@ Current well known memory allocators like DLMalloc are mainly based on handling 
 * All bookkeeping data is outside of the managed memory
 * A superalloc allocator manages a full range of allocation sizes
 * Only uses 2 data structures:
-  * Doubly Linked List using indices instead of pointers (260 lines)
-  * BinMap (3 level hierarchical bitmap) (180 lines)
-* Number of code lines = 1200, excluding the 2 data structures
+  * Doubly Linked List using indices instead of pointers (260 code lines)
+  * BinMap (3 level hierarchical bitmap) (180 code lines)
+* Number of code lines = 1200 (excluding the 2 data structures)
 
 ---
 
@@ -162,15 +162,14 @@ public:
 
 Example:
 
-Address space is divided into super segments of 64 GB, and each super segment is divided into blocks of 1 GB.
-Each block manages chunks and every chunk has the same size. There can be many segments where each segment 
-will be able to provide chunks of a specific size.
+Address space is divided into sections of 1 GB, each section manages chunks and every chunk has the same size. 
+There can be many sections where each section will be able to provide chunks of a specific size.
 
 (X = Used, F = Free)
 
 ```md
-Super Segment
-                -> Block 1 GB                                                                           
+SuperSpace
+                -> Section 1 GB                                                                           
                /                                                                                      
               /                                                                                       
         +---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---+       
@@ -181,10 +180,9 @@ Super Segment
 
 ```
 
+# Section
 
-# Block
-
-A block of 1 GB is divided into chunks of a specific size.
+A Section of 1 GB is divided into chunks of a specific size.
 
 ```md
          Chunk (2 MB, 64 KB or for example 4 KB)
@@ -207,7 +205,7 @@ The small chunk-size of 64 KB, handled by a super alloc instance, is holding all
 
 # Binmap
 
-The main purpose of a binmap is to quickly give you the index of a '0' bit. The implementation uses 3 levels of bit arrays. Binmap has a `findandset` function which can give you a 'free' element quickly.
+The main purpose of a binmap is to quickly give you the index of a '0' bit. The implementation uses 3 levels of bit arrays. Binmap has a `find_and_set` function which can give you a 'free' element quickly.
 
 ```md
                            +--------------------------------+                                                                                

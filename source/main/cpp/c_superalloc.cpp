@@ -1292,7 +1292,7 @@ namespace ncore
             nsuperalloc::nsuperspace::alloc_t* m_superspace;      // shared among instances
             nsuperalloc::nsuperheap::alloc_t*  m_internal_heap;   // per instance
             nsuperalloc::nsuperfsa::alloc_t*   m_internal_fsa;    // per instance
-            s16                                m_instance_index;  // instance indexj
+            s16                                m_instance_index;  // instance index
 
             // We need to defer all deallocations here so that we can release them when on the owning thread.
             // Using the allocations as a linked-list is best for this purpose, so that we do not need to

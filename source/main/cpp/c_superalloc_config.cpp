@@ -127,7 +127,7 @@ namespace ncore
         config_t const* gConfigWindowsDesktopApp25p()
         {
             const u64 c_total_address_space         = 256 * cGB;
-            const u64 c_section_address_range       = 4 * cGB;
+            const u64 c_section_address_range       = sSectionSize_Max;
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
             const u32 c_internal_fsa_address_range  = 256 * cMB;  // Note: max 256 segments
@@ -144,7 +144,7 @@ namespace ncore
             config->m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_minsize_shift       = sSectionSize_Min;
-            config->m_section_maxsize_shift       = sSectionSize_Min;
+            config->m_section_maxsize_shift       = sSectionSize_Max;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
             config->m_num_binconfigs              = nsuperalloc_config_25p::c_num_binconfigs;
             config->m_achunkconfigs               = c_achunkconfigs;
@@ -307,8 +307,8 @@ namespace ncore
 
         config_t const* gConfigWindowsDesktopApp10p()
         {
-            const u64 c_total_address_space         = 1 * cTB;
-            const u64 c_section_address_range       = 4 * cGB;
+            const u64 c_total_address_space         = 256 * cGB;
+            const u64 c_section_address_range       = sSectionSize_Max;
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
             const u32 c_internal_fsa_address_range  = 256 * cMB;
