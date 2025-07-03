@@ -5,7 +5,7 @@
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"
 
-#include "callocator/c_allocator_segmented.h"
+#include "callocator/c_allocator_segment.h"
 
 #include "csuperalloc/private/c_doubly_linked_list.h"
 #include "csuperalloc/c_superalloc.h"
@@ -45,7 +45,7 @@ namespace ncore
                 void* v_allocate(u32 size, u32 alignment);  // allocate
                 void  v_deallocate(void* ptr);              // deallocate
 
-                // DCORE_CLASS_PLACEMENT_NEW_DELETE
+                DCORE_CLASS_PLACEMENT_NEW_DELETE
             };
 
             void alloc_t::initialize(u64 memory_range, u64 size_to_pre_allocate)
@@ -721,12 +721,14 @@ namespace ncore
                 section_t**                  m_section_active_array;     // This needs to be per section config
                 s8                           m_section_minsize_shift;    // The minimum size of a section in log2
                 s8                           m_section_maxsize_shift;    // 1 << m_section_maxsize_shift = segment size
-                nsegmented::allocator_t<u16> m_section_allocator;        // Allocator for obtaining a new section with a power-of-two size
+                nsegmented::segment_alloc_t* m_section_allocator;        // Allocator for obtaining a new section with a power-of-two size
                 u16*                         m_section_map;              // This a full memory mapping of index to section_t* (16 bits)
                 u32                          m_sections_array_capacity;  // The capacity of sections array
                 u32                          m_sections_free_index;      // Lower bound index of free sections
                 section_t*                   m_section_free_list;        // List of free sections
                 section_t*                   m_sections_array;           // Array of sections ()
+
+                DCORE_CLASS_PLACEMENT_NEW_DELETE
 
                 alloc_t()
                     : m_config(nullptr)
@@ -767,7 +769,7 @@ namespace ncore
                     m_section_free_list       = nullptr;
                     m_sections_array          = g_allocate_array_and_clear<section_t>(heap, m_sections_array_capacity);
 
-                    m_section_allocator.setup(heap, math::g_ilog2(m_address_range) - m_section_minsize_shift, m_section_maxsize_shift - m_section_minsize_shift);
+                    m_section_allocator = nsegmented::g_create_segment_n_allocator(heap, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
                 }
 
                 void deinitialize(nsuperheap::alloc_t* heap)
@@ -831,7 +833,7 @@ namespace ncore
 
                     {  // Initialize the chunk
                         chunk->m_section        = section;
-                        chunk->m_bin_index      = bin.m_index;                              // The bin configuration
+                        chunk->m_bin_index      = bin.m_index;                                        // The bin configuration
                         chunk->m_elem_tag_array = g_allocate_array<u32>(fsa, bin.m_max_alloc_count);  // Allocate allocation tag array
 
                         // Allocate and initialize the binmap for tracking free elements.
@@ -938,8 +940,9 @@ namespace ncore
                     ASSERT(chunk_config.m_section_sizeshift >= m_section_minsize_shift && chunk_config.m_section_sizeshift <= m_section_maxsize_shift);
 
                     // num nodes we need to allocatate = (1 << sectionconfig.m_sizeshift) / (1 << m_section_minsize_shift)
-                    u16 node = 0;
-                    m_section_allocator.allocate(1 << (chunk_config.m_section_sizeshift - m_section_minsize_shift), node);
+                    s64 section_ptr  = 0;
+                    s64 section_size = 1 << chunk_config.m_section_sizeshift;
+                    m_section_allocator->allocate(section_size, section_ptr);
 
                     section_t* section = ll_pop(m_section_free_list);
                     if (section == nullptr)
@@ -947,7 +950,7 @@ namespace ncore
                         section = &m_sections_array[m_sections_free_index++];
                     }
                     section->clear();
-                    section->m_section_address     = m_address_base + ((u64)node << m_section_minsize_shift);
+                    section->m_section_address     = m_address_base + section_ptr;
                     u32 const section_chunk_count  = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
                     section->m_chunk_array         = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
                     section->m_chunks_free_index   = 0;
@@ -969,10 +972,11 @@ namespace ncore
                     // How many nodes do we span in the full mapping, based on our section size.
                     // For that whole span we need to fill in our section index, so that the
                     // deallocation can quickly obtain the section_t* for a given memory pointer.
+                    u32 const node_index    = section_ptr >> m_section_minsize_shift;
                     u32 const node_count    = (u32)(1 << (chunk_config.m_section_sizeshift - m_section_minsize_shift));
                     u32 const section_index = (u32)(section - m_sections_array);
                     for (u32 o = 0; o < node_count; o++)
-                        m_section_map[node + o] = section_index;
+                        m_section_map[node_index + o] = section_index;
 
                     return section;
                 }
@@ -1014,10 +1018,14 @@ namespace ncore
                     g_release(fsa, section->m_chunks_free_binmap);
 
                     // Deallocate the memory segment that was associated with this section
-                    u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_minsize_shift) & 0xFFFFFFFF);
-                    m_section_allocator.deallocate(node);
+                    // u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_minsize_shift) & 0xFFFFFFFF);
+                    // m_section_allocator.deallocate(node);
+                    s64       section_ptr  = todistance(m_address_base, section->m_section_address);
+                    const s64 section_size = 1 << section->m_chunk_config.m_section_sizeshift;
+                    m_section_allocator->deallocate(section_ptr, section_size);
 
                     // Clear our index from the section map array
+                    u32 const node        = (u32)(section_ptr >> m_section_minsize_shift);
                     u32 const node_offset = (u32)node;
                     u32 const node_count  = (u32)(1 << (section->m_chunk_config.m_section_sizeshift - m_section_minsize_shift));
                     for (u32 o = 0; o < node_count; o++)
@@ -1100,7 +1108,7 @@ namespace ncore
             {
             }
 
-            // DCORE_CLASS_PLACEMENT_NEW_DELETE
+            DCORE_CLASS_PLACEMENT_NEW_DELETE
 
             void initialize(config_t const* config);
             void deinitialize();
@@ -1118,13 +1126,13 @@ namespace ncore
         {
             m_config = config;
 
-            m_internal_heap = new (m_main_allocator) nsuperheap::alloc_t();
+            m_internal_heap = new (m_main_allocator->allocate(sizeof(nsuperheap::alloc_t))) nsuperheap::alloc_t();
             m_internal_heap->initialize(config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
 
-            m_internal_fsa = new (m_internal_heap) nsuperfsa::alloc_t();
+            m_internal_fsa = new (m_internal_heap->allocate(sizeof(nsuperfsa::alloc_t))) nsuperfsa::alloc_t();
             m_internal_fsa->initialize(m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_segment_size);
 
-            m_superspace = new (m_internal_heap) nsuperspace::alloc_t();
+            m_superspace = new (m_internal_heap->allocate(sizeof(nsuperspace::alloc_t))) nsuperspace::alloc_t();
             m_superspace->initialize(config, m_internal_heap, m_internal_fsa);
 
             m_active_chunk_list_per_bin = g_allocate_array_and_clear<nsuperspace::chunk_t*>(m_internal_heap, config->m_num_binconfigs);
@@ -1134,12 +1142,19 @@ namespace ncore
 
         void superalloc_t::deinitialize()
         {
-            m_config = nullptr;
+            m_superspace->deinitialize(m_internal_heap);
+            m_internal_heap->deallocate(m_superspace);
+
             m_internal_fsa->deinitialize(m_internal_heap);
             m_internal_heap->deallocate(m_internal_fsa);
+
             m_internal_heap->deinitialize();
             m_main_allocator->deallocate(m_internal_heap);
+
+            m_config         = nullptr;
             m_superspace     = nullptr;
+            m_internal_fsa   = nullptr;
+            m_internal_heap  = nullptr;
             m_main_allocator = nullptr;
         }
 
@@ -1256,7 +1271,7 @@ namespace ncore
     {
         // nsuperalloc::config_t const* config  = nsuperalloc::gConfigWindowsDesktopApp10p();
         nsuperalloc::config_t const* config     = nsuperalloc::gConfigWindowsDesktopApp25p();
-        nsuperalloc::superalloc_t*   superalloc = new (main_heap) nsuperalloc::superalloc_t(main_heap);
+        nsuperalloc::superalloc_t*   superalloc = new (main_heap->allocate(sizeof(nsuperalloc::superalloc_t))) nsuperalloc::superalloc_t(main_heap);
         superalloc->initialize(config);
         return superalloc;
     }

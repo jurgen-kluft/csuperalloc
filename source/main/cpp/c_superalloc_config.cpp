@@ -115,9 +115,9 @@ namespace ncore
                     const u32 r   = 0xFFFFFFFF << (29 - w);
                     const u32 t   = ((f - 1) >> 2);
                     alloc_size    = (alloc_size + t) & ~t;
-                    s32 const bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
+                    const s32 bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
                     ASSERT(alloc_size <= m_abinconfigs[bin].m_alloc_size);
-                    return m_abinconfigs[m_abinconfigs[bin].m_alloc_bin_index];
+                    return m_abinconfigs[bin];
                 }
             };
 
