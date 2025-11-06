@@ -1,10 +1,10 @@
 package csuperalloc
 
 import (
+	callocator "github.com/jurgen-kluft/callocator/package"
 	denv "github.com/jurgen-kluft/ccode/denv"
 	ccore "github.com/jurgen-kluft/ccore/package"
 	cunittest "github.com/jurgen-kluft/cunittest/package"
-	cvmem "github.com/jurgen-kluft/cvmem/package"
 )
 
 const (
@@ -18,22 +18,22 @@ func GetPackage() *denv.Package {
 	// dependencies
 	cunittestpkg := cunittest.GetPackage()
 	ccorepkg := ccore.GetPackage()
-	cvmempkg := cvmem.GetPackage()
+	callocpkg := callocator.GetPackage()
 
 	// main package
 	mainpkg := denv.NewPackage(repo_path, repo_name)
 	mainpkg.AddPackage(ccorepkg)
-	mainpkg.AddPackage(cvmempkg)
+	mainpkg.AddPackage(callocpkg)
 
 	// main library
 	mainlib := denv.SetupCppLibProject(mainpkg, name)
 	mainlib.AddDependencies(ccorepkg.GetMainLib())
-	mainlib.AddDependencies(cvmempkg.GetMainLib())
+	mainlib.AddDependencies(callocpkg.GetMainLib())
 
 	// test library
 	testlib := denv.SetupCppTestLibProject(mainpkg, name)
 	testlib.AddDependencies(ccorepkg.GetTestLib())
-	testlib.AddDependencies(cvmempkg.GetTestLib())
+	testlib.AddDependencies(callocpkg.GetTestLib())
 
 	// unittest project
 	maintest := denv.SetupCppTestProject(mainpkg, name)
