@@ -110,7 +110,7 @@ namespace ncore
             public:
                 binconfig_t const& size2bin(u32 alloc_size) const override final
                 {
-                    const s32 w   = math::g_countLeadingZeros(alloc_size);
+                    const s32 w   = math::countLeadingZeros(alloc_size);
                     const u32 f   = (u32)0x80000000 >> w;
                     const u32 r   = 0xFFFFFFFF << (29 - w);
                     const u32 t   = ((f - 1) >> 2);
@@ -290,7 +290,7 @@ namespace ncore
             public:
                 binconfig_t const& size2bin(u32 alloc_size) const override final
                 {
-                    const s32 w   = math::g_countLeadingZeros(alloc_size);
+                    const s32 w   = math::countLeadingZeros(alloc_size);
                     const u32 f   = (u32)0x80000000 >> w;
                     const u32 r   = 0xFFFFFFFF << (28 - w);
                     const u32 t   = ((f - 1) >> 3);

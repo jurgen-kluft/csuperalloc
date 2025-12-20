@@ -2,7 +2,7 @@
 #include "cbase/c_integer.h"
 
 #include "csuperalloc/c_superalloc.h"
-#include "cvmem/c_virtual_memory.h"
+#include "ccore/c_vmem.h"
 
 #include "cunittest/cunittest.h"
 
@@ -63,12 +63,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
     {
         UNITTEST_ALLOCATOR;
 
-        UNITTEST_FIXTURE_SETUP()
-        {
-            // Initialize virtual memory
-            ncore::nvmem::initialize();
-        }
-
+        UNITTEST_FIXTURE_SETUP() {}
         UNITTEST_FIXTURE_TEARDOWN() {}
 
         UNITTEST_TEST(init_release)
@@ -85,7 +80,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
 
             void* ptr  = s_alloc.allocate(10);
             u32   size = s_alloc.get_size(ptr);
-            CHECK_EQUAL(16, size);
+            CHECK_EQUAL((u32)16, size);
             s_alloc.deallocate(ptr);
             s_alloc.release(Allocator);
         }
@@ -99,7 +94,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             {
                 void* ptr  = s_alloc.allocate(10);
                 u32   size = s_alloc.get_size(ptr);
-                CHECK_EQUAL(16, size);
+                CHECK_EQUAL((u32)16, size);
                 s_alloc.deallocate(ptr);
             }
             s_alloc.release(Allocator);
@@ -119,7 +114,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             for (s32 i = 0; i < num_allocs; ++i)
             {
                 u32 size = s_alloc.get_size(ptr[i]);
-                CHECK_EQUAL(16, size);
+                CHECK_EQUAL((u32)16, size);
             }
             for (s32 i = 0; i < num_allocs; ++i)
             {
@@ -136,7 +131,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
             void* ptr = s_alloc.allocate(10);
             s_alloc.set_tag(ptr, 0x12345678);
             u32 tag = s_alloc.get_tag(ptr);
-            CHECK_EQUAL(0x12345678, tag);
+            CHECK_EQUAL((u32)0x12345678, tag);
             s_alloc.deallocate(ptr);
 
             s_alloc.release(Allocator);
@@ -164,7 +159,7 @@ UNITTEST_SUITE_BEGIN(main_allocator)
                     u32    ptr_size  = s_alloc.get_size(alloc_ptr);
                     CHECK_TRUE((u32)size <= ptr_size);
                     u32 ptr_tag = s_alloc.get_tag(alloc_ptr);
-                    CHECK_EQUAL(size, ptr_tag);
+                    CHECK_EQUAL((u32)size, ptr_tag);
                     s_alloc.deallocate(alloc_ptr);
                 }
                 else
