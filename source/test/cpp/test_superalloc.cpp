@@ -2,7 +2,7 @@
 #include "cbase/c_integer.h"
 
 #include "csuperalloc/c_superalloc.h"
-#include "ccore/c_vmem.h"
+#include "ccore/c_arena.h"
 
 #include "cunittest/cunittest.h"
 

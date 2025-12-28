@@ -4,7 +4,7 @@
 #include "ccore/c_debug.h"
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"
-#include "ccore/c_vmem.h"
+#include "ccore/c_arena.h"
 
 #include "callocator/c_allocator_segment.h"
 
@@ -41,15 +41,8 @@ namespace ncore
                 DCORE_CLASS_PLACEMENT_NEW_DELETE
             };
 
-            void alloc_t::initialize(u64 memory_range, u64 size_to_pre_allocate)
-            {
-                m_arena = narena::create(memory_range, size_to_pre_allocate);
-            }
-
-            void alloc_t::deinitialize()
-            {
-                narena::release(m_arena);
-            }
+            void alloc_t::initialize(u64 memory_range, u64 size_to_pre_allocate) { m_arena = narena::new_arena(memory_range, size_to_pre_allocate); }
+            void alloc_t::deinitialize() { narena::destroy(m_arena); }
 
             void* alloc_t::v_allocate(u32 size, u32 alignment)
             {
@@ -182,7 +175,8 @@ namespace ncore
                 u16           m_block_max_count;
                 blockconfig_t m_block_config;
                 block_t*      m_block_array;
-                binmap8_t     m_block_free_binmap;
+                u32           m_block_free_bin0;
+                u32*          m_block_free_bin1;
 
                 void     initialize(void* address, s8 section_size_shift, u8 section_index);
                 void     deinitialize(nsuperheap::alloc_t* heap);
@@ -232,13 +226,13 @@ namespace ncore
                 m_address          = address;
                 m_address_range    = 1 << section_size_shift;
                 m_section_index    = section_index;
-                m_block_config     = {0};
+                m_block_config     = {0, 0};
                 m_block_free_index = 0;
                 m_block_max_count  = 0;
                 m_block_used_count = 0;
                 m_block_array      = nullptr;
-                // g_clear(&m_block_free_binmap);
-                m_block_free_binmap.clear();
+                m_block_free_bin0  = 0xffffffff;
+                m_block_free_bin1  = nullptr;
             }
 
             void section_t::checkout(nsuperheap::alloc_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg)
@@ -253,24 +247,26 @@ namespace ncore
                 m_block_array      = g_allocate_array<block_t>(heap, m_block_max_count);
 
                 ASSERT(m_block_max_count <= 256);
-                // g_setup_used(&m_block_free_binmap);
-                m_block_free_binmap.setup_used();
+                m_block_free_bin1 = (m_block_max_count > 32) ? g_allocate_array<u32>(heap, ((m_block_max_count - 1) >> 5) + 1) : nullptr;
+                nbinmap10::setup_used_lazy(&m_block_free_bin0, m_block_free_bin1, m_block_max_count);
 
-                // nvmem::commit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
                 v_alloc_commit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
             }
 
             void section_t::deinitialize(nsuperheap::alloc_t* heap)
             {
                 heap->deallocate(m_block_array);
-                // nvmem::decommit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
+                heap->deallocate(m_block_free_bin1);
+                m_block_array     = nullptr;
+                m_block_free_bin1 = nullptr;
+                m_block_free_bin0 = 0xffffffff;
                 v_alloc_decommit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
             }
 
             block_t* section_t::checkout_block(allocconfig_t const& alloccfg)
             {
                 // Get a block and initialize it for this size
-                s32 free_block_index = m_block_free_binmap.find_and_set(m_block_max_count);
+                s32 free_block_index = nbinmap10::find_and_set(&m_block_free_bin0, m_block_free_bin1, m_block_max_count);
                 if (free_block_index < 0)
                 {
                     if (m_block_free_index < m_block_max_count)
@@ -300,7 +296,8 @@ namespace ncore
                 nmem::memset(address_of_block(block->m_section_block_index), 0xFEFEFEFE, (int_t)1 << m_block_config.m_sizeshift);
 #endif
                 m_block_used_count--;
-                m_block_free_binmap.clr(m_block_max_count, block->m_section_block_index);
+                // m_block_free_binmap.clr(m_block_max_count, block->m_section_block_index);
+                nbinmap10::clr(&m_block_free_bin0, m_block_free_bin1, m_block_max_count, block->m_section_block_index);
             }
 
             class alloc_t : public ncore::alloc_t
@@ -375,9 +372,11 @@ namespace ncore
                 u32                  m_sections_array_size;
                 section_t*           m_sections;
                 u32                  m_sections_free_index;
-                binmap8_t            m_sections_free_binmap;
-                binmap8_t*           m_active_section_binmap_per_blockcfg;  // segments that still have available free blocks
-                block_t**            m_active_block_list_per_allocsize;     // blocks that still have available free items, a list per allocation size
+                u32                  m_sections_free_bin0;  // binmap8_t m_sections_free_binmap;
+                u32*                 m_sections_free_bin1;
+                u32*                 m_active_section_bin0_per_blockcfg;  // segments that still have available free blocks
+                u32*                 m_active_section_bin1_per_blockcfg;  //
+                block_t**            m_active_block_list_per_allocsize;   // blocks that still have available free items, a list per allocation size
             };
 
             // blockconfig-index, block-size-shift
@@ -422,14 +421,11 @@ namespace ncore
                 m_sections              = g_allocate_array<section_t>(m_heap, m_sections_array_size);
 
                 ASSERT(m_sections_array_size <= 256);
-
                 m_sections_free_index = 0;
-                m_sections_free_binmap.setup_used();
+                m_sections_free_bin0  = 0xffffffff;
+                m_sections_free_bin1  = g_allocate_array_and_memset<u32>(m_heap, 8, 0xffffffff);
 
-                // nvmem::nprotect::value_t const attributes = nvmem::nprotect::ReadWrite;
-                // nvmem::reserve(address_range, attributes, m_address_base);
-                m_address_base = v_alloc_reserve(address_range);
-
+                m_address_base        = v_alloc_reserve(address_range);
                 void* section_address = m_address_base;
                 for (u32 i = 0; i < m_sections_array_size; i++)
                 {
@@ -437,15 +433,9 @@ namespace ncore
                     section_address = toaddress(section_address, section_size);
                 }
 
-                m_active_section_binmap_per_blockcfg = g_allocate_array<binmap8_t>(m_heap, c_max_num_blocks);
-                for (u32 i = 0; i < c_max_num_blocks; i++)
-                {
-                    m_active_section_binmap_per_blockcfg[i].setup_used();
-                }
-
-                m_active_block_list_per_allocsize = g_allocate_array<block_t*>(m_heap, c_max_num_sizes);
-                for (u32 i = 0; i < c_max_num_sizes; i++)
-                    m_active_block_list_per_allocsize[i] = nullptr;
+                m_active_section_bin0_per_blockcfg = g_allocate_array_and_memset<u32>(m_heap, c_max_num_blocks, 0xffffffff);
+                m_active_section_bin1_per_blockcfg = g_allocate_array_and_memset<u32>(m_heap, c_max_num_blocks * 8, 0xffffffff);
+                m_active_block_list_per_allocsize  = g_allocate_array_and_clear<block_t*>(m_heap, c_max_num_sizes);
             }
 
             void alloc_t::deinitialize(nsuperheap::alloc_t* heap)
@@ -453,10 +443,12 @@ namespace ncore
                 for (u32 i = 0; i < m_sections_free_index; i++)
                     m_sections[i].deinitialize(heap);
 
-                heap->deallocate(m_active_section_binmap_per_blockcfg);
+                heap->deallocate(m_active_block_list_per_allocsize);
+                heap->deallocate(m_active_section_bin0_per_blockcfg);
+                heap->deallocate(m_active_section_bin1_per_blockcfg);
+                heap->deallocate(m_sections_free_bin1);
                 heap->deallocate(m_sections);
 
-                // nvmem::release(m_address_base, m_address_range);
                 v_alloc_release(m_address_base, m_address_range);
             }
 
@@ -464,14 +456,14 @@ namespace ncore
 
             block_t* alloc_t::checkout_block(allocconfig_t const& alloccfg)
             {
-                s16 const            config_index = alloccfg.m_index;
-                blockconfig_t const& blockcfg     = c_ablock_config[alloccfg.m_block.m_index];
+                blockconfig_t const& blockcfg = c_ablock_config[alloccfg.m_block.m_index];
+                u32*                 bin0     = &m_active_section_bin0_per_blockcfg[alloccfg.m_block.m_index];
+                u32*                 bin1     = &m_active_section_bin1_per_blockcfg[alloccfg.m_block.m_index * 8];
 
-                binmap8_t& bm            = m_active_section_binmap_per_blockcfg[alloccfg.m_block.m_index];
-                s32        section_index = bm.find(m_sections_array_size);
+                s32 section_index = nbinmap10::find(bin0, bin1, m_sections_array_size);
                 if (section_index < 0)
                 {
-                    section_index = m_sections_free_binmap.find_and_set(m_sections_array_size);
+                    section_index = nbinmap10::find_and_set(&m_sections_free_bin0, m_sections_free_bin1, m_sections_array_size);
                     if (section_index < 0)
                     {
                         if (m_sections_free_index < m_sections_array_size)
@@ -485,11 +477,11 @@ namespace ncore
                             return nullptr;
                         }
                     }
-                    bm.clr(section_index, m_sections_array_size);
+                    nbinmap10::clr(bin0, bin1, m_sections_array_size, section_index);
 
-                    section_t* segment         = &m_sections[section_index];
+                    section_t* section         = &m_sections[section_index];
                     void*      section_address = toaddress(m_address_base, (s64)section_index << m_section_maxsize_shift);
-                    segment->checkout(m_heap, section_address, m_section_maxsize_shift, section_index, blockcfg);
+                    section->checkout(m_heap, section_address, m_section_maxsize_shift, section_index, blockcfg);
                 }
 
                 ASSERT(section_index >= 0 && section_index < (s32)m_sections_array_size);
@@ -498,7 +490,8 @@ namespace ncore
                 if (segment->is_empty())
                 {
                     // Segment is empty, remove it from the active set for this block config
-                    bm.set(section_index, m_sections_array_size);
+                    // bm.set(section_index, m_sections_array_size);
+                    nbinmap10::set(bin0, bin1, m_sections_array_size, section_index);
                 }
                 return block;
             }
@@ -613,17 +606,18 @@ namespace ncore
 
             struct chunk_t  //
             {
-                u16         m_elem_used_count;      // The number of elements used in this chunk
-                u16         m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
-                s16         m_bin_index;            // The index of the bin that this chunk is used for
-                u16         m_section_chunk_index;  // index of this chunk in its section
-                u32         m_physical_pages;       // number of physical pages that this chunk has committed
-                u32         m_padding[3];           // padding
-                section_t*  m_section;              // The section that this chunk belongs to
-                u32*        m_elem_tag_array;       // index to an array which we use for set_tag/get_tag
-                binmap12_t* m_elem_free_binmap;     // The binmap marking free elements for this chunk
-                chunk_t*    m_next;                 // next/prev for the doubly linked list
-                chunk_t*    m_prev;                 // next/prev for the doubly linked list
+                u16        m_elem_used_count;      // The number of elements used in this chunk
+                u16        m_elem_free_index;      // The index of the first free chunk (used to quickly take a free element)
+                s16        m_bin_index;            // The index of the bin that this chunk is used for
+                u16        m_section_chunk_index;  // index of this chunk in its section
+                u32        m_physical_pages;       // number of physical pages that this chunk has committed
+                u32        m_padding[1];           // padding
+                section_t* m_section;              // The section that this chunk belongs to
+                u32*       m_elem_tag_array;       // index to an array which we use for set_tag/get_tag
+                u64        m_elem_free_bin0;       // nbinmap12, bin0 and bin1 for free elements
+                u64*       m_elem_free_bin1;       //
+                chunk_t*   m_next;                 // next/prev for the doubly linked list
+                chunk_t*   m_prev;                 // next/prev for the doubly linked list
 
                 void clear()
                 {
@@ -634,7 +628,8 @@ namespace ncore
                     m_section             = nullptr;
                     m_physical_pages      = 0;
                     m_elem_tag_array      = nullptr;
-                    m_elem_free_binmap    = nullptr;
+                    m_elem_free_bin0      = 0;
+                    m_elem_free_bin1      = nullptr;
                     m_next                = nullptr;
                     m_prev                = nullptr;
                 }
@@ -646,7 +641,8 @@ namespace ncore
                 section_t*    m_prev;                 //
                 chunk_t**     m_chunk_array;          // array of chunk
                 chunk_t*      m_chunks_cached_list;   // list of cached chunks
-                binmap12_t*   m_chunks_free_binmap;   // binmap of free chunks
+                u64           m_chunks_free_bin0;     // binmap of free chunks
+                u64*          m_chunks_free_bin1;     //
                 void*         m_section_address;      // The address of the section
                 u16           m_chunks_free_index;    // index of the first free chunk in the array
                 u16           m_count_chunks_cached;  // number of chunks that are cached
@@ -661,7 +657,8 @@ namespace ncore
                     m_prev                = nullptr;
                     m_chunk_array         = nullptr;
                     m_chunks_cached_list  = nullptr;
-                    m_chunks_free_binmap  = nullptr;
+                    m_chunks_free_bin0    = 0;
+                    m_chunks_free_bin1    = nullptr;
                     m_section_address     = nullptr;
                     m_chunks_free_index   = 0;
                     m_count_chunks_cached = 0;
@@ -783,7 +780,8 @@ namespace ncore
                         chunk = g_allocate<chunk_t>(fsa);
                         chunk->clear();
 
-                        s32 const section_chunk_index = section->m_chunks_free_binmap->find_and_set(section->m_count_chunks_max);
+                        // s32 const section_chunk_index = section->m_chunks_free_binmap->find_and_set(section->m_count_chunks_max);
+                        s32 const section_chunk_index = nbinmap12::find_and_set(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max);
                         if (section_chunk_index >= 0)
                         {
                             section->m_chunk_array[section_chunk_index] = chunk;
@@ -791,7 +789,8 @@ namespace ncore
                         }
                         else
                         {
-                            section->m_chunks_free_binmap->tick_used_lazy(section->m_count_chunks_max, section->m_chunks_free_index);
+                            // section->m_chunks_free_binmap->tick_used_lazy(section->m_count_chunks_max, section->m_chunks_free_index);
+                            nbinmap12::tick_used_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section->m_chunks_free_index);
                             chunk->m_section_chunk_index                         = section->m_chunks_free_index;
                             section->m_chunk_array[section->m_chunks_free_index] = chunk;
                             section->m_chunks_free_index += 1;
@@ -809,8 +808,8 @@ namespace ncore
                         // free element. We are lazy initializing the binmap to avoid the cost of
                         // fully initializing the binmap with all elements being free, so this is
                         // mainly for performance reasons.
-                        chunk->m_elem_free_binmap = g_allocate<binmap12_t>(fsa);
-                        chunk->m_elem_free_binmap->setup_used_lazy(fsa, bin.m_max_alloc_count);
+                        chunk->m_elem_free_bin1 = g_allocate_array<u64>(fsa, 8);
+                        nbinmap12::setup_used_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
                     }
 
                     // Make sure that only the required physical pages are committed
@@ -857,11 +856,10 @@ namespace ncore
 
                     // Release any resources allocated for this chunk
                     {
-                        chunk->m_elem_free_binmap->release(fsa);
                         fsa->deallocate(chunk->m_elem_tag_array);
-                        fsa->deallocate(chunk->m_elem_free_binmap);
-                        chunk->m_elem_tag_array   = nullptr;
-                        chunk->m_elem_free_binmap = nullptr;
+                        fsa->deallocate(chunk->m_elem_free_bin1);
+                        chunk->m_elem_tag_array = nullptr;
+                        chunk->m_elem_free_bin1 = nullptr;
 
                         chunk->m_bin_index       = -1;
                         chunk->m_elem_used_count = 0;
@@ -886,7 +884,8 @@ namespace ncore
                         m_used_physical_pages -= chunk->m_physical_pages;
 
                         // Mark this chunk in the binmap as free
-                        section->m_chunks_free_binmap->clr(section->m_count_chunks_max, chunk->m_section_chunk_index);
+                        // section->m_chunks_free_binmap->clr(section->m_count_chunks_max, chunk->m_section_chunk_index);
+                        nbinmap12::clr(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, chunk->m_section_chunk_index);
 
                         // Deallocate and unregister the chunk
                         section->m_chunk_array[chunk->m_section_chunk_index] = nullptr;
@@ -920,12 +919,14 @@ namespace ncore
                         section = &m_sections_array[m_sections_free_index++];
                     }
                     section->clear();
-                    section->m_section_address     = m_address_base + section_ptr;
-                    u32 const section_chunk_count  = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
-                    section->m_chunk_array         = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
-                    section->m_chunks_free_index   = 0;
-                    section->m_chunks_cached_list  = nullptr;
-                    section->m_chunks_free_binmap  = g_allocate<binmap12_t>(fsa);
+                    section->m_section_address    = m_address_base + section_ptr;
+                    u32 const section_chunk_count = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
+                    section->m_chunk_array        = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
+                    section->m_chunks_free_index  = 0;
+                    section->m_chunks_cached_list = nullptr;
+                    // section->m_chunks_free_binmap  = g_allocate<binmap12_t>(fsa);
+                    section->m_chunks_free_bin0    = D_U64_MAX;
+                    section->m_chunks_free_bin1    = g_allocate_array<u64>(fsa, 8);
                     section->m_count_chunks_cached = 0;
                     section->m_count_chunks_used   = 0;
                     section->m_count_chunks_max    = section_chunk_count;
@@ -937,7 +938,8 @@ namespace ncore
                     // free chunk. We are lazy initializing this binmap to avoid the cost of
                     // fully initializing the binmap with all elements being free, so this is
                     // mainly for performance reasons.
-                    section->m_chunks_free_binmap->setup_used_lazy(fsa, section_chunk_count);
+                    // section->m_chunks_free_binmap->setup_used_lazy(fsa, section_chunk_count);
+                    nbinmap12::setup_used_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section_chunk_count);
 
                     // How many nodes do we span in the full mapping, based on our section size.
                     // For that whole span we need to fill in our section index, so that the
@@ -969,16 +971,16 @@ namespace ncore
                         chunk_t*  chunk               = ll_pop(section->m_chunks_cached_list);
                         u32 const section_chunk_index = chunk->m_section_chunk_index;
 
-                        section->m_chunks_free_binmap->clr(section->m_count_chunks_max, section_chunk_index);
-                        // nvmem::decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
+                        nbinmap12::clr(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section_chunk_index);
                         v_alloc_decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
 
                         {  // release resources allocated for this chunk
-                            chunk->m_elem_free_binmap->release(fsa);
+                            // chunk->m_elem_free_binmap->release(fsa);
+                            fsa->deallocate(chunk->m_elem_free_bin1);
                             fsa->deallocate(chunk->m_elem_tag_array);
-                            fsa->deallocate(chunk->m_elem_free_binmap);
-                            chunk->m_elem_tag_array   = nullptr;
-                            chunk->m_elem_free_binmap = nullptr;
+                            chunk->m_elem_tag_array = nullptr;
+                            chunk->m_elem_free_bin0 = D_U64_MAX;
+                            chunk->m_elem_free_bin1 = nullptr;
                         }
                         fsa->deallocate(chunk);
                         section->m_chunk_array[section_chunk_index] = nullptr;
@@ -986,7 +988,9 @@ namespace ncore
                     }
 
                     g_deallocate_array(fsa, section->m_chunk_array);
-                    section->m_chunks_free_binmap->release(fsa);
+
+                    fsa->deallocate(section->m_chunks_free_bin1);
+                    section->m_chunks_free_bin1 = nullptr;
 
                     // Deallocate the memory segment that was associated with this section
                     // u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_minsize_shift) & 0xFFFFFFFF);
@@ -1146,11 +1150,11 @@ namespace ncore
 
             // If we have elements in the binmap, we can use it to get a free element.
             // If not, we need to use free_index to obtain a free element.
-            s32 elem_index = chunk->m_elem_free_binmap->find_and_set(bin.m_max_alloc_count);
+            s32 elem_index = nbinmap12::find_and_set(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
             if (elem_index < 0)
             {
                 elem_index = chunk->m_elem_free_index++;
-                chunk->m_elem_free_binmap->tick_used_lazy(bin.m_max_alloc_count, elem_index);
+                nbinmap12::tick_used_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
             }
             ASSERT(elem_index < (s32)bin.m_max_alloc_count);
 
@@ -1184,8 +1188,7 @@ namespace ncore
                 void* const chunk_address = m_superspace->chunk_to_address(chunk);
                 u32 const   elem_index    = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
                 ASSERT(elem_index < chunk->m_elem_free_index && elem_index < bin.m_max_alloc_count);
-                binmap12_t* bm = chunk->m_elem_free_binmap;
-                bm->clr(bin.m_max_alloc_count, elem_index);
+                nbinmap12::clr(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
                 u32* elem_tag_array = chunk->m_elem_tag_array;
                 if (elem_tag_array[elem_index] == 0xFEFEEFEE)  // Double freeing this element ?
                 {
