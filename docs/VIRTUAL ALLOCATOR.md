@@ -1,11 +1,11 @@
 # Virtual Memory Allocator
 
-These are my current brain-dump on the virtual memory allocator
+These are my current brain-dump on a virtual memory allocator
 
 1. CPU Fixed-Size-Allocator (FSA), 8 B <= SIZE <= 4 KB
 2. Virtual Memory: Alloc, Cache and Free pages back to system
 
-Let's say an APP has 640 GB of address space and it has the following behaviour:
+Let's say an APP has 512 GB of address space and it has the following behaviour:
 
 1. Many small allocations (FSA Heap)
 2. CPU and GPU allocations (different calls, different page settings, VirtualAlloc/XMemAlloc)

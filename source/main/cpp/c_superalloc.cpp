@@ -682,7 +682,7 @@ namespace ncore
                 section_t**                  m_section_active_array;     // This needs to be per section config
                 s8                           m_section_minsize_shift;    // The minimum size of a section in log2
                 s8                           m_section_maxsize_shift;    // 1 << m_section_maxsize_shift = segment size
-                nsegmented::segment_alloc_t* m_section_allocator;        // Allocator for obtaining a new section with a power-of-two size
+                segment_alloc_t              m_section_allocator;        // Allocator for obtaining a new section with a power-of-two size
                 u16*                         m_section_map;              // This a full memory mapping of index to section_t* (16 bits)
                 u32                          m_sections_array_capacity;  // The capacity of sections array
                 u32                          m_sections_free_index;      // Lower bound index of free sections
@@ -732,7 +732,7 @@ namespace ncore
                     m_section_free_list       = nullptr;
                     m_sections_array          = g_allocate_array_and_clear<section_t>(heap, m_sections_array_capacity);
 
-                    m_section_allocator = nsegmented::g_create_segment_n_allocator(heap, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
+                    segment_initialize(&m_section_allocator, heap, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
                 }
 
                 void deinitialize(nsuperheap::alloc_t* heap)
@@ -911,7 +911,7 @@ namespace ncore
                     // num nodes we need to allocatate = (1 << sectionconfig.m_sizeshift) / (1 << m_section_minsize_shift)
                     s64 section_ptr  = 0;
                     s64 section_size = 1 << chunk_config.m_section_sizeshift;
-                    m_section_allocator->allocate(section_size, section_ptr);
+                    segment_allocate(&m_section_allocator, section_size, section_ptr);
 
                     section_t* section = ll_pop(m_section_free_list);
                     if (section == nullptr)
@@ -997,7 +997,7 @@ namespace ncore
                     // m_section_allocator.deallocate(node);
                     s64       section_ptr  = todistance(m_address_base, section->m_section_address);
                     const s64 section_size = 1 << section->m_chunk_config.m_section_sizeshift;
-                    m_section_allocator->deallocate(section_ptr, section_size);
+                    segment_deallocate(&m_section_allocator, section_ptr, section_size);
 
                     // Clear our index from the section map array
                     u32 const node        = (u32)(section_ptr >> m_section_minsize_shift);

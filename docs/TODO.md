@@ -1,4 +1,4 @@
-# TODO for xvmem
+# TODO for csuperalloc
 
 - Investigate the use of madvise(MADV_FREE) to decommit memory on Mac, madvise(MADV_DONTNEED) on Linux, and VirtualAlloc(MEM_RESET).
   Especially for segments, sections and chunks.
@@ -9,8 +9,6 @@
   supermemory_t and multiple superregion_t instances.
 - Testing, Testing, Testing
 - Benchmarks
-- Virtual Memory implementation for PS4 / Xbox One / ...
-
 
 ## Multi-Threading
 
