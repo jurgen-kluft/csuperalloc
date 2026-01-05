@@ -39,10 +39,11 @@ namespace ncore
                 : m_data(d)
             {
             }
-            inline i8 get_segment_size_shift() const { return 32; }                        // segment size shift is always 32 (4 GiB)
-            inline i8 get_region_index() const { return (i8)((m_data >> 8) & 0x1F); }      // region index
-            inline i8 get_region_size_shift() const { return (i8)((m_data >> 4) & 0xF); }  // region size shift
-            inline i8 get_chunk_size_shift() const { return (i8)(m_data & 0x1F) + 10; }    // chunk / block size shift
+            inline i8 get_index() const { return (i8)((m_data >> 0) & 0x1F); }                     // config index
+            inline i8 get_section_size_shift() const { return 32; }                                // segment size shift is always 32 (4 GiB)
+            inline i8 get_segment_size_shift() const { return (i8)((m_data >> 15) & 0x1F) + 10; }  // segment size shift
+            inline i8 get_region_size_shift() const { return (i8)((m_data >> 5) & 0x1F) + 10; }    // region size shift
+            inline i8 get_chunk_size_shift() const { return (i8)((m_data >> 0) & 0x1F) + 10; }     // chunk / block size shift
             u16       m_data;
         };
 
@@ -64,8 +65,8 @@ namespace ncore
             u8   m_region_usage;   // region is chunk or block based (0=chunks, 1=blocks)
             u16  m_segment_index;  // index of segment that we are part of (back reference)
             u16  m_region_index;   // index of region in the region array of segment
-            u32  m_region_prev;    // previous region in the list
-            u32  m_region_next;    // next region in the list
+            u32  m_prev;           // previous region in the list
+            u32  m_next;           // next region in the list
         };
 
         // A segment consists of N regions with a maximum of 64
@@ -77,6 +78,8 @@ namespace ncore
             u16      m_region_capacity;        // maximum number of regions for this segment
             u64      m_region_free_bin0;       // binmap bin0 of free regions for this segment
             u32*     m_region_array;           // array of regions for this segment
+            u32      m_prev;                   // previous segment in the list
+            u32      m_next;                   // next segment in the list
         };
 
         // A section consists of N segments/regions with a maximum of 64, or for large allocation
@@ -475,10 +478,10 @@ namespace ncore
             region_t* region = c->m_region_free_list;
             if (region != nullptr)
             {
-                if (!is_nil(region->m_region_next))
+                if (!is_nil(region->m_next))
                 {
-                    c->m_region_free_list                = &c->m_region_array[region->m_region_next];
-                    c->m_region_free_list->m_region_prev = nu32::NIL;
+                    c->m_region_free_list         = &c->m_region_array[region->m_next];
+                    c->m_region_free_list->m_prev = nu32::NIL;
                 }
                 else
                 {
@@ -498,8 +501,8 @@ namespace ncore
             region->m_region_usage  = 0;
             region->m_segment_index = 0;
             region->m_region_index  = 0;
-            region->m_region_next   = nu32::NIL;
-            region->m_region_prev   = nu32::NIL;
+            region->m_next          = nu32::NIL;
+            region->m_prev          = nu32::NIL;
             return nullptr;
         }
 
@@ -541,9 +544,10 @@ namespace ncore
             if (c->m_segment_free_list != nullptr)
             {
                 segment_t* segment = c->m_segment_free_list;
-                if (!is_nil(segment->m_config.get_region_index()))
+                if (!is_nil(segment->m_next))
                 {
-                    c->m_segment_free_list = &c->m_segment_array[segment->m_config.get_region_index()];
+                    c->m_segment_free_list         = &c->m_segment_array[segment->m_next];
+                    c->m_segment_free_list->m_prev = nu32::NIL;
                 }
                 else
                 {
@@ -563,13 +567,13 @@ namespace ncore
         region_t* get_region(calloc_t* c, const bin_config_t& bin_config)
         {
             // see if we have an active region for this config
-            u32 active_region_index = c->m_active_region_per_region_index[bin_config.m_config.get_region_index()];
+            u32 active_region_index = c->m_active_region_per_region_index[bin_config.m_config.get_index()];
             if (!is_nil(active_region_index))
             {
                 return &c->m_region_array[active_region_index];
             }
 
-            u32 active_segment_index = c->m_active_segment_per_region_index[bin_config.m_config.get_region_index()];
+            u32 active_segment_index = c->m_active_segment_per_region_index[bin_config.m_config.get_index()];
             if (is_nil(active_segment_index))
             {
                 // get a new segment
