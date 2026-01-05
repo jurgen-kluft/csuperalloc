@@ -2,6 +2,7 @@
 #include "ccore/c_allocator.h"
 #include "ccore/c_binmap1.h"
 #include "ccore/c_debug.h"
+#include "ccore/c_limits.h"
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"
 #include "ccore/c_arena.h"
@@ -421,7 +422,7 @@ namespace ncore
         {
             // see if we have an active region for this config
             u32 active_region_index = c->m_active_region_per_region_index[bin_config.m_region_config.get_region_index()];
-            if (active_region_index != 0xFFFF)
+            if (!is_nil(active_region_index))
             {
                 return &c->m_region_array[active_region_index];
             }
@@ -521,7 +522,7 @@ namespace ncore
             {
                 const u32 chunk_index = ((const byte*)ptr - region_address) >> segment->m_region_config.get_chunk_size_shift();
                 const u32 chunk_entry = region->m_array[chunk_index];
-                ASSERTS(chunk_entry != 0xFFFFFFFF, "chunk not allocated");
+                ASSERTS(chunk_entry != nu32::NIL, "chunk not allocated");
                 chunk_t*    chunk         = &c->m_chunk_array[chunk_entry];
                 const byte* chunk_address = region_address + (chunk_index << segment->m_region_config.get_chunk_size_shift());
 
