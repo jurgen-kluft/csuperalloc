@@ -8,7 +8,7 @@
 
 #include "callocator/c_allocator_segment.h"
 
-#include "csuperalloc/private/c_doubly_linked_list.h"
+#include "csuperalloc/private/c_list.h"
 #include "csuperalloc/c_superalloc.h"
 #include "csuperalloc/c_superheap.h"
 #include "csuperalloc/c_superfsa.h"
@@ -153,8 +153,8 @@ namespace ncore
                 {
                     ASSERT(math::ispo2(config->m_total_address_size));
 
-                    m_address_range = config->m_total_address_size;
-                    m_address_base = (byte*)v_alloc_reserve(m_address_range);
+                    m_address_range           = config->m_total_address_size;
+                    m_address_base            = (byte*)v_alloc_reserve(m_address_range);
                     const u32 page_size       = v_alloc_get_page_size();
                     m_section_active_array    = g_allocate_array_and_clear<section_t*>(heap, config->m_num_chunkconfigs);
                     m_chunk_active_array      = g_allocate_array_and_clear<chunk_t*>(heap, config->m_num_chunkconfigs);
@@ -175,12 +175,11 @@ namespace ncore
 
                 void deinitialize(superheap_t* heap)
                 {
-                    // nvmem::release(m_address_base, m_address_range);
                     v_alloc_release(m_address_base, m_address_range);
 
-                    superheap_deallocate(heap, m_section_active_array);
-                    superheap_deallocate(heap, m_chunk_active_array);
-                    superheap_deallocate(heap, m_sections_array);
+                    nsuperheap::deallocate(heap, m_section_active_array);
+                    nsuperheap::deallocate(heap, m_chunk_active_array);
+                    nsuperheap::deallocate(heap, m_sections_array);
 
                     m_address_base          = nullptr;
                     m_address_range         = 0;
@@ -218,7 +217,6 @@ namespace ncore
                         chunk = g_allocate<chunk_t>(fsa);
                         chunk->clear();
 
-                        // s32 const section_chunk_index = section->m_chunks_free_binmap->find_and_set(section->m_count_chunks_max);
                         s32 const section_chunk_index = nbinmap12::find_and_set(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max);
                         if (section_chunk_index >= 0)
                         {
@@ -227,7 +225,6 @@ namespace ncore
                         }
                         else
                         {
-                            // section->m_chunks_free_binmap->tick_used_lazy(section->m_count_chunks_max, section->m_chunks_free_index);
                             nbinmap12::tick_used_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section->m_chunks_free_index);
                             chunk->m_section_chunk_index                         = section->m_chunks_free_index;
                             section->m_chunk_array[section->m_chunks_free_index] = chunk;
@@ -256,7 +253,6 @@ namespace ncore
                         // Overcommitted, uncommit tail pages
                         void* address = chunk_to_address(chunk);
                         address       = toaddress(address, (u64)required_physical_pages << m_page_size_shift);
-                        // nvmem::decommit(address, ((u64)1 << m_page_size_shift) * (u64)(already_committed_pages - required_physical_pages));
                         v_alloc_decommit(address, ((u64)1 << m_page_size_shift) * (u64)(already_committed_pages - required_physical_pages));
                         chunk->m_physical_pages = required_physical_pages;
                         m_used_physical_pages -= (already_committed_pages - required_physical_pages);
@@ -266,7 +262,6 @@ namespace ncore
                         // Undercommitted, commit necessary tail pages
                         void* address = chunk_to_address(chunk);
                         address       = toaddress(address, (u64)already_committed_pages << m_page_size_shift);
-                        // nvmem::commit(address, ((u64)1 << m_page_size_shift) * (u64)(required_physical_pages - already_committed_pages));
                         v_alloc_commit(address, ((u64)1 << m_page_size_shift) * (u64)(required_physical_pages - already_committed_pages));
                         chunk->m_physical_pages = required_physical_pages;
                         m_used_physical_pages += (required_physical_pages - already_committed_pages);
@@ -294,8 +289,8 @@ namespace ncore
 
                     // Release any resources allocated for this chunk
                     {
-                        superfsa_deallocate(fsa, chunk->m_elem_tag_array);
-                        superfsa_deallocate(fsa, chunk->m_elem_free_bin1);
+                        nsuperfsa::deallocate(fsa, chunk->m_elem_tag_array);
+                        nsuperfsa::deallocate(fsa, chunk->m_elem_free_bin1);
                         chunk->m_elem_tag_array = nullptr;
                         chunk->m_elem_free_bin1 = nullptr;
 
@@ -317,17 +312,15 @@ namespace ncore
                     else
                     {
                         // Uncommit the virtual memory of this chunk
-                        // nvmem::decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
                         v_alloc_decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
                         m_used_physical_pages -= chunk->m_physical_pages;
 
                         // Mark this chunk in the binmap as free
-                        // section->m_chunks_free_binmap->clr(section->m_count_chunks_max, chunk->m_section_chunk_index);
                         nbinmap12::clr(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, chunk->m_section_chunk_index);
 
                         // Deallocate and unregister the chunk
                         section->m_chunk_array[chunk->m_section_chunk_index] = nullptr;
-                        superfsa_deallocate(fsa, chunk);
+                        nsuperfsa::deallocate(fsa, chunk);
                         chunk = nullptr;
 
                         section->m_count_chunks_used -= 1;
@@ -362,7 +355,6 @@ namespace ncore
                     section->m_chunk_array        = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
                     section->m_chunks_free_index  = 0;
                     section->m_chunks_cached_list = nullptr;
-                    // section->m_chunks_free_binmap  = g_allocate<binmap12_t>(fsa);
                     section->m_chunks_free_bin0    = D_U64_MAX;
                     section->m_chunks_free_bin1    = g_allocate_array<u64>(fsa, 8);
                     section->m_count_chunks_cached = 0;
@@ -413,26 +405,23 @@ namespace ncore
                         v_alloc_decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
 
                         {  // release resources allocated for this chunk
-                            // chunk->m_elem_free_binmap->release(fsa);
-                            superfsa_deallocate(fsa, chunk->m_elem_free_bin1);
-                            superfsa_deallocate(fsa, chunk->m_elem_tag_array);
+                            nsuperfsa::deallocate(fsa, chunk->m_elem_free_bin1);
+                            nsuperfsa::deallocate(fsa, chunk->m_elem_tag_array);
                             chunk->m_elem_tag_array = nullptr;
                             chunk->m_elem_free_bin0 = D_U64_MAX;
                             chunk->m_elem_free_bin1 = nullptr;
                         }
-                        superfsa_deallocate(fsa, chunk);
+                        nsuperfsa::deallocate(fsa, chunk);
                         section->m_chunk_array[section_chunk_index] = nullptr;
                         section->m_count_chunks_cached -= 1;
                     }
 
                     g_deallocate_array(fsa, section->m_chunk_array);
 
-                    superfsa_deallocate(fsa, section->m_chunks_free_bin1);
+                    nsuperfsa::deallocate(fsa, section->m_chunks_free_bin1);
                     section->m_chunks_free_bin1 = nullptr;
 
                     // Deallocate the memory segment that was associated with this section
-                    // u16 const node = (u16)((todistance(m_address_base, section->m_section_address) >> m_section_minsize_shift) & 0xFFFFFFFF);
-                    // m_section_allocator.deallocate(node);
                     s64       section_ptr  = todistance(m_address_base, section->m_section_address);
                     const s64 section_size = 1 << section->m_chunk_config.m_section_sizeshift;
                     segment_deallocate(&m_section_allocator, section_ptr, section_size);
@@ -537,8 +526,8 @@ namespace ncore
         {
             m_config = config;
 
-            superheap_initialize(&m_internal_heap, config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
-            superfsa_initialize(&m_internal_fsa, &m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_segment_size);
+            nsuperheap::initialize(&m_internal_heap, config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
+            nsuperfsa::initialize(&m_internal_fsa, &m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_segment_size);
 
             // m_superspace = new (m_internal_heap->allocate(sizeof(nsuperspace::alloc_t))) nsuperspace::alloc_t();
             m_superspace = g_allocate<nsuperspace::alloc_t>(&m_internal_heap);
@@ -554,8 +543,8 @@ namespace ncore
             m_superspace->deinitialize(&m_internal_heap);
             g_deallocate(&m_internal_heap, m_superspace);
 
-            superfsa_deinitialize(&m_internal_fsa);
-            superheap_deinitialize(&m_internal_heap);
+            nsuperfsa::deinitialize(&m_internal_fsa);
+            nsuperheap::deinitialize(&m_internal_heap);
 
             m_config         = nullptr;
             m_superspace     = nullptr;

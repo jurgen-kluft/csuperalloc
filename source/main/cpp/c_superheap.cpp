@@ -7,14 +7,13 @@
 
 namespace ncore
 {
-    namespace nsuperalloc
-    {
 #define SUPERALLOC_DEBUG
+    namespace nsuperheap
+    {
+        void initialize(superheap_t* sh, u64 memory_range, u64 size_to_pre_allocate) { sh->m_arena = narena::new_arena(memory_range, size_to_pre_allocate); }
+        void deinitialize(superheap_t* sh) { narena::destroy(sh->m_arena); }
 
-        void superheap_initialize(superheap_t* sh, u64 memory_range, u64 size_to_pre_allocate) { sh->m_arena = narena::new_arena(memory_range, size_to_pre_allocate); }
-        void superheap_deinitialize(superheap_t* sh) { narena::destroy(sh->m_arena); }
-
-        void* superheap_allocate(superheap_t* sh, u32 size, u32 alignment)
+        void* allocate(superheap_t* sh, u32 size, u32 alignment)
         {
             if (size == 0)
                 return nullptr;
@@ -26,11 +25,11 @@ namespace ncore
             return ptr;
         }
 
-        void superheap_deallocate(superheap_t* sh, void* ptr)
+        void deallocate(superheap_t* sh, void* ptr)
         {
             if (ptr == nullptr)
                 return;
             ASSERT(narena::within_committed(sh->m_arena, ptr));
         }
-    }  // namespace nsuperalloc
+    }  // namespace nsuperheap
 }  // namespace ncore

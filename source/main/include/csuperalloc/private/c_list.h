@@ -1,12 +1,9 @@
-#ifndef __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
-#define __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
+#ifndef __CSUPERALLOC_LIST_UTILS_H_
+#define __CSUPERALLOC_LIST_UTILS_H_
 #include "ccore/c_target.h"
 #ifdef USE_PRAGMA_ONCE
 #    pragma once
 #endif
-
-#include "cbase/c_allocator.h"
-#include "ccore/c_debug.h"
 
 namespace ncore
 {
@@ -49,6 +46,26 @@ namespace ncore
         item->m_next         = nullptr;
     }
 
+    struct llist32_t
+    {
+        llist32_t(u32* array_next, u32* array_prev);
+        u32* m_array_next;
+        u32* m_array_prev;
+        void add(u32& head, u32 index);
+        void rem(u32& head, u32 index);
+        u32  pop(u32& head);
+    };
+
+    struct llist16_t
+    {
+        llist16_t(u16* array_next, u16* array_prev);
+        u16* m_array_next;
+        u16* m_array_prev;
+        void add(u16& head, u16 index);
+        void rem(u16& head, u16 index);
+        u16  pop(u16& head);
+    };
+
 }  // namespace ncore
 
-#endif  // __CSUPERALLOC_DOUBLY_LINKED_LIST_H_
+#endif  // __CSUPERALLOC_LIST_UTILS_H_
