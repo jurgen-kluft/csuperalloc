@@ -6,12 +6,11 @@
 #include "ccore/c_math.h"
 #include "ccore/c_arena.h"
 
-#include "csuperalloc/c_superheap.h"
-#include "csuperalloc/c_superfsa.h"
+#include "csuperalloc/c_fsa.h"
 
 namespace ncore
 {
-    namespace nsuperfsa
+    namespace nfsa
     {
         static inline void* toaddress(void* base, u64 offset) { return (void*)((ptr_t)base + offset); }
         static inline ptr_t todistance(void const* base, void const* ptr) { return (ptr_t)((ptr_t)ptr - (ptr_t)base); }
@@ -128,8 +127,8 @@ namespace ncore
             u32*          m_block_free_bin1;
 
             void     initialize(void* address, s8 section_size_shift, u8 section_index);
-            void     deinitialize(superheap_t* heap);
-            void     checkout(superheap_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg);
+            void     deinitialize(arena_t* arena);
+            void     checkout(arena_t* arena, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg);
             block_t* checkout_block(allocconfig_t const& alloccfg);
             void     release_block(block_t* block);
             bool     is_ptr_inside(void const* ptr) const { return ptr >= m_address && ptr < toaddress(m_address, m_address_range); }
@@ -184,7 +183,7 @@ namespace ncore
             m_block_free_bin1  = nullptr;
         }
 
-        void section_t::checkout(superheap_t* heap, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg)
+        void section_t::checkout(arena_t* arena, void* address, s8 section_size_shift, u8 section_index, blockconfig_t const& blockcfg)
         {
             m_address          = address;
             m_address_range    = 1 << section_size_shift;
@@ -193,19 +192,19 @@ namespace ncore
             m_block_free_index = 0;
             m_block_max_count  = 1 << (section_size_shift - m_block_config.m_sizeshift);
             m_block_used_count = 0;
-            m_block_array      = g_allocate_array<block_t>(heap, m_block_max_count);
+            m_block_array      = g_allocate_array<block_t>(arena, m_block_max_count);
 
             ASSERT(m_block_max_count <= 256);
-            m_block_free_bin1 = (m_block_max_count > 32) ? g_allocate_array<u32>(heap, ((m_block_max_count - 1) >> 5) + 1) : nullptr;
+            m_block_free_bin1 = (m_block_max_count > 32) ? g_allocate_array<u32>(arena, ((m_block_max_count - 1) >> 5) + 1) : nullptr;
             nbinmap10::setup_used_lazy(&m_block_free_bin0, m_block_free_bin1, m_block_max_count);
 
             v_alloc_commit(m_address, ((u32)1 << m_block_config.m_sizeshift) * m_block_max_count);
         }
 
-        void section_t::deinitialize(superheap_t* heap)
+        void section_t::deinitialize(arena_t* arena)
         {
-            nsuperheap::deallocate(heap, m_block_array);
-            nsuperheap::deallocate(heap, m_block_free_bin1);
+            g_deallocate(arena, m_block_array);
+            g_deallocate(arena, m_block_free_bin1);
             m_block_array     = nullptr;
             m_block_free_bin1 = nullptr;
             m_block_free_bin0 = 0xffffffff;
@@ -253,10 +252,10 @@ namespace ncore
         // ------------------------------------------------------------------------------
         // superfsa functions
 
-        void     initialize(superfsa_t* fsa, superheap_t* heap, u64 address_range, u32 section_size);
-        void     deinitialize(superfsa_t* fsa);
-        void*    base_address(superfsa_t* fsa) { return fsa->m_address_base; }
-        block_t* checkout_block(superfsa_t* fsa, allocconfig_t const& alloccfg);
+        void     initialize(fsa_t* fsa, arena_t* arena, u64 address_range, u32 section_size);
+        void     deinitialize(fsa_t* fsa);
+        void*    base_address(fsa_t* fsa) { return fsa->m_address_base; }
+        block_t* checkout_block(fsa_t* fsa, allocconfig_t const& alloccfg);
 
         struct item_t
         {
@@ -264,11 +263,11 @@ namespace ncore
             void* m_ptr;
         };
 
-        item_t alloc_item(superfsa_t* fsa, u32 alloc_size);
-        void   dealloc_item(superfsa_t* fsa, u32 item_index);
-        void   deallocate(superfsa_t* fsa, void* item_ptr);
+        item_t alloc_item(fsa_t* fsa, u32 alloc_size);
+        void   dealloc_item(fsa_t* fsa, u32 item_index);
+        void   deallocate(fsa_t* fsa, void* item_ptr);
 
-        void* idx2ptr(superfsa_t* fsa, u32 i)
+        void* idx2ptr(fsa_t* fsa, u32 i)
         {
             if (i == NIL32)
                 return nullptr;
@@ -277,7 +276,7 @@ namespace ncore
             return fsa->m_sections[c].idx2ptr(i);
         }
 
-        u32 ptr2idx(superfsa_t* fsa, void const* ptr)
+        u32 ptr2idx(fsa_t* fsa, void const* ptr)
         {
             if (ptr == nullptr)
                 return NIL32;
@@ -328,18 +327,17 @@ namespace ncore
         static const u32 c_max_num_blocks = (u32)(DARRAYSIZE(c_ablock_config));
         static const u32 c_max_num_sizes  = (u32)(DARRAYSIZE(c_aalloc_config));
 
-        void initialize(superfsa_t* fsa, superheap_t* heap, u64 address_range, u32 section_size)
+        void initialize(fsa_t* fsa, arena_t* arena, u64 address_range, u32 section_size)
         {
-            fsa->m_heap                  = heap;
+            fsa->m_arena        = arena;
             fsa->m_address_range         = address_range;
             fsa->m_section_maxsize_shift = math::ilog2(section_size);
             fsa->m_sections_array_size   = (u32)(address_range >> fsa->m_section_maxsize_shift);
-            fsa->m_sections              = g_allocate_array<section_t>(fsa->m_heap, fsa->m_sections_array_size);
-
+            fsa->m_sections              = g_allocate_array<section_t>(fsa->m_arena, fsa->m_sections_array_size);
             ASSERT(fsa->m_sections_array_size <= 256);
             fsa->m_sections_free_index = 0;
             fsa->m_sections_free_bin0  = 0xffffffff;
-            fsa->m_sections_free_bin1  = g_allocate_array_and_memset<u32>(fsa->m_heap, 8, 0xffffffff);
+            fsa->m_sections_free_bin1  = g_allocate_array_and_fill<u32>(fsa->m_arena, 8, 0xffffffff);
 
             fsa->m_address_base   = v_alloc_reserve(address_range);
             void* section_address = fsa->m_address_base;
@@ -349,27 +347,27 @@ namespace ncore
                 section_address = toaddress(section_address, section_size);
             }
 
-            fsa->m_active_section_bin0_per_blockcfg = g_allocate_array_and_memset<u32>(fsa->m_heap, c_max_num_blocks, 0xffffffff);
-            fsa->m_active_section_bin1_per_blockcfg = g_allocate_array_and_memset<u32>(fsa->m_heap, c_max_num_blocks * 8, 0xffffffff);
-            fsa->m_active_block_list_per_allocsize  = g_allocate_array_and_clear<block_t*>(fsa->m_heap, c_max_num_sizes);
+            fsa->m_active_section_bin0_per_blockcfg = g_allocate_array_and_fill<u32>(fsa->m_arena, c_max_num_blocks, 0xffffffff);
+            fsa->m_active_section_bin1_per_blockcfg = g_allocate_array_and_fill<u32>(fsa->m_arena, c_max_num_blocks * 8, 0xffffffff);
+            fsa->m_active_block_list_per_allocsize  = g_allocate_array_and_clear<block_t*>(fsa->m_arena, c_max_num_sizes);
         }
 
-        void deinitialize(superfsa_t* fsa)
+        void deinitialize(fsa_t* fsa)
         {
             for (u32 i = 0; i < fsa->m_sections_free_index; i++)
-                fsa->m_sections[i].deinitialize(fsa->m_heap);
+                fsa->m_sections[i].deinitialize(fsa->m_arena);
 
-            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_block_list_per_allocsize);
-            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_section_bin0_per_blockcfg);
-            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_section_bin1_per_blockcfg);
-            nsuperheap::deallocate(fsa->m_heap, fsa->m_sections_free_bin1);
-            nsuperheap::deallocate(fsa->m_heap, fsa->m_sections);
+            g_deallocate(fsa->m_arena, fsa->m_active_block_list_per_allocsize);
+            g_deallocate(fsa->m_arena, fsa->m_active_section_bin0_per_blockcfg);
+            g_deallocate(fsa->m_arena, fsa->m_active_section_bin1_per_blockcfg);
+            g_deallocate(fsa->m_arena, fsa->m_sections_free_bin1);
+            g_deallocate(fsa->m_arena, fsa->m_sections);
             v_alloc_release(fsa->m_address_base, fsa->m_address_range);
         }
 
         static inline u32 sizeof_alloc(u32 alloc_size) { return math::ceilpo2((alloc_size + (8 - 1)) & ~(8 - 1)); }
 
-        block_t* checkout_block(superfsa_t* fsa, allocconfig_t const& alloccfg)
+        block_t* checkout_block(fsa_t* fsa, allocconfig_t const& alloccfg)
         {
             blockconfig_t const& blockcfg      = c_ablock_config[alloccfg.m_block.m_index];
             u32*                 bin0          = &fsa->m_active_section_bin0_per_blockcfg[alloccfg.m_block.m_index];
@@ -395,7 +393,7 @@ namespace ncore
 
                 section_t* section         = &fsa->m_sections[section_index];
                 void*      section_address = toaddress(fsa->m_address_base, (s64)section_index << fsa->m_section_maxsize_shift);
-                section->checkout(fsa->m_heap, section_address, fsa->m_section_maxsize_shift, section_index, blockcfg);
+                section->checkout(fsa->m_arena, section_address, fsa->m_section_maxsize_shift, section_index, blockcfg);
             }
 
             ASSERT(section_index >= 0 && section_index < (s32)fsa->m_sections_array_size);
@@ -410,7 +408,7 @@ namespace ncore
             return block;
         }
 
-        item_t alloc_item(superfsa_t* fsa, u32 alloc_size)
+        item_t alloc_item(fsa_t* fsa, u32 alloc_size)
         {
             item_t alloc = {NIL32, nullptr};
 
@@ -457,7 +455,7 @@ namespace ncore
             return alloc;
         }
 
-        void dealloc_item(superfsa_t* fsa, u32 item_index)
+        void dealloc_item(fsa_t* fsa, u32 item_index)
         {
             u32 const section_index = (item_index >> 24) & 0xFF;
             u32 const block_index   = (item_index >> 16) & 0xFF;
@@ -492,16 +490,16 @@ namespace ncore
             }
         }
 
-        void* allocate(superfsa_t* fsa, u32 size)
+        void* allocate(fsa_t* fsa, u32 size)
         {
             item_t item = alloc_item(fsa, size);
             return item.m_ptr;
         }
 
-        void deallocate(superfsa_t* fsa, void* item_ptr)
+        void deallocate(fsa_t* fsa, void* item_ptr)
         {
             u32 const item_index = ptr2idx(fsa, item_ptr);
             dealloc_item(fsa, item_index);
         }
-    }  // namespace nsuperfsa
+    }  // namespace nfsa
 }  // namespace ncore
