@@ -204,8 +204,8 @@ namespace ncore
 
         void section_t::deinitialize(superheap_t* heap)
         {
-            superheap_deallocate(heap, m_block_array);
-            superheap_deallocate(heap, m_block_free_bin1);
+            nsuperheap::deallocate(heap, m_block_array);
+            nsuperheap::deallocate(heap, m_block_free_bin1);
             m_block_array     = nullptr;
             m_block_free_bin1 = nullptr;
             m_block_free_bin0 = 0xffffffff;
@@ -359,11 +359,11 @@ namespace ncore
             for (u32 i = 0; i < fsa->m_sections_free_index; i++)
                 fsa->m_sections[i].deinitialize(fsa->m_heap);
 
-            superheap_deallocate(fsa->m_heap, fsa->m_active_block_list_per_allocsize);
-            superheap_deallocate(fsa->m_heap, fsa->m_active_section_bin0_per_blockcfg);
-            superheap_deallocate(fsa->m_heap, fsa->m_active_section_bin1_per_blockcfg);
-            superheap_deallocate(fsa->m_heap, fsa->m_sections_free_bin1);
-            superheap_deallocate(fsa->m_heap, fsa->m_sections);
+            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_block_list_per_allocsize);
+            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_section_bin0_per_blockcfg);
+            nsuperheap::deallocate(fsa->m_heap, fsa->m_active_section_bin1_per_blockcfg);
+            nsuperheap::deallocate(fsa->m_heap, fsa->m_sections_free_bin1);
+            nsuperheap::deallocate(fsa->m_heap, fsa->m_sections);
             v_alloc_release(fsa->m_address_base, fsa->m_address_range);
         }
 

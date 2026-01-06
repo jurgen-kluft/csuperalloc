@@ -7,7 +7,9 @@
 
 namespace ncore
 {
+
 #define SUPERALLOC_DEBUG
+
     namespace nsuperheap
     {
         void initialize(superheap_t* sh, u64 memory_range, u64 size_to_pre_allocate) { sh->m_arena = narena::new_arena(memory_range, size_to_pre_allocate); }
