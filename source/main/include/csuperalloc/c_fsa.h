@@ -18,10 +18,16 @@ namespace ncore
 
     namespace nfsa
     {
+        // address range should be a power-of-two, and section size as well
+        // e.g. 256MB address range, 8MB sections
+        // maximum section size = 16 MiB, minimum section size = 1 MiB
+        // maximum address range = 16 GiB, minimum address range = 64 MiB
         fsa_t* new_fsa(u64 address_range, u32 section_size);
         void   destroy(fsa_t* fsa);
         void*  allocate(fsa_t* fsa, u32 size);
         void   deallocate(fsa_t* fsa, void* ptr);
+        u32    ptr2idx(fsa_t* fsa, void* ptr);
+        void*  idx2ptr(fsa_t* fsa, u32 index);
     }  // namespace nfsa
 
     template <typename T>

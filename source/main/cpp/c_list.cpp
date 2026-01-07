@@ -3,7 +3,6 @@
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"
 
-#include "csuperalloc/c_superheap.h"
 #include "csuperalloc/private/c_list.h"
 
 namespace ncore
@@ -18,7 +17,7 @@ namespace ncore
 
     void llist32_t::add(u32& head, u32 index)
     {
-        if (head == D_U32_MAX)
+        if (head == D_NILL_U32)
         {
             m_array_next[index] = index;
             m_array_prev[index] = index;
@@ -39,7 +38,7 @@ namespace ncore
         if (m_array_next[index] == index)
         {
             ASSERT(head == index);
-            head = D_U32_MAX;
+            head = D_NILL_U32;
         }
         else
         {
@@ -48,20 +47,20 @@ namespace ncore
             m_array_next[prev_index] = next_index;
             m_array_prev[next_index] = prev_index;
         }
-        m_array_next[index] = D_U32_MAX;
-        m_array_prev[index] = D_U32_MAX;
+        m_array_next[index] = D_NILL_U32;
+        m_array_prev[index] = D_NILL_U32;
     }
 
     u32 llist32_t::pop(u32& head)
     {
         u32 item = head;
-        if (item != D_U32_MAX)
+        if (item != D_NILL_U32)
         {
-            head                             = (m_array_next[item] == item) ? D_U32_MAX : m_array_next[item];
+            head                             = (m_array_next[item] == item) ? D_NILL_U32 : m_array_next[item];
             m_array_next[m_array_prev[item]] = m_array_next[item];
             m_array_prev[m_array_next[item]] = m_array_prev[item];
-            m_array_prev[item]               = D_U32_MAX;
-            m_array_next[item]               = D_U32_MAX;
+            m_array_prev[item]               = D_NILL_U32;
+            m_array_next[item]               = D_NILL_U32;
         }
         return item;
     }
@@ -76,7 +75,7 @@ namespace ncore
 
     void llist16_t::add(u16& head, u16 index)
     {
-        if (head == D_U16_MAX)
+        if (head == D_NILL_U16)
         {
             m_array_next[index] = index;
             m_array_prev[index] = index;
@@ -97,7 +96,7 @@ namespace ncore
         if (m_array_next[index] == index)
         {
             ASSERT(head == index);
-            head = D_U16_MAX;
+            head = D_NILL_U16;
         }
         else
         {
@@ -106,20 +105,20 @@ namespace ncore
             m_array_next[prev_index] = next_index;
             m_array_prev[next_index] = prev_index;
         }
-        m_array_next[index] = D_U16_MAX;
-        m_array_prev[index] = D_U16_MAX;
+        m_array_next[index] = D_NILL_U16;
+        m_array_prev[index] = D_NILL_U16;
     }
 
     u16 llist16_t::pop(u16& head)
     {
         u16 item = head;
-        if (item != D_U16_MAX)
+        if (item != D_NILL_U16)
         {
-            head                             = (m_array_next[item] == item) ? D_U16_MAX : m_array_next[item];
+            head                             = (m_array_next[item] == item) ? D_NILL_U16 : m_array_next[item];
             m_array_next[m_array_prev[item]] = m_array_next[item];
             m_array_prev[m_array_next[item]] = m_array_prev[item];
-            m_array_prev[item]               = D_U16_MAX;
-            m_array_next[item]               = D_U16_MAX;
+            m_array_prev[item]               = D_NILL_U16;
+            m_array_next[item]               = D_NILL_U16;
         }
         return item;
     }

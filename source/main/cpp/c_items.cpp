@@ -19,7 +19,7 @@ namespace ncore
     u32 items_t::alloc()
     {
         if (m_item_free_index >= m_item_capacity)
-            return D_U32_MAX;
+            return D_NILL_U32;
         const u32 index = m_item_free_index++;
         m_item_count++;
         return index;
