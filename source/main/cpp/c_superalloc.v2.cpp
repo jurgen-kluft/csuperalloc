@@ -14,7 +14,7 @@ namespace ncore
 {
     namespace nsuperallocv2
     {
-        // N region struct exist in a continues separate address space with the following size:
+        // N region structs exist in a continues separate address space with the following size:
         // Number-Of-Regions * N MiB. So each region has N MiB of address space to use for
         // its own management.
         // Each region starts at X * N MiB, where X is the region index (0,1,2,3,...)
@@ -34,6 +34,28 @@ namespace ncore
         // We will accept this 'waste' for the benefit of simplicity, also there are not many regions to
         // begin with and even less that are 'block' based. In a large address space of 256 GiB we have
         // 256GiB/4GiB = 64 regions.
+        //
+        // The address range of a region can also be set to 1GiB, this will increase the number of regions
+        // accross the address space, but will reduce the number of chunks/blocks per region. Or it will
+        // enable to have smaller chunk sizes while keeping the number of chunks/blocks per region manageable.
+        //
+        // Region-Size in the main address space = 1GiB
+        // Chunk-Size = 16 KiB
+        // Number of chunks for region to manage = 1 GiB / 16 KiB = 65536 chunks
+        // sizeof(chunk_t) = 32 bytes * 65536 = 2.0 MiB for chunk array
+        //
+        // Chunk-Size = 64 KiB
+        // Number of chunks for region to manage = 1 GiB / 64 KiB = 16384 chunks
+        // sizeof(chunk_t) = 32 bytes * 16384 = 0.5 MiB for chunk array
+        //
+        // With a full address range of 256 GiB we would have 256 regions of 1 GiB each.
+        // This would mean a maximum of 256 * 2.0 MiB = 512 MiB of address space used for chunk arrays
+        //
+        // Note: If we also want to have the meta-data for chunks be part of the region data then we need
+        // max binmap bin1 = 4096 elements -> 4096 bits = 512 bytes per chunk
+        // max number of chunks = 65536
+        // 512 bytes * 65536 = 32 MiB (bin1) + 2 MiB (chunk_t array) = 34 MiB per region (we could limit it to 32 MiB?)
+        // With 256 regions this would be 256 * 34 MiB = 8.5 GiB of address space used for chunk meta-data
         //
         // The above setup makes the whole management of regions and chunks/blocks a lot simpler.
 
