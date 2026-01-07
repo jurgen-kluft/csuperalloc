@@ -49,7 +49,7 @@ namespace ncore
                 , m_internal_heap_address_range(0)
                 , m_internal_heap_pre_size(0)
                 , m_internal_fsa_address_range(0)
-                , m_internal_fsa_segment_size(0)
+                , m_internal_fsa_section_size(0)
                 , m_internal_fsa_pre_size(0)
                 , m_num_chunkconfigs(0)
                 , m_num_binconfigs(0)
@@ -67,7 +67,7 @@ namespace ncore
             u32                  m_internal_heap_address_range;
             u32                  m_internal_heap_pre_size;
             u32                  m_internal_fsa_address_range;
-            u32                  m_internal_fsa_segment_size;
+            u32                  m_internal_fsa_section_size;
             u32                  m_internal_fsa_pre_size;
             s16                  m_num_chunkconfigs;
             s16                  m_num_binconfigs;

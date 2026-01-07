@@ -7,37 +7,21 @@
 
 namespace ncore
 {
-    struct arena_t;
-
-    namespace nfsa
-    {
-        struct section_t;
-        struct block_t;
-    }  // namespace nfsa
-
     struct fsa_t
     {
-        arena_t*         m_arena;
-        void*            m_address_base;
-        u64              m_address_range;
-        nfsa::section_t* m_sections;
-        s8               m_section_maxsize_shift;
-        u32              m_sections_array_size;
-        u32              m_sections_free_index;
-        u32              m_sections_free_bin0;                // nbinmap10, bin0
-        u32*             m_sections_free_bin1;                // nbinmap10, bin1
-        u32*             m_active_section_bin0_per_blockcfg;  // segments that still have available free blocks
-        u32*             m_active_section_bin1_per_blockcfg;  //
-        nfsa::block_t**  m_active_block_list_per_allocsize;   // blocks that still have available free items, a list per allocation size
+        u16 m_sections_free_index;
+        u16 m_sections_free_list;
+        u16 m_sections_max_index;
+        u8  m_section_size_shift;
+        u8  m_page_size_shift;
     };
 
     namespace nfsa
     {
-        void  initialize(fsa_t* fsa, arena_t* arena, u64 address_range, u32 section_size);
-        void  deinitialize(fsa_t* fsa);
-        void* allocate(fsa_t* fsa, u32 size);
-        void  deallocate(fsa_t* fsa, void* ptr);
-
+        fsa_t* new_fsa(u64 address_range, u32 section_size);
+        void   destroy(fsa_t* fsa);
+        void*  allocate(fsa_t* fsa, u32 size);
+        void   deallocate(fsa_t* fsa, void* ptr);
     }  // namespace nfsa
 
     template <typename T>

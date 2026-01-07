@@ -131,7 +131,7 @@ namespace ncore
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
             const u32 c_internal_fsa_address_range  = 256 * cMB;  // Note: max 256 segments
-            const u32 c_internal_fsa_segment_size   = 8 * cMB;    // Note: max 256 blocks (smallest block is 64KB)
+            const u32 c_internal_fsa_section_size   = 8 * cMB;    // Note: max 256 blocks (smallest block is 64KB)
             const u32 c_internal_fsa_pre_size       = 16 * cMB;
 
             nsuperalloc_config_25p::config_25p_t* config = &nsuperalloc_config_25p::s_config;
@@ -141,7 +141,7 @@ namespace ncore
             config->m_internal_heap_address_range = c_internal_heap_address_range;
             config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
             config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
-            config->m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+            config->m_internal_fsa_section_size   = c_internal_fsa_section_size;
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_minsize_shift       = sSectionSize_Min;
             config->m_section_maxsize_shift       = sSectionSize_Max;
@@ -312,7 +312,7 @@ namespace ncore
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
             const u32 c_internal_fsa_address_range  = 256 * cMB;
-            const u32 c_internal_fsa_segment_size   = 8 * cMB;
+            const u32 c_internal_fsa_section_size   = 8 * cMB;
             const u32 c_internal_fsa_pre_size       = 16 * cMB;
 
             nsuperalloc_config_10p::config_10p_t* config = &nsuperalloc_config_10p::s_config;
@@ -322,7 +322,7 @@ namespace ncore
             config->m_internal_heap_address_range = c_internal_heap_address_range;
             config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
             config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
-            config->m_internal_fsa_segment_size   = c_internal_fsa_segment_size;
+            config->m_internal_fsa_section_size   = c_internal_fsa_section_size;
             config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
             config->m_section_minsize_shift       = sSectionSize_Min;
             config->m_section_maxsize_shift       = sSectionSize_Max;

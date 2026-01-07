@@ -9,9 +9,8 @@
 #include "callocator/c_allocator_segment.h"
 
 #include "csuperalloc/private/c_list.h"
+#include "csuperalloc/c_fsa.h"
 #include "csuperalloc/c_superalloc.h"
-#include "csuperalloc/c_superheap.h"
-#include "csuperalloc/c_superfsa.h"
 #include "csuperalloc/c_superalloc_config.h"
 
 namespace ncore
@@ -149,7 +148,7 @@ namespace ncore
                 {
                 }
 
-                void initialize(config_t const* config, superheap_t* heap, superfsa_t* fsa)
+                void initialize(config_t const* config, arena_t* heap, fsa_t* fsa)
                 {
                     ASSERT(math::ispo2(config->m_total_address_size));
 
@@ -163,23 +162,23 @@ namespace ncore
                     m_page_size_shift         = v_alloc_get_page_size_shift();
                     m_section_minsize_shift   = config->m_section_minsize_shift;
                     m_section_maxsize_shift   = config->m_section_maxsize_shift;
-                    m_section_map             = g_allocate_array_and_memset<u16>(heap, (u32)(m_address_range >> m_section_minsize_shift), 0xFFFFFFFF);
+                    m_section_map             = g_allocate_array_and_fill<u16>(heap, (u32)(m_address_range >> m_section_minsize_shift), 0xFFFFFFFF);
                     m_sections_array_capacity = (u32)(m_address_range >> m_section_maxsize_shift);  // @note: This should be coming from configuration
                     m_sections_free_index     = 0;
                     m_section_free_list       = nullptr;
                     m_sections_array          = g_allocate_array_and_clear<section_t>(heap, m_sections_array_capacity);
 
-                    superheap_alloc_t heap_alloc(heap);
+                    arena_alloc_t heap_alloc(heap);
                     segment_initialize(&m_section_allocator, &heap_alloc, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
                 }
 
-                void deinitialize(superheap_t* heap)
+                void deinitialize(arena_t* heap)
                 {
                     v_alloc_release(m_address_base, m_address_range);
 
-                    nsuperheap::deallocate(heap, m_section_active_array);
-                    nsuperheap::deallocate(heap, m_chunk_active_array);
-                    nsuperheap::deallocate(heap, m_sections_array);
+                    g_deallocate(heap, m_section_active_array);
+                    g_deallocate(heap, m_chunk_active_array);
+                    g_deallocate(heap, m_sections_array);
 
                     m_address_base          = nullptr;
                     m_address_range         = 0;
@@ -191,7 +190,7 @@ namespace ncore
 
                 inline static u32 s_chunk_physical_pages(binconfig_t const& bin, s8 page_size_shift) { return (u32)((bin.m_alloc_size * bin.m_max_alloc_count) + (((u64)1 << page_size_shift) - 1)) >> page_size_shift; }
 
-                chunk_t* checkout_chunk(binconfig_t const& bin, superfsa_t* fsa)
+                chunk_t* checkout_chunk(binconfig_t const& bin, fsa_t* fsa)
                 {
                     chunk_t* chunk = nullptr;
 
@@ -277,7 +276,7 @@ namespace ncore
                     return chunk;
                 }
 
-                void release_chunk(chunk_t* chunk, superfsa_t* fsa)
+                void release_chunk(chunk_t* chunk, fsa_t* fsa)
                 {
                     // See if this segment was full, if so we need to add it back to the list of active segments again so that
                     // we can checkout chunks from it again.
@@ -289,8 +288,8 @@ namespace ncore
 
                     // Release any resources allocated for this chunk
                     {
-                        nsuperfsa::deallocate(fsa, chunk->m_elem_tag_array);
-                        nsuperfsa::deallocate(fsa, chunk->m_elem_free_bin1);
+                        nfsa::deallocate(fsa, chunk->m_elem_tag_array);
+                        nfsa::deallocate(fsa, chunk->m_elem_free_bin1);
                         chunk->m_elem_tag_array = nullptr;
                         chunk->m_elem_free_bin1 = nullptr;
 
@@ -320,7 +319,7 @@ namespace ncore
 
                         // Deallocate and unregister the chunk
                         section->m_chunk_array[chunk->m_section_chunk_index] = nullptr;
-                        nsuperfsa::deallocate(fsa, chunk);
+                        nfsa::deallocate(fsa, chunk);
                         chunk = nullptr;
 
                         section->m_count_chunks_used -= 1;
@@ -332,7 +331,7 @@ namespace ncore
                     }
                 }
 
-                section_t* checkout_section(chunkconfig_t const& chunk_config, superfsa_t* fsa)
+                section_t* checkout_section(chunkconfig_t const& chunk_config, fsa_t* fsa)
                 {
                     // section allocator, we are allocating number of nodes, where each node has the size
                     // equal to (1 << m_section_minsize_shift) so the number of nodes is equal to size:
@@ -350,11 +349,11 @@ namespace ncore
                         section = &m_sections_array[m_sections_free_index++];
                     }
                     section->clear();
-                    section->m_section_address    = m_address_base + section_ptr;
-                    u32 const section_chunk_count = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
-                    section->m_chunk_array        = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
-                    section->m_chunks_free_index  = 0;
-                    section->m_chunks_cached_list = nullptr;
+                    section->m_section_address     = m_address_base + section_ptr;
+                    u32 const section_chunk_count  = (1 << (chunk_config.m_section_sizeshift - chunk_config.m_sizeshift));
+                    section->m_chunk_array         = g_allocate_array<chunk_t*>(fsa, section_chunk_count);
+                    section->m_chunks_free_index   = 0;
+                    section->m_chunks_cached_list  = nullptr;
                     section->m_chunks_free_bin0    = D_U64_MAX;
                     section->m_chunks_free_bin1    = g_allocate_array<u64>(fsa, 8);
                     section->m_count_chunks_cached = 0;
@@ -383,7 +382,7 @@ namespace ncore
                     return section;
                 }
 
-                void release_section(section_t* section, superfsa_t* fsa)
+                void release_section(section_t* section, fsa_t* fsa)
                 {
                     ASSERT(section->m_count_chunks_used == 0);
 
@@ -405,20 +404,20 @@ namespace ncore
                         v_alloc_decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
 
                         {  // release resources allocated for this chunk
-                            nsuperfsa::deallocate(fsa, chunk->m_elem_free_bin1);
-                            nsuperfsa::deallocate(fsa, chunk->m_elem_tag_array);
+                            nfsa::deallocate(fsa, chunk->m_elem_free_bin1);
+                            nfsa::deallocate(fsa, chunk->m_elem_tag_array);
                             chunk->m_elem_tag_array = nullptr;
                             chunk->m_elem_free_bin0 = D_U64_MAX;
                             chunk->m_elem_free_bin1 = nullptr;
                         }
-                        nsuperfsa::deallocate(fsa, chunk);
+                        nfsa::deallocate(fsa, chunk);
                         section->m_chunk_array[section_chunk_index] = nullptr;
                         section->m_count_chunks_cached -= 1;
                     }
 
                     g_deallocate_array(fsa, section->m_chunk_array);
 
-                    nsuperfsa::deallocate(fsa, section->m_chunks_free_bin1);
+                    nfsa::deallocate(fsa, section->m_chunks_free_bin1);
                     section->m_chunks_free_bin1 = nullptr;
 
                     // Deallocate the memory segment that was associated with this section
@@ -494,8 +493,8 @@ namespace ncore
         {
         public:
             config_t const*        m_config;
-            superheap_t            m_internal_heap;
-            superfsa_t             m_internal_fsa;
+            arena_t*               m_internal_heap;
+            fsa_t                  m_internal_fsa;
             nsuperspace::alloc_t*  m_superspace;
             nsuperspace::chunk_t** m_active_chunk_list_per_bin;
             alloc_t*               m_main_allocator;
@@ -526,25 +525,24 @@ namespace ncore
         {
             m_config = config;
 
-            nsuperheap::initialize(&m_internal_heap, config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
-            nsuperfsa::initialize(&m_internal_fsa, &m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_segment_size);
+            m_internal_heap = narena::new_arena(config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
+            nfsa::initialize(&m_internal_fsa, m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_section_size);
 
-            // m_superspace = new (m_internal_heap->allocate(sizeof(nsuperspace::alloc_t))) nsuperspace::alloc_t();
-            m_superspace = g_allocate<nsuperspace::alloc_t>(&m_internal_heap);
-            m_superspace->initialize(config, &m_internal_heap, &m_internal_fsa);
+            m_superspace = g_allocate<nsuperspace::alloc_t>(m_internal_heap);
+            m_superspace->initialize(config, m_internal_heap, &m_internal_fsa);
 
-            m_active_chunk_list_per_bin = g_allocate_array_and_clear<nsuperspace::chunk_t*>(&m_internal_heap, config->m_num_binconfigs);
+            m_active_chunk_list_per_bin = g_allocate_array_and_clear<nsuperspace::chunk_t*>(m_internal_heap, config->m_num_binconfigs);
             for (s16 i = 0; i < config->m_num_binconfigs; i++)
                 m_active_chunk_list_per_bin[i] = nullptr;
         }
 
         void superalloc_t::deinitialize()
         {
-            m_superspace->deinitialize(&m_internal_heap);
-            g_deallocate(&m_internal_heap, m_superspace);
+            m_superspace->deinitialize(m_internal_heap);
+            g_deallocate(m_internal_heap, m_superspace);
 
-            nsuperfsa::deinitialize(&m_internal_fsa);
-            nsuperheap::deinitialize(&m_internal_heap);
+            nfsa::deinitialize(&m_internal_fsa);
+            narena::destroy(m_internal_heap);
 
             m_config         = nullptr;
             m_superspace     = nullptr;
@@ -682,8 +680,8 @@ namespace ncore
         {
         public:
             nsuperalloc::nsuperspace::alloc_t* m_superspace;      // shared among instances
-            superheap_t                        m_internal_heap;   // per instance
-            superfsa_t                         m_internal_fsa;    // per instance
+            arena_t                            m_internal_heap;   // per instance
+            fsa_t                              m_internal_fsa;    // per instance
             s16                                m_instance_index;  // instance index
 
             // We need to defer all deallocations here so that we can release them when on the owning thread.
