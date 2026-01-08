@@ -64,16 +64,16 @@ namespace ncore
         };
 
         // block size shift
-        static const u8 c16KB  = 14;
-        static const u8 c32KB  = 15;
+        //static const u8 c16KB  = 14;
+        //static const u8 c32KB  = 15;
         static const u8 c64KB  = 16;
-        static const u8 c128KB = 17;
+        //static const u8 c128KB = 17;
         static const u8 c256KB = 18;
-        static const u8 c512KB = 19;
-        static const u8 c1MB   = 20;
-        static const u8 c2MB   = 21;
+        //static const u8 c512KB = 19;
+        //static const u8 c1MB   = 20;
+        //static const u8 c2MB   = 21;
         static const u8 c4MB   = 22;
-        static const u8 c8MB   = 23;
+        //static const u8 c8MB   = 23;
 
         static const bin_config_t c_bin_configs[] = {
           // alloc-size { allocation sizeshift, block sizeshift}
@@ -248,8 +248,8 @@ namespace ncore
             static inline byte* get_block_address(fsa_t* fsa, section_t* section, u32 block_index) { return get_section_address(fsa, section->m_section_index) + ((u64)block_index << section->m_bin_config.m_block_sizeshift); }
             static inline u32   get_block_index(fsa_t* fsa, section_t* self, byte const* ptr)
             {
-                const const byte* section_address = get_section_address(fsa, self->m_section_index);
-                return (u32)((ptr - ((byte*)base_address(fsa) + ((u64)self->m_section_index << fsa->m_section_size_shift))) >> self->m_bin_config.m_block_sizeshift);
+                const byte* section_address = get_section_address(fsa, self->m_section_index);
+                return (u32)((ptr - section_address) >> self->m_bin_config.m_block_sizeshift);
             }
 
             void allocate_block(fsa_t* fsa, section_t* self, bin_config_t const& bincfg, block_t*& out_block)
@@ -305,36 +305,6 @@ namespace ncore
         // ------------------------------------------------------------------------------
         // ------------------------------------------------------------------------------
         // fsa functions
-
-        void* idx2ptr(fsa_t* fsa, u32 i)
-        {
-            if (i == D_NILL_U32)
-                return nullptr;
-            u32 const section_index = (i >> 20) & 0xFF;
-            ASSERT(section_index < fsa->m_sections_max_index);
-            section_t* section     = nsection::get_section_at_index(fsa, section_index);
-            u32 const  block_index = (i >> 12) & 0xFF;
-            ASSERT(block_index < section->m_block_max_count);
-            block_t*  block         = nsection::get_block_at_index(fsa, section, block_index);
-            byte*     block_address = nsection::get_block_address(fsa, section, block_index);
-            const u32 element_index = i & 0xFFF;
-            return nblock::idx2ptr(section->m_bin_config, block_address, element_index);
-        }
-
-        u32 ptr2idx(fsa_t* fsa, void* ptr)
-        {
-            if (ptr == nullptr)
-                return D_NILL_U32;
-            u32 const section_index = ((byte const*)ptr - base_address(fsa)) >> fsa->m_section_size_shift;
-            ASSERT(section_index < fsa->m_sections_max_index);
-            section_t*  section       = nsection::get_section_at_index(fsa, section_index);
-            u32 const   block_index   = nsection::get_block_index(fsa, section, (byte const*)ptr);
-            block_t*    block         = nsection::get_block_at_index(fsa, section, block_index);
-            byte const* block_address = nsection::get_block_address(fsa, section, block_index);
-            u32 const   item_index    = nblock::ptr2idx(section->m_bin_config, block_address, (byte const*)ptr);
-            u32 const   idx           = ((section_index & 0xFF) << 20) | ((block_index & 0xFF) << 12) | (item_index & 0xFFF);
-            return idx;
-        }
 
         static inline bin_config_t alloc_size_to_alloc_config(u32 alloc_size)
         {
@@ -487,6 +457,61 @@ namespace ncore
             return true;
         }
 
+        fsa_t* new_fsa(u64 address_range)
+        {
+            // example from superalloc config
+            // const u32 internal_fsa_address_range  =  1 * cGB;
+            // const u32 internal_fsa_section_size   = 16 * cMB;
+            // const u32 internal_fsa_pre_size       = 16 * cMB;
+            const u32 page_size          = v_alloc_get_page_size();
+            const u8  page_size_shift    = v_alloc_get_page_size_shift();
+            const u8  section_size_shift = 24;  // 16 * cMB
+
+            const u16 sections_max_index = (u16)(address_range >> section_size_shift);
+
+            int_t fsa_size = sizeof(fsa_t);
+            fsa_size += 32 * sizeof(u16);                                                                   // active section list
+            fsa_size += sizeof(section_t) * sections_max_index;                                             // section_t[N]
+            fsa_size += (32 * sizeof(u16)) * sections_max_index;                                            // active block list for each section
+            const i32 fsa_size_in_pages         = (fsa_size + (page_size - 1)) >> page_size_shift;          // round up to pages
+            int_t     block_array_size          = (D_MAX_BLOCKS_PER_SECTION * sizeof(block_t));             // block_t[N]
+            const i32 block_array_size_in_pages = (block_array_size + (page_size - 1)) >> page_size_shift;  // round up to pages
+
+            address_range = ((u64)sections_max_index << section_size_shift);
+            address_range += (u64)(fsa_size_in_pages) << page_size_shift;
+            address_range += (u64)(block_array_size_in_pages * sections_max_index) << page_size_shift;
+            void* base_address = v_alloc_reserve(address_range);
+            v_alloc_commit(base_address, (int_t)fsa_size_in_pages << page_size_shift);
+
+            fsa_t* fsa                               = (fsa_t*)base_address;
+            fsa->m_sections_free_index               = 0;
+            fsa->m_sections_free_list                = D_NILL_U16;
+            fsa->m_sections_max_index                = sections_max_index;
+            fsa->m_section_size_shift                = section_size_shift;
+            fsa->m_page_size_shift                   = page_size_shift;
+            fsa->m_header_pages                      = (u16)(fsa_size_in_pages);
+            fsa->m_base_offset                       = (u32)((fsa_size_in_pages + (block_array_size_in_pages * sections_max_index)) << page_size_shift);
+            fsa->m_section_block_array_size_in_pages = (u8)(block_array_size_in_pages);
+
+            section_t* section_array   = nsection::get_section_array(fsa);
+            u16*       active_sections = active_section_list_per_bincfg(fsa);
+            for (u32 i = 0; i < 32; ++i)
+            {
+                active_sections[i]       = D_NILL_U16;
+                section_t* section       = &section_array[i];
+                u16*       active_blocks = nsection::get_blocklist_per_bincfg(section);
+                for (u32 j = 0; j < 32; ++j)
+                    active_blocks[j] = D_NILL_U16;
+            }
+
+            return fsa;
+        }
+
+        void destroy(fsa_t* fsa)
+        {
+            // TODO, decommit all sections
+        }
+
         void* allocate(fsa_t* fsa, u32 alloc_size)
         {
             const bin_config_t bincfg = alloc_size_to_alloc_config(alloc_size);
@@ -535,59 +560,30 @@ namespace ncore
             }
         }
 
-        fsa_t* new_fsa(u64 address_range)
+        u32 get_size(fsa_t* fsa, void* ptr)
         {
-            // example from superalloc config
-            // const u32 internal_fsa_address_range  =  1 * cGB;
-            // const u32 internal_fsa_section_size   = 16 * cMB;
-            // const u32 internal_fsa_pre_size       = 16 * cMB;
-            const u32 page_size          = v_alloc_get_page_size();
-            const u8  page_size_shift    = v_alloc_get_page_size_shift();
-            const u8  section_size_shift = 24;  // 16 * cMB
-
-            const u16 sections_max_index = (u16)(address_range >> section_size_shift);
-
-            int_t fsa_size = sizeof(fsa_t);
-            fsa_size += 32 * sizeof(u16);                                                                   // active section list
-            fsa_size += sizeof(section_t) * sections_max_index;                                             // section_t[N]
-            fsa_size += (32 * sizeof(u16)) * sections_max_index;                                            // active block list for each section
-            const i32 fsa_size_in_pages         = (fsa_size + (page_size - 1)) >> page_size_shift;          // round up to pages
-            int_t     block_array_size          = (D_MAX_BLOCKS_PER_SECTION * sizeof(block_t));             // block_t[N]
-            const i32 block_array_size_in_pages = (block_array_size + (page_size - 1)) >> page_size_shift;  // round up to pages
-
-            address_range = ((u64)sections_max_index << section_size_shift);
-            address_range += (u64)(fsa_size_in_pages) << page_size_shift;
-            address_range += (u64)(block_array_size_in_pages * sections_max_index) << page_size_shift;
-            void* base_address = v_alloc_reserve(address_range);
-            v_alloc_commit(base_address, (int_t)fsa_size_in_pages << page_size_shift);
-            fsa_t* fsa                               = (fsa_t*)base_address;
-            fsa->m_sections_free_index               = 0;
-            fsa->m_sections_free_list                = D_NILL_U16;
-            fsa->m_sections_max_index                = sections_max_index;
-            fsa->m_section_size_shift                = section_size_shift;
-            fsa->m_page_size_shift                   = page_size_shift;
-            fsa->m_header_pages                      = (u16)(fsa_size_in_pages);
-            fsa->m_base_offset                       = (u32)((fsa_size_in_pages + (block_array_size_in_pages * sections_max_index)) << page_size_shift);
-            fsa->m_section_block_array_size_in_pages = (u8)(block_array_size_in_pages);
-
-            section_t* section_array   = nsection::get_section_array(fsa);
-            u16*       active_sections = active_section_list_per_bincfg(fsa);
-            for (u32 i = 0; i < 32; ++i)
-            {
-                active_sections[i]       = D_NILL_U16;
-                section_t* section       = &section_array[i];
-                u16*       active_blocks = nsection::get_blocklist_per_bincfg(section);
-                for (u32 j = 0; j < 32; ++j)
-                    active_blocks[j] = D_NILL_U16;
-            }
-
-            return fsa;
+            if (ptr == nullptr)
+                return 0;
+            u32 const  section_index = nsection::get_section_index(fsa, ptr);
+            section_t* section       = nsection::get_section_at_index(fsa, section_index);
+            return (u32)((u64)1 << section->m_bin_config.m_alloc_sizeshift);
         }
 
-        void destroy(fsa_t* fsa)
+        void* idx2ptr(fsa_t* fsa, u32 i)
         {
-            // TODO, decommit all sections
+            const u64 dist = ((u64)i << 3);
+            return toaddress(base_address(fsa), dist);
         }
 
+        u32 ptr2idx(fsa_t* fsa, void* ptr)
+        {
+            if (ptr == nullptr)
+                return D_NILL_U32;
+            const byte* base = base_address(fsa);
+            const u64   dist = (u64)((byte const*)ptr - base);
+            // The maximum address range of the fsa is 32 GB, and since the smallest
+            // allocation size is 8 bytes, we can shift right 3 bits and fit in u32.
+            return (u32)(dist >> 3);
+        }
     }  // namespace nfsa
 }  // namespace ncore

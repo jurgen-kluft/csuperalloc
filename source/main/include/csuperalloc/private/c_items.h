@@ -5,6 +5,7 @@
 #    pragma once
 #endif
 
+#include "ccore/c_limits.h"
 #include "csuperalloc/private/c_list.h"
 
 namespace ncore
@@ -63,7 +64,7 @@ namespace ncore
         llist32_t    m_list;
         u32          m_head;
 
-        linked_objects_t(T* array, u32* next_array, u32 prev_array, u32 capacity)
+        linked_objects_t(T* array, u32* next_array, u32* prev_array, u32 capacity)
             : m_items((byte*)array, sizeof(T), capacity)
             , m_list(next_array, prev_array)
             , m_head(nu32::NIL)

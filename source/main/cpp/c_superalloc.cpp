@@ -154,7 +154,7 @@ namespace ncore
 
                     m_address_range           = config->m_total_address_size;
                     m_address_base            = (byte*)v_alloc_reserve(m_address_range);
-                    const u32 page_size       = v_alloc_get_page_size();
+                    //const u32 page_size       = v_alloc_get_page_size();
                     m_section_active_array    = g_allocate_array_and_clear<section_t*>(heap, config->m_num_chunkconfigs);
                     m_chunk_active_array      = g_allocate_array_and_clear<chunk_t*>(heap, config->m_num_chunkconfigs);
                     m_config                  = config;
@@ -494,7 +494,7 @@ namespace ncore
         public:
             config_t const*        m_config;
             arena_t*               m_internal_heap;
-            fsa_t                  m_internal_fsa;
+            fsa_t*                 m_internal_fsa;
             nsuperspace::alloc_t*  m_superspace;
             nsuperspace::chunk_t** m_active_chunk_list_per_bin;
             alloc_t*               m_main_allocator;
@@ -526,10 +526,10 @@ namespace ncore
             m_config = config;
 
             m_internal_heap = narena::new_arena(config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
-            nfsa::initialize(&m_internal_fsa, m_internal_heap, config->m_internal_fsa_address_range, config->m_internal_fsa_section_size);
+            m_internal_fsa  = nfsa::new_fsa(config->m_internal_fsa_address_range);
 
             m_superspace = g_allocate<nsuperspace::alloc_t>(m_internal_heap);
-            m_superspace->initialize(config, m_internal_heap, &m_internal_fsa);
+            m_superspace->initialize(config, m_internal_heap, m_internal_fsa);
 
             m_active_chunk_list_per_bin = g_allocate_array_and_clear<nsuperspace::chunk_t*>(m_internal_heap, config->m_num_binconfigs);
             for (s16 i = 0; i < config->m_num_binconfigs; i++)
@@ -541,7 +541,7 @@ namespace ncore
             m_superspace->deinitialize(m_internal_heap);
             g_deallocate(m_internal_heap, m_superspace);
 
-            nfsa::deinitialize(&m_internal_fsa);
+            nfsa::destroy(m_internal_fsa);
             narena::destroy(m_internal_heap);
 
             m_config         = nullptr;
@@ -557,7 +557,7 @@ namespace ncore
             nsuperspace::chunk_t* chunk = m_active_chunk_list_per_bin[bin.m_index];
             if (chunk == nullptr)
             {
-                chunk = m_superspace->checkout_chunk(bin, &m_internal_fsa);
+                chunk = m_superspace->checkout_chunk(bin, m_internal_fsa);
                 ll_insert(m_active_chunk_list_per_bin[bin.m_index], chunk);
             }
 
@@ -628,7 +628,7 @@ namespace ncore
                     // We are going to release this chunk, so remove it from the active chunk list before doing that.
                     ll_remove(m_active_chunk_list_per_bin[bin.m_index], chunk);
                 }
-                m_superspace->release_chunk(chunk, &m_internal_fsa);
+                m_superspace->release_chunk(chunk, m_internal_fsa);
             }
             else if (chunk_was_full)
             {
@@ -681,7 +681,7 @@ namespace ncore
         public:
             nsuperalloc::nsuperspace::alloc_t* m_superspace;      // shared among instances
             arena_t                            m_internal_heap;   // per instance
-            fsa_t                              m_internal_fsa;    // per instance
+            fsa_t*                             m_internal_fsa;    // per instance
             s16                                m_instance_index;  // instance index
 
             // We need to defer all deallocations here so that we can release them when on the owning thread.

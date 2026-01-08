@@ -117,7 +117,7 @@ namespace ncore
             u8  m_chunk_size_shift;  // chunk size shift for chunks in this bin
             u8  m_region_type;       // region type is chunk or block (0=chunks, 1=blocks)
             u8  m_bin_index;         // bin index
-            u8  m_padding0;          // padding
+            // u8  m_padding0;          // padding
         };
 
         typedef u8 (*size_to_bin_fn)(u32 size);
@@ -143,8 +143,10 @@ namespace ncore
             u8  m_region_type;             // region type is chunk or block (0=chunks, 1=blocks)
             u16 m_region_committed_pages;  // current number of committed pages for this region
             u16 m_region_maximum_pages;    // maximum number of committed pages for this region
-            u32 m_free_index;              // index of the first free chunk/block in the region
-            u32 m_free_index_threshold;    // threshold to trigger next page commit
+            u16 m_free_index;              // index of the first free chunk/block in the region
+            u16 m_free_index_threshold;    // threshold to trigger next page commit
+            u16 m_count;                   // number of chunks/blocks in use
+            u16 m_capacity;                // total number of chunks/blocks in this region
             union
             {
                 chunks_t m_chunks;
@@ -479,7 +481,6 @@ namespace ncore
                 // initialize region
                 if (bin_config.m_region_type == D_USAGE_CHUNKS)
                 {
-                    ASSERT(region->m_capacity <= D_MAX_CHUNKS_PER_REGION);
                     v_alloc_commit(region_address, (int_t)1 << c->m_page_size_shift);  // commit first page
                     region->m_region_committed_pages = 1;
                     region->m_free_index_threshold   = (((int_t)1 << c->m_page_size_shift) - sizeof(region_t)) / sizeof(chunk_t);
@@ -631,7 +632,7 @@ namespace ncore
         void dealloc(calloc_t* c, void* ptr)
         {
             const u32 region_index = (u32)(((const byte*)ptr - c->m_address_base) >> c->m_region_size_shift);
-            ASSERTS(region_index >= 0 && region_entry < segment->m_region_count, "invalid region index");
+            ASSERTS(region_index >= 0 && region_index < c->m_region_meta_count, "invalid region index");
             region_t*   region         = (region_t*)(c->m_region_meta_base + ((int_t)region_index << c->m_region_meta_size_shift));
             const byte* region_address = c->m_address_base + (region_index << c->m_region_size_shift);
             if (region_is_block_based(region))
@@ -647,7 +648,7 @@ namespace ncore
             {
                 const u32   chunk_index       = ((const byte*)ptr - region_address) >> region->m_chunk_size_shift;
                 chunk_t*    chunk             = &region->m_chunks.m_array[chunk_index];
-                const byte* chunk_address     = region_address + (chunk_index << region->m_chunk_size_shift);
+                //const byte* chunk_address     = region_address + (chunk_index << region->m_chunk_size_shift);
                 const bool  chunk_full_before = chunk_is_full(chunk);
                 if (chunk->m_bin1 == nullptr)
                 {

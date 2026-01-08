@@ -17,6 +17,7 @@ namespace ncore
         void   destroy(fsa_t* fsa);
         void*  allocate(fsa_t* fsa, u32 size);
         void   deallocate(fsa_t* fsa, void* ptr);
+        u32    get_size(fsa_t* fsa, void* ptr);
         u32    ptr2idx(fsa_t* fsa, void* ptr);
         void*  idx2ptr(fsa_t* fsa, u32 index);
     }  // namespace nfsa
