@@ -7,22 +7,13 @@
 
 namespace ncore
 {
-    struct fsa_t
-    {
-        u16 m_sections_free_index;
-        u16 m_sections_free_list;
-        u16 m_sections_max_index;
-        u8  m_section_size_shift;
-        u8  m_page_size_shift;
-    };
+    struct fsa_t;
 
     namespace nfsa
     {
         // address range should be a power-of-two, and section size as well
-        // e.g. 256MB address range, 8MB sections
-        // maximum section size = 16 MiB, minimum section size = 1 MiB
-        // maximum address range = 16 GiB, minimum address range = 64 MiB
-        fsa_t* new_fsa(u64 address_range, u32 section_size);
+        // maximum address range = 32 GiB, minimum address range = 256 MiB
+        fsa_t* new_fsa(u64 address_range = 1 * cGB);
         void   destroy(fsa_t* fsa);
         void*  allocate(fsa_t* fsa, u32 size);
         void   deallocate(fsa_t* fsa, void* ptr);
