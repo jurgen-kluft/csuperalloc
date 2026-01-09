@@ -67,13 +67,13 @@ namespace ncore
         linked_objects_t(T* array, u32* next_array, u32* prev_array, u32 capacity)
             : m_items((byte*)array, sizeof(T), capacity)
             , m_list(next_array, prev_array)
-            , m_head(nu32::NIL)
+            , m_head(D_NILL_U32)
         {
         }
 
         T* alloc()
         {
-            if (m_head == nu32::NIL)
+            if (m_head == D_NILL_U32)
                 return m_items.alloc();
             u32 index = m_list.pop(m_head);
             return (T*)m_items.obj_of(index);

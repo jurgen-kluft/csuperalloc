@@ -506,8 +506,8 @@ namespace ncore
             {
                 chunk_t* chunk               = region->m_chunks.m_free_list;
                 region->m_chunks.m_free_list = &region->m_chunks.m_array[chunk->m_next];
-                chunk->m_prev                = nu16::NIL;
-                chunk->m_next                = nu16::NIL;
+                chunk->m_prev                = D_NILL_U16;
+                chunk->m_next                = D_NILL_U16;
                 return chunk;
             }
             else if (region->m_free_index == region->m_free_index_threshold)
@@ -529,12 +529,12 @@ namespace ncore
             chunk_t* head = region->m_chunks.m_free_list;
             if (head == nullptr)
             {
-                chunk->m_prev = nu16::NIL;
-                chunk->m_next = nu16::NIL;
+                chunk->m_prev = D_NILL_U16;
+                chunk->m_next = D_NILL_U16;
             }
             else
             {
-                chunk->m_prev = nu16::NIL;
+                chunk->m_prev = D_NILL_U16;
                 chunk->m_next = (u16)(region_chunk_index(region, head));
                 head->m_prev  = (u16)(region_chunk_index(region, chunk));
             }
@@ -549,7 +549,7 @@ namespace ncore
 
         void add_chunk_to_active_list(calloc_t* c, const bin_config_t& bin_config, chunk_t* chunk)
         {
-            ASSERT(is_nil(chunk->m_prev) && is_nil(chunk->m_next));
+            ASSERT(chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16);
             if (c->m_active_chunk_per_bin_config[bin_config.m_bin_index] == nullptr)
             {
                 c->m_active_chunk_per_bin_config[bin_config.m_bin_index] = chunk;
@@ -566,22 +566,22 @@ namespace ncore
         void remove_chunk_from_active_list(calloc_t* c, const bin_config_t& bin_config, chunk_t* chunk)
         {
             chunk_t*& head = c->m_active_chunk_per_bin_config[bin_config.m_bin_index];
-            if (is_nil(chunk->m_prev) && is_nil(chunk->m_next))
+            if (chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16)
             {
                 head = nullptr;
             }
-            else if (is_nil(chunk->m_prev))
+            else if (chunk->m_prev == D_NILL_U16)
             {
                 region_t* region = get_region_at_index(c, chunk->m_region_index);
                 chunk_t*  next   = &region->m_chunks.m_array[chunk->m_next];
-                next->m_prev     = nu16::NIL;
+                next->m_prev     = D_NILL_U16;
                 head             = next;
             }
-            else if (is_nil(chunk->m_next))
+            else if (chunk->m_next == D_NILL_U16)
             {
                 region_t* region = get_region_at_index(c, chunk->m_region_index);
                 chunk_t*  prev   = &region->m_chunks.m_array[chunk->m_prev];
-                prev->m_next     = nu16::NIL;
+                prev->m_next     = D_NILL_U16;
             }
             else
             {
@@ -591,8 +591,8 @@ namespace ncore
                 prev->m_next     = chunk->m_next;
                 next->m_prev     = chunk->m_prev;
             }
-            chunk->m_prev = nu16::NIL;
-            chunk->m_next = nu16::NIL;
+            chunk->m_prev = D_NILL_U16;
+            chunk->m_next = D_NILL_U16;
         }
 
         // Allocate memory of given size

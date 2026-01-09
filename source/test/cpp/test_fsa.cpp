@@ -28,7 +28,7 @@ UNITTEST_SUITE_BEGIN(fsa)
 
             void* ptr  = nfsa::allocate(fsa, 1);
             u32   size = nfsa::get_size(fsa, ptr);
-            CHECK_EQUAL((u32)16, size);
+            CHECK_EQUAL((u32)8, size);
             nfsa::deallocate(fsa, ptr);
 
             nfsa::destroy(fsa);
@@ -40,7 +40,7 @@ UNITTEST_SUITE_BEGIN(fsa)
 
             for (s32 i = 0; i < 10; ++i)
             {
-                void* ptr  = nfsa::allocate(fsa, 16);
+                void* ptr  = nfsa::allocate(fsa, 12);
                 u32   size = nfsa::get_size(fsa, ptr);
                 CHECK_EQUAL((u32)16, size);
                 nfsa::deallocate(fsa, ptr);
