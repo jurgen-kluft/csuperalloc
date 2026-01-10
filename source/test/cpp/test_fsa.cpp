@@ -1,5 +1,6 @@
 #include "cbase/c_allocator.h"
 #include "cbase/c_integer.h"
+#include "ccore/c_random.h"
 
 #include "csuperalloc/c_fsa.h"
 
@@ -67,6 +68,58 @@ UNITTEST_SUITE_BEGIN(fsa)
             {
                 nfsa::deallocate(fsa, ptr[i]);
             }
+            nfsa::destroy(fsa);
+        }
+
+        // Allocate and deallocate randomly many different sizes and lifetimes
+        UNITTEST_TEST(stress_test)
+        {
+            const s32    num_allocs = 8192;
+            const s32    max_size   = 1024;
+            fsa_t*       fsa        = nfsa::new_fsa();
+            void*        ptrs[num_allocs];
+            u32          sizes[num_allocs];
+            xor_random_t rand_gen;
+
+            // Initialize
+            for (s32 i = 0; i < num_allocs; ++i)
+            {
+                ptrs[i]  = nullptr;
+                sizes[i] = 0;
+            }
+
+            // Randomly allocate and deallocate
+            for (s32 iter = 0; iter < 10000; ++iter)
+            {
+                s32 index = g_random_s32_0_max(&rand_gen, num_allocs - 1);
+                if (ptrs[index] == nullptr)
+                {
+                    // Allocate
+                    sizes[index] = g_random_s32_min_max(&rand_gen, 8, max_size);
+                    ptrs[index]  = nfsa::allocate(fsa, sizes[index]);
+                    u32 actual_size = nfsa::get_size(fsa, ptrs[index]);
+                    CHECK(actual_size >= sizes[index]);
+                }
+                else
+                {
+                    // Deallocate
+                    nfsa::deallocate(fsa, ptrs[index]);
+                    ptrs[index]  = nullptr;
+                    sizes[index] = 0;
+                }
+            }
+
+            // Cleanup
+            for (s32 i = 0; i < num_allocs; ++i)
+            {
+                if (ptrs[i] != nullptr)
+                {
+                    nfsa::deallocate(fsa, ptrs[i]);
+                    ptrs[i]  = nullptr;
+                    sizes[i] = 0;
+                }
+            }
+
             nfsa::destroy(fsa);
         }
     }

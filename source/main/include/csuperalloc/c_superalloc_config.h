@@ -19,22 +19,19 @@ namespace ncore
 
         struct binconfig_t
         {
-            binconfig_t(u16 index, u32 alloc_size, chunkconfig_t const& chunk_config)
-                : m_index(index)
-                , m_alloc_size(alloc_size)
+            binconfig_t(u32 alloc_size, chunkconfig_t const& chunk_config)
+                : m_alloc_size(alloc_size)
                 , m_chunk_config(chunk_config)
                 , m_max_alloc_count((((u32)1 << chunk_config.m_sizeshift) / alloc_size))
             {
             }
             binconfig_t(const binconfig_t& other)
-                : m_index(other.m_index)
-                , m_alloc_size(other.m_alloc_size)
+                : m_alloc_size(other.m_alloc_size)
                 , m_chunk_config(other.m_chunk_config)
                 , m_max_alloc_count(other.m_max_alloc_count)
             {
             }
-            const u64           m_index : 16;       // The index of this bin
-            const u64           m_alloc_size : 48;  // The size of the allocation that this bin is managing
+            const u32           m_alloc_size;       // The size of the allocation that this bin is managing
             const chunkconfig_t m_chunk_config;     // The index of the chunk size that this bin requires
             const u32           m_max_alloc_count;  // The maximum number of allocations that can be made from a single chunk
         };
@@ -58,7 +55,7 @@ namespace ncore
             {
             }
 
-            virtual binconfig_t const& size2bin(u32 size) const = 0;
+            virtual u8 size2bin(u32 size) const = 0;
 
             u64                  m_total_address_size;
             u64                  m_section_address_range;
