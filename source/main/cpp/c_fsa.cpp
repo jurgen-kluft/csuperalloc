@@ -29,9 +29,9 @@ namespace ncore
     {
 
 // Constraints
-#define D_MAX_SECTIONS           256   // maximum number of sections is 256 sections
-#define D_MAX_BLOCKS_PER_SECTION 1024  // maximum number of blocks in a section is 256 blocks
-#define D_MAX_ITEMS_PER_BLOCK    8192  // maximum number of items in a block is 8192 items
+#define D_MAX_SECTIONS           1024  // maximum number of sections
+#define D_MAX_BLOCKS_PER_SECTION 1024  // maximum number of blocks per section
+#define D_MAX_ITEMS_PER_BLOCK    8192  // maximum number of items in a block
 
         // Uncomment to enable debug fills
 #define FSA_DEBUG
@@ -244,14 +244,16 @@ namespace ncore
                 return (u16*)base;
             }
 
-            static inline u16& active_block_list_head(fsa_t* fsa, u16 section_index, u8 alloc_sizeshift)
+            static inline u16& active_block_list_head(fsa_t* fsa, u16 section_index, u8 alloc_size_shift)
             {
+                ASSERT(alloc_size_shift < 32);
                 u16* blocks_list_heads = active_block_list(fsa, section_index);
-                return blocks_list_heads[alloc_sizeshift];
+                return blocks_list_heads[alloc_size_shift];
             }
 
             static inline block_t* get_active_block(fsa_t* fsa, section_t* section, u8 alloc_size_shift)
             {
+                ASSERT(alloc_size_shift < 32);
                 const u16 head = active_block_list_head(fsa, section->m_section_index, alloc_size_shift);
                 if (head == D_NILL_U16)
                     return nullptr;
@@ -315,6 +317,7 @@ namespace ncore
 
             block_t* allocate_block(fsa_t* fsa, section_t* section, u8 alloc_size_shift)
             {
+                ASSERT(alloc_size_shift < 32);
                 block_t* block       = nullptr;
                 u16      block_index = D_NILL_U16;
                 if (section->m_block_free_list != D_NILL_U16)
@@ -439,7 +442,8 @@ namespace ncore
         section_t* get_active_section(fsa_t* fsa, bin_config_t const& bincfg)
         {
             u16* section_list_heads = active_section_list(fsa);
-            u16  list_head          = section_list_heads[bincfg.m_block_sizeshift];
+            ASSERT(bincfg.m_block_sizeshift < 32);
+            u16 list_head = section_list_heads[bincfg.m_block_sizeshift];
             if (list_head == D_NILL_U16)
                 return nullptr;
             return nsection::get_section_at_index(fsa, list_head);
@@ -448,7 +452,8 @@ namespace ncore
         static inline void add_active_section(fsa_t* fsa, section_t* section)
         {
             u16* section_list_heads = active_section_list(fsa);
-            u16& head               = section_list_heads[section->m_block_size_shift];
+            ASSERT(section->m_block_size_shift < 32);
+            u16& head = section_list_heads[section->m_block_size_shift];
 
             const u16 section_index = section->m_section_index;
             if (head == D_NILL_U16)
@@ -498,35 +503,47 @@ namespace ncore
             const u8  page_size_shift    = v_alloc_get_page_size_shift();
             const u8  section_size_shift = 24;  // 16 * cMB
 
-            const u16 sections_capacity = (u16)(address_range >> section_size_shift);
+            const u32 sections_capacity = (u32)(address_range >> section_size_shift);
+            ASSERT(sections_capacity <= D_MAX_SECTIONS);
 
             // Calculate how many pages to commit for fsa_t, active section list, section array and per section active block lists
             int_t fsa_bytes = sizeof(fsa_t);
             fsa_bytes += 32 * sizeof(u16);                                                  // active section list
             fsa_bytes += sizeof(section_t) * sections_capacity;                             // section_t[N]
             fsa_bytes += (32 * sizeof(u16)) * sections_capacity;                            // active block list for each section
-            const u16 fsa_pages = (u16)((fsa_bytes + (page_size - 1)) >> page_size_shift);  // round up to pages
+            const u32 fsa_pages = (u32)((fsa_bytes + (page_size - 1)) >> page_size_shift);  // round up to pages
+            ASSERT(fsa_pages < (1 << 6));                                                   // must easily fit within 64 pages
 
             // Calculate how many pages to reserve for a single block array
-            int_t    block_array_bytes = (D_MAX_BLOCKS_PER_SECTION * sizeof(block_t));                    // block_t[N]
-            const u8 block_array_pages = (u8)((block_array_bytes + (page_size - 1)) >> page_size_shift);  // round up to pages
+            int_t block_array_bytes = (D_MAX_BLOCKS_PER_SECTION * sizeof(block_t));                         // block_t[N]
+            ASSERT(block_array_bytes <= ((int_t)1 << (page_size_shift + 4)));                               // must fit within 16 pages
+            const u32 block_array_pages = (u32)((block_array_bytes + (page_size - 1)) >> page_size_shift);  // round up to pages
+            ASSERT(block_array_pages < (1 << 8));                                                           // must easily fit within 256 pages
 
             // Calculate the actual address range we need to reserve that includes the fsa header, section array and block arrays
             address_range = (u64)fsa_pages << page_size_shift;
             address_range += (u64)(block_array_pages * sections_capacity) << page_size_shift;
             address_range += ((u64)sections_capacity << section_size_shift);
+
             void* base_address = v_alloc_reserve(address_range);
-            v_alloc_commit(base_address, (int_t)fsa_pages << page_size_shift);
+            if (base_address == nullptr)
+                return nullptr;
+
+            if (!v_alloc_commit(base_address, (int_t)fsa_pages << page_size_shift))
+            {
+                v_alloc_release(base_address, address_range);
+                return nullptr;
+            }
 
             fsa_t* fsa                       = (fsa_t*)base_address;
             fsa->m_sections_free_index       = 0;
             fsa->m_sections_free_list        = D_NILL_U16;
-            fsa->m_sections_capacity         = sections_capacity;
+            fsa->m_sections_capacity         = (u16)sections_capacity;
             fsa->m_section_size_shift        = section_size_shift;
             fsa->m_page_size_shift           = page_size_shift;
-            fsa->m_header_pages              = fsa_pages;
+            fsa->m_header_pages              = (u16)fsa_pages;
             fsa->m_base_offset               = (u32)((fsa_pages + (block_array_pages * sections_capacity)) << page_size_shift);
-            fsa->m_section_block_array_pages = block_array_pages;
+            fsa->m_section_block_array_pages = (u8)block_array_pages;
 
             u16* active_sections = active_section_list(fsa);
             for (u32 i = 0; i < 32; ++i)
@@ -572,6 +589,7 @@ namespace ncore
             {
                 // allocate a new block from this section, and activate it
                 block = nsection::allocate_block(fsa, section, bincfg.m_alloc_sizeshift);
+                ASSERT(block != nullptr);  // this should never happen since this section is active and must have free blocks
                 nblock::activate(fsa, section, block);
                 nsection::add_active_block(fsa, section, block);
 

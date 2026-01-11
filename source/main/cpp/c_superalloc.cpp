@@ -169,7 +169,7 @@ namespace ncore
                     m_sections_array          = g_allocate_array_and_clear<section_t>(heap, m_sections_array_capacity);
 
                     arena_alloc_t heap_alloc(heap);
-                    segment_initialize(&m_section_allocator, &heap_alloc, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
+                    nsegment::initialize(&m_section_allocator, &heap_alloc, (int_t)1 << m_section_minsize_shift, (int_t)1 << m_section_maxsize_shift, (int_t)m_address_range);
                 }
 
                 void deinitialize(arena_t* heap)
@@ -343,7 +343,7 @@ namespace ncore
                     // num nodes we need to allocate = (1 << sectionconfig.m_sizeshift) / (1 << m_section_minsize_shift)
                     s64 section_ptr  = 0;
                     s64 section_size = (s64)1 << chunk_config.m_section_sizeshift;
-                    segment_allocate(&m_section_allocator, section_size, section_ptr);
+                    nsegment::allocate(&m_section_allocator, section_size, section_ptr);
 
                     section_t* section = ll_pop(m_section_free_list);
                     if (section == nullptr)
@@ -425,7 +425,7 @@ namespace ncore
                     // Deallocate the memory segment that was associated with this section
                     s64       section_ptr  = todistance(m_address_base, section->m_section_address);
                     const s64 section_size = 1 << section->m_chunk_config.m_section_sizeshift;
-                    segment_deallocate(&m_section_allocator, section_ptr, section_size);
+                    nsegment::deallocate(&m_section_allocator, section_ptr, section_size);
 
                     // Clear our index from the section map array
                     u32 const node        = (u32)(section_ptr >> m_section_minsize_shift);

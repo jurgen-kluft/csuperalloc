@@ -21,8 +21,8 @@ namespace ncore
         static const s8 sSectionSize_512MB = 29;  //
         static const s8 sSectionSize_1GB   = 30;  //
 
-        static const s8 sSectionSize_Min = sSectionSize_64MB;  // Minimum section size is 64MB
-        static const s8 sSectionSize_Max = sSectionSize_1GB;   // Maximum section size is 1GB
+        static const s8 sSectionSize_Min = sSectionSize_64MB;  // Minimum section size is 64MB (1 << 26)
+        static const s8 sSectionSize_Max = sSectionSize_1GB;   // Maximum section size is 1GB  (1 << 30)
 
         static const chunkconfig_t c64KB              = {16, 0, 4, sSectionSize_64MB};
         static const chunkconfig_t c128KB             = {17, 1, 2, sSectionSize_64MB};
