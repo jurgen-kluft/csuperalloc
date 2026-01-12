@@ -44,13 +44,4 @@ struct block_t
     // u32 m_bin[8];          // where do we store the binmap 
 };
 
-1
-2
-4
-8
-16
-32
-64
-128 
-
 

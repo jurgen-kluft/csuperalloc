@@ -92,7 +92,7 @@ namespace ncore
 
         */
 
-        enum 
+        enum
         {
             c4KiB   = 12,
             c8KiB   = 13,
@@ -130,27 +130,23 @@ namespace ncore
         // sizeof(chunk_t) = 32 bytes
         struct chunk_t
         {
-            u16  m_next;                // next/prev for linked list of active chunks
-            u16  m_prev;                // next/prev for linked list
-            u16  m_region_index;        // index into region array (back reference)
-            u8   m_bin_index;           // bin index this chunk is used for
-            u8   m_padding;             // padding
-            u16  m_element_capacity;    // number of elements in the chunk
-            u16  m_element_count;       // number of elements in the chunk
-            u16  m_element_free_index;  // current element free index
-            u16  m_pages_committed;     // number of committed pages in the chunk
-            u64  m_bin0;                // binmap, level 0 (6)
-            u64* m_bin1;                // binmap, level 1 (6) (fsa)
+            u16 m_next;          // next/prev for linked list of active chunks
+            u16 m_prev;          // next/prev for linked list
+            u16 m_region_index;  // region index this chunk belongs to
+            u8  m_bin_index;     // bin index this chunk is used for
+            u8  m_pages;         // number of committed pages in the chunk
+            u16 m_capacity;      // number of elements in the chunk
+            u16 m_count;         // number of elements in the chunk
+            u16 m_free_index;    // current element free index
+            u64 m_bin0;          // binmap, level 0 (6)
+            // u64* m_bin1;        // binmap, level 1 (6) (fsa)
         };
 
-        // A region of 4GiB consists of N blocks, maximum 65536 blocks.
-        // The first block-size is 32 KiB; 4GiB / 32KiB = 131072 blocks, so 16 bit
-        // should be sufficient to address all blocks in a region.
+        // A region consists of N blocks
         struct block_t
         {
-            u32 m_pages_committed;  // number of committed pages in the block
-            u16 m_next;             // next/prev for linked list
-            u16 m_prev;             // next/prev for linked list
+            u32 m_pages;  // number of committed pages in the block
+            u32 m_next;   // next/prev for linked list
         };
 
         typedef u8 (*size_to_bin_fn)(u32 size);
@@ -189,22 +185,22 @@ namespace ncore
             };
         };
 
-        inline bool chunk_is_full(chunk_t* chunk) { return chunk->m_element_count == chunk->m_element_capacity; }
-        inline bool chunk_is_empty(chunk_t* chunk) { return chunk->m_element_count == 0; }
+        inline bool chunk_is_full(chunk_t* chunk) { return chunk->m_count == chunk->m_capacity; }
+        inline bool chunk_is_empty(chunk_t* chunk) { return chunk->m_count == 0; }
         inline u32  region_chunk_index(region_t* region, chunk_t* chunk) { return (u32)(((byte*)chunk - (byte*)region->m_chunks.m_array) / sizeof(chunk_t)); }
         inline bool region_is_block_based(region_t* region) { return region->m_region_type == 1; }
 
         static void* alloc_from_chunk(chunk_t* chunk, byte* chunk_address, u32 alloc_size)
         {
-            ASSERT(chunk->m_element_count < chunk->m_element_capacity);
+            ASSERT(chunk->m_count < chunk->m_capacity);
             i32 free_index;
             if (chunk->m_bin1 == nullptr)
-                free_index = nbinmap6::find_and_set(&chunk->m_bin0, chunk->m_element_count);
+                free_index = nbinmap6::find_and_set(&chunk->m_bin0, chunk->m_count);
             else
-                free_index = nbinmap12::find_and_set(&chunk->m_bin0, chunk->m_bin1, chunk->m_element_count);
+                free_index = nbinmap12::find_and_set(&chunk->m_bin0, chunk->m_bin1, chunk->m_count);
             if (free_index < 0)
                 return nullptr;
-            chunk->m_element_count += 1;
+            chunk->m_count += 1;
             return chunk_address + (free_index * alloc_size);
         }
 
@@ -564,17 +560,15 @@ namespace ncore
             const bin_config_t& bincfg = c->m_bin_configs[bin_index];
 
             // initialize chunk
-            chunk->m_region_index       = region->m_region_index;
-            chunk->m_bin_index          = bin_index;
-            chunk->m_padding            = 0;
-            chunk->m_element_capacity   = (1 << bincfg.m_chunk_size_shift) / bincfg.m_alloc_size;
-            chunk->m_element_count      = 0;
-            chunk->m_element_free_index = 0;
-            chunk->m_pages_committed    = ((int_t)1 << (bincfg.m_chunk_size_shift - c->m_page_size_shift));
-            chunk->m_bin0               = D_U64_MAX << ((chunk->m_element_capacity + 63) >> 6);
-            if (chunk->m_element_capacity > 64)
+            chunk->m_bin_index  = bin_index;
+            chunk->m_capacity   = (1 << bincfg.m_chunk_size_shift) / bincfg.m_alloc_size;
+            chunk->m_count      = 0;
+            chunk->m_free_index = 0;
+            chunk->m_pages      = ((int_t)1 << (bincfg.m_chunk_size_shift - c->m_page_size_shift));
+            chunk->m_bin0       = D_U64_MAX << ((chunk->m_capacity + 63) >> 6);
+            if (chunk->m_capacity > 64)
             {
-                chunk->m_bin1 = (u64*)nfsa::allocate(c->m_internal_fsa, ((chunk->m_element_capacity + 63) >> 6) * sizeof(u64));
+                chunk->m_bin1 = (u64*)nfsa::allocate(c->m_internal_fsa, ((chunk->m_capacity + 63) >> 6) * sizeof(u64));
             }
             else
             {
@@ -583,21 +577,19 @@ namespace ncore
 
             // TODO commit all pages for this chunk
             void* chunk_address = get_region_chunk_address(c, region, region_chunk_index(region, chunk));
-            v_alloc_commit(chunk_address, chunk->m_pages_committed << c->m_page_size_shift);
+            v_alloc_commit(chunk_address, chunk->m_pages << c->m_page_size_shift);
         }
 
         static inline void deactivate_chunk(calloc_t* c, chunk_t* chunk)
         {
             // TODO decommit all pages
 
-            chunk->m_region_index       = D_NILL_U32;
-            chunk->m_bin_index          = D_NILL_U8;
-            chunk->m_padding            = 0;
-            chunk->m_element_capacity   = 0;
-            chunk->m_element_count      = 0;
-            chunk->m_element_free_index = 0;
-            chunk->m_pages_committed    = 0;
-            chunk->m_bin0               = 0;
+            chunk->m_bin_index  = D_NILL_U8;
+            chunk->m_capacity   = 0;
+            chunk->m_count      = 0;
+            chunk->m_free_index = 0;
+            chunk->m_pages      = 0;
+            chunk->m_bin0       = 0;
             if (chunk->m_bin1 != nullptr)
             {
                 nfsa::deallocate(c->m_internal_fsa, chunk->m_bin1);
@@ -734,13 +726,13 @@ namespace ncore
                 const bool chunk_full_before = chunk_is_full(chunk);
                 if (chunk->m_bin1 == nullptr)
                 {
-                    nbinmap6::clr(&chunk->m_bin0, chunk->m_element_free_index, chunk->m_element_count);
+                    nbinmap6::clr(&chunk->m_bin0, chunk->m_free_index, chunk->m_count);
                 }
                 else
                 {
-                    nbinmap12::clr(&chunk->m_bin0, chunk->m_bin1, chunk->m_element_free_index, chunk->m_element_count);
+                    nbinmap12::clr(&chunk->m_bin0, chunk->m_bin1, chunk->m_free_index, chunk->m_count);
                 }
-                chunk->m_element_count -= 1;
+                chunk->m_count -= 1;
 
                 if (chunk_is_empty(chunk))
                 {
