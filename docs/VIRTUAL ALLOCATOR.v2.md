@@ -1,47 +1,150 @@
 # Virtual Allocator v2.0
 
-Each allocation size has a region type to obtain a chunk from, that is all we need, this information can be stored in a simple array.
+The allocator has a pre-allocated array of segments and regions.
 
-The allocator has 2 internal heaps, one is an arena used for allocations that happen during initialization, the other is used for metadata allocations during runtime.
-The one used during runtime is a custom FSA (fixed-size allocations) that allocates items of a fixed (small) size, the runtime allocations
-are infrequent and of the following sizes:
-- binmap, bin1: <= 512 bytes
-- region; array, <= 256 bytes
+For a 256 GiB virtual address space:
+- 256 GiB / 1 GiB = 256 segments
+  - u8[256], this value indicates how many regions for each segment
+  - u16[256], a next segment index for a linked list of segments with free regions
+  - u32[256], this value is a binmap of free regions per segment  
+- Group A
+  - 256 segments * 32 regions = 8192 regions
+    -> region_t[8192] = 8192 * 32 bytes = 256 KiB
 
+8192 * 32 KiB = 256 MiB virtual address space for book-keeping data
 
-Each chunk can hold a maximum of 2048 elements of size 16 bytes, so we have a 
-minimum chunk size of 32 KiB (16 * 2048).
+A certain amount of segments are meant for Group A, then Group B, and finally Group C.
 
-  4 KiB * 256 =   1 MiB    one block holds <= 256 chunks                         CHUNK
-  1 MiB * 256 = 256 MiB    256 regions, each region containing 1 MiB blocks      REGION
-256 MiB * 256 =  64 GiB   256 segments, each segment containing 256 MiB regions  SEGMENT
+So, to summarize, the address space layout looks like this:
 
-So are we able to get all each structures as small as possible?
-If we make a chunk 4 KiB, we can hold a maximum of 256 elements of size 16 bytes.
-Let's see what happens when we use this value, 256 as our magic key.
+- one page ?
+  - allocator_t struct
+  - u8 [256] byte array for each segment indicating how many regions are in use
+  - u32 [256] binmap for each segment indicating which regions are free
+  - region_t* [32], a region list per bin for quick access to regions with free chunks/blocks
+- + 256 MiB virtual address space for book-keeping data
+- + 256 GiB virtual 
 
-// A chunk of 4 KiB, can hold a maximum of 256 elements of 16 bytes each
-// 8 bytes
-struct chunk_t
-{
-    u8  m_next;                // next/prev for linked list of active chunks
-    u8  m_prev;                // next/prev for linked list
-    u8  m_capacity;            // maximum number of elements in the chunk
-    u8  m_count;               // number of elements in the chunk
-    u8  m_free_index;          // current element free index
-    // u32 m_bin[8];           // where do we store the binmap
-};
+# Group A 
 
-// A block of 1 MiB, can hold a maximum of 256 chunks of 4 KiB each
-// 8 bytes
-struct block_t
-{
-    u16 m_next;                // next/prev for linked list of active blocks
-    u16 m_prev;                // next/prev for linked list
-    u8  m_capacity;            // maximum number of chunks in the block
-    u8  m_count;               // number of chunks in the block
-    u8  m_free_index;          // current chunk free index
-    // u32 m_bin[8];          // where do we store the binmap 
-};
+A separate address space that contains the book-keeping data for each region. 
+Each region has 32 KiB (2 * 16 KiB pages, or 8 * 4 KiB pages) of book-keeping data associated with it.
 
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 16 B
+        - Max Items per Chunk = 4096
+        - Max Chunks per Region = 512 (* 32 bytes = 16 KiB)
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 32 B
+        - Max Items per Chunk = 2048
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 64 B
+        - Max Items per Chunk = 1024
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 128 B
+        - Max Items per Chunk = 512
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 256 B
+        - Max Items per Chunk = 256
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 512 B
+        - Max Items per Chunk = 128
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 1 KiB
+        - Max Items per Chunk = 64
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 2 KiB
+        - Max Items per Chunk = 32
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 4 KiB
+        - Max Items per Chunk = 16
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 8 KiB
+        - Max Items per Chunk = 8
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 16 KiB
+        - Max Items per Chunk = 4
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+        - Region = 32 MiB
+        - Chunk = 64 KiB
+        - Minimum Allocation Size <= 32 KiB
+        - Max Items per Chunk = 2
+        - Max Chunks per Region = 512
+        - Segment = 1 GiB
+        - Max Regions per Segment = 32
+
+# Group B
+
+- Region = 1 GiB, 16384 * Block =  64 KiB
+- Region = 1 GiB,  8192 * Block = 128 KiB
+- Region = 1 GiB,  4096 * Block = 256 KiB
+- Region = 1 GiB,  2048 * Block = 512 KiB
+- Region = 1 GiB,  1024 * Block =   1 MiB
+- Region = 1 GiB,   512 * Block =   2 MiB
+- Region = 1 GiB,   256 * Block =   4 MiB
+- Region = 1 GiB,   128 * Block =   8 MiB
+- Region = 1 GiB,    64 * Block =  16 MiB
+- Region = 1 GiB,    32 * Block =  32 MiB
+- Region = 1 GiB,    16 * Block =  64 MiB
+- Region = 1 GiB,     8 * Block = 128 MiB
+- Region = 1 GiB,     4 * Block = 256 MiB
+- Region = 1 GiB,     2 * Block = 512 MiB
+- Region = 1 GiB,     1 * Block =   1 GiB
+
+# Group C
+
+TODO
 

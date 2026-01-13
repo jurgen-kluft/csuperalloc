@@ -124,65 +124,52 @@ namespace ncore
             u8  m_region_type;       // region type is chunk or block (0=chunks, >=1 = block size shift)
         };
 
-#define D_MAX_ELEMENTS_PER_CHUNK 4096
+#define D_MAX_ELEMENTS_PER_CHUNK 1024
 
-        // A chunk consists of N elements with a maximum of 4096.
-        // sizeof(chunk_t) = 32 bytes
+        // A chunk consists of N elements with a maximum of 1024.
+        // = 24 bytes (16384 / 24 = 682 chunks in one page)
         struct chunk_t
         {
-            u16 m_next;          // next/prev for linked list of active chunks
-            u16 m_prev;          // next/prev for linked list
-            u16 m_region_index;  // region index this chunk belongs to
-            u8  m_bin_index;     // bin index this chunk is used for
-            u8  m_pages;         // number of committed pages in the chunk
-            u16 m_capacity;      // number of elements in the chunk
-            u16 m_count;         // number of elements in the chunk
-            u16 m_free_index;    // current element free index
-            u64 m_bin0;          // binmap, level 0 (6)
-            // u64* m_bin1;        // binmap, level 1 (6) (fsa)
+            u16  m_pages;       // number of committed pages in the chunk
+            u16  m_capacity;    // number of elements in the chunk
+            u16  m_count;       // number of elements in the chunk
+            u16  m_free_index;  // current element free index
+            u64  m_free_bin0;   // binmap, level 0 (6)
+            u64* m_free_bin1;   // binmap, level 1 (6) (fsa)
         };
 
         // A region consists of N blocks
+        // Q: linked-list, do we need blocks being part of a linked-list, and for what purpose?
+        // A: we can use a binmap for free blocks as well as cached block, that would change the
+        //    size of a block to 4 bytes, and adding 2 bits for tracking.
         struct block_t
         {
             u32 m_pages;  // number of committed pages in the block
-            u32 m_next;   // next/prev for linked list
+                          // u32 m_next;   // next/prev for linked list
         };
 
         typedef u8 (*size_to_bin_fn)(u32 size);
 
-#define D_MAX_CHUNKS_PER_REGION 65536
+#define D_MAX_CHUNKS_PER_REGION 512
+#define D_MAX_BLOCKS_PER_REGION 32768
 
-        // A region consists of N chunks/blocks, maximum 65536 chunks/blocks.
-        // All chunks in a region are of the same size (chunk_size_shift).
+        // A region consists of N chunks/blocks
+        // - maximum 512 chunks
+        // - maximum 32768 blocks
+        // Chunks in a region are of the same size (chunk_size_shift).
+        // A region is dedicated to a specific bin
         // sizeof(region_t) = 32 bytes
         struct region_t
         {
-            struct chunks_t
-            {
-                chunk_t* m_free_list;  // list of free chunks in this region
-                chunk_t* m_array;      // array of chunks
-            };
-            struct blocks_t
-            {
-                block_t* m_free_list;  // list of free blocks in this region
-                block_t* m_array;      // array of blocks
-            };
-
-            u16 m_region_index;            // padding
-            u8  m_chunk_size_shift;        // chunk/block size shift for chunks/blocks in this region
-            u8  m_region_type;             // region type is chunk or block (0=chunks, >=1 block size shift)
-            u16 m_region_committed_pages;  // current number of committed pages for this region
-            u16 m_region_maximum_pages;    // maximum number of committed pages for this region
-            u16 m_free_index;              // index of the first free chunk/block in the region
-            u16 m_free_index_threshold;    // threshold to trigger next page commit
-            u16 m_count;                   // number of chunks/blocks in use
-            u16 m_capacity;                // total number of chunks/blocks in this region
-            union
-            {
-                chunks_t m_chunks;
-                blocks_t m_blocks;
-            };
+            u8   m_bin;                // bin index for this region
+            u8   m_padding;            // padding
+            u16  m_free_index;         // index of the first free chunk/block in the region
+            u16  m_count;              // number of chunks/blocks in use
+            u16  m_capacity;           // total number of chunks/blocks in this region
+            u32  m_chunk_free_bin0;    // free chunks binmap, level 0
+            u32* m_chunk_free_bin1;    // free chunks binmap, level 1
+            u32  m_chunk_active_bin0;  // active chunks binmap, level 0
+            u32* m_chunk_active_bin1;  // active chunks binmap, level 1
         };
 
         inline bool chunk_is_full(chunk_t* chunk) { return chunk->m_count == chunk->m_capacity; }
@@ -449,23 +436,29 @@ namespace ncore
           bin_config_t{D_ALLOC_SIZE(512, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
         };
 
+        struct segment_t
+        {
+            u32 m_free_bin0;  // binmap level 0 of free regions
+            u8  m_count;      // number of regions
+        };
+
         struct calloc_t
         {
-            byte*          m_address_base;                  // base address of the superallocator
-            int_t          m_address_size;                  // size of the address space
-            arena_t*       m_internal_heap;                 // internal heap for initialization allocations
-            fsa_t*         m_internal_fsa;                  // internal fsa for runtime allocations
-            u8             m_region_size_shift;             // size of each section (e.g. 2 GiB)
-            u8             m_page_size_shift;               // system page size
-            byte*          m_region_meta_base;              // base address of region metadata address space (N * 2MiB)
-            u8             m_region_meta_size_shift;        // size of each region structure in 'regions_base' (e.g. 2 MiB)
-            u32            m_region_meta_count;             // number of address sections in the whole address space
-            u64            m_region_meta_free_bin0;         // binmap bin0 of free address sections
-            u64*           m_region_meta_free_bin1;         // binmap bin1 of free address sections (heap)
-            size_to_bin_fn m_size_to_bin;                   // function to map size to bin index
-            bin_config_t*  m_bin_configs;                   // bin configurations
-            region_t**     m_active_region_per_chunk_size;  // active region-lists per chunk config (heap)
-            chunk_t**      m_active_chunk_per_bin_config;   // active chunk-lists per bin config (heap)
+            byte*          m_address_base;            // base address of the superallocator
+            int_t          m_address_size;            // size of the address space
+            arena_t*       m_internal_heap;           // internal heap for initialization allocations
+            fsa_t*         m_internal_fsa;            // internal fsa for runtime allocations
+            u8             m_region_size_shift;       // size of each section (e.g. 2 GiB)
+            u8             m_page_size_shift;         // system page size
+            byte*          m_region_meta_base;        // base address of region metadata address space (N * 2MiB)
+            u8             m_region_meta_size_shift;  // size of each region structure in 'regions_base' (e.g. 2 MiB)
+            u32            m_region_meta_count;       // number of address sections in the whole address space
+            u64            m_region_meta_free_bin0;   // binmap bin0 of free address sections
+            u64*           m_region_meta_free_bin1;   // binmap bin1 of free address sections (heap)
+            size_to_bin_fn m_size_to_bin;             // function to map size to bin index
+            bin_config_t*  m_bin_configs;             // bin configurations
+            region_t**     m_active_region_per_bin;   // active region per bin
+            // segment_t      m_segments[];
         };
 
         static inline region_t* get_region_at_index(calloc_t* c, u32 region_index) { return (region_t*)(c->m_region_meta_base + (region_index << c->m_region_meta_size_shift)); }
