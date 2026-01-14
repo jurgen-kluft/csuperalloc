@@ -215,224 +215,32 @@ namespace ncore
 #define D_USAGE_BLOCK      1
 #define D_CACHE_SIZE(size) ((u8)(size))
 
+        struct region_config_t
+        {
+            u8 m_region_size_shift;  // size of region in main address space
+            u8 m_chunk_size_shift;   // size of chunks/blocks in this region
+            u8 m_block_size_shift;   // size of chunks/blocks in this region
+        };
+        static const region_config_t sRegionConfigs[] = {
+          region_config_t{c32MiB, c64KiB, 0},    // 32 MiB region, 64 KiB chunks
+          region_config_t{c32MiB, 0, c64KiB},    // 32 MiB region, 64 KiB blocks
+          region_config_t{c32MiB, 0, c128KiB},   // 32 MiB region, 128 KiB blocks
+          region_config_t{c32MiB, 0, c256KiB},   // 32 MiB region, 256 KiB blocks
+          region_config_t{c32MiB, 0, c512KiB},   // 32 MiB region, 512 KiB blocks
+          region_config_t{c32MiB, 0, c1MiB},     // 32 MiB region, 1 MiB blocks
+          region_config_t{c32MiB, 0, c2MiB},     // 32 MiB region, 2 MiB blocks
+          region_config_t{c32MiB, 0, c4MiB},     // 32 MiB region, 4 MiB blocks
+          region_config_t{c32MiB, 0, c8MiB},     // 32 MiB region, 8 MiB blocks
+          region_config_t{c256MiB, 0, c16MiB},   // 256 MiB region, 16 MiB blocks
+          region_config_t{c256MiB, 0, c32MiB},   // 256 MiB region, 32 MiB blocks
+          region_config_t{c256MiB, 0, c64MiB},   // 256 MiB region, 64 MiB blocks
+          region_config_t{c256MiB, 0, c128MiB},  // 256 MiB region, 128 MiB blocks
+          region_config_t{c512MiB, 0, c256MiB},  // 512 MiB region, 256 MiB blocks
+          region_config_t{c1GiB, 0, c512MiB},    // 1 GiB region, 512 MiB blocks
+        };
+
         static const bin_config_t sBinConfigs[] = {
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    // 16 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 16), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 24), D_CHUNK_16KiB, D_USAGE_CHUNK},    // 16 KiB chunk, 24 bytes alloc, 16384/24=682 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 24), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 24), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 24), D_CHUNK_16KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 32), D_CHUNK_32KiB, D_USAGE_CHUNK},    // 32 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 32), D_CHUNK_32KiB, D_USAGE_CHUNK},    // 1024 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 32), D_CHUNK_32KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 32), D_CHUNK_32KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 40), D_CHUNK_32KiB, D_USAGE_CHUNK},    // 32768/40=819 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 40), D_CHUNK_32KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 48), D_CHUNK_32KiB, D_USAGE_CHUNK},    // 32768/48=682 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 48), D_CHUNK_32KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 56), D_CHUNK_32KiB, D_USAGE_CHUNK},    // 32768/56=585 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 56), D_CHUNK_32KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 64), D_CHUNK_64KiB, D_USAGE_CHUNK},    // 64 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 64), D_CHUNK_64KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 80), D_CHUNK_64KiB, D_USAGE_CHUNK},    // 65536/80=819 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 80), D_CHUNK_64KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 96), D_CHUNK_64KiB, D_USAGE_CHUNK},    // 65536/96=682 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 96), D_CHUNK_64KiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 112), D_CHUNK_64KiB, D_USAGE_CHUNK},   // 65536/112=585 elements
-          bin_config_t{D_ALLOC_SIZE(0, 0, 112), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 128), D_CHUNK_64KiB, D_USAGE_CHUNK},   // 128 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 128), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 160), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 160), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 192), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 192), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 224), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 224), D_CHUNK_64KiB, D_USAGE_CHUNK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 256), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 256), D_CHUNK_256KiB, D_USAGE_CHUNK},  // 256 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 288), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 320), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 352), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 384), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 448), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 448), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 512), D_CHUNK_256KiB, D_USAGE_CHUNK},  // 512 KiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 0, 512), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 640), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 640), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 768), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 768), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 896), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 896), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 0, 960), D_CHUNK_256KiB, D_USAGE_CHUNK},  //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    // 1 MiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 1, 128), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 256), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 384), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 640), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 768), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 1, 896), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 2, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    // 2 MiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 2, 256), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 2, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 2, 768), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 3, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 3, 256), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 3, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 3, 768), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 4, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    // 4 MiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 4, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 5, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 5, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 6, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 6, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 7, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 7, 512), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 8, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    // 8 MiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 9, 000), D_CHUNK_1MiB, D_USAGE_CHUNK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 10, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 11, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 12, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 13, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 14, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 15, 0), D_CHUNK_1MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 16, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     // 16 MiB chunk
-          bin_config_t{D_ALLOC_SIZE(0, 18, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 20, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 22, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 24, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 26, 0), D_CHUNK_4MiB, D_USAGE_CHUNK},     //
-          bin_config_t{D_ALLOC_SIZE(0, 32, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    // =====================================================================
-          bin_config_t{D_ALLOC_SIZE(0, 32, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 32, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 36, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 40, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 44, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 48, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 52, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 56, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 60, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 64, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 72, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 80, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 88, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 96, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(0, 104, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 112, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 120, 0), D_CHUNK_32MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 128, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 144, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 160, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 176, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 192, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 208, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 224, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 240, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 256, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 288, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 320, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 352, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 384, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 416, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 448, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 480, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 512, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 576, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 640, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 704, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 768, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 832, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 896, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(0, 960, 0), D_CHUNK_64MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(1, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(1, 128, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 256, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 384, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 640, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 768, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(1, 896, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(2, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(2, 256, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(2, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(2, 768, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(3, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(3, 256, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(3, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(3, 768, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(4, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(4, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(5, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(5, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(6, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(6, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(7, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(7, 512, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(8, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(9, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(10, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(11, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(12, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(13, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(14, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(15, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(16, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(18, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(20, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(22, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(24, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(26, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(28, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(30, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(32, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(36, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(40, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(44, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(48, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(52, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(56, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(60, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(64, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(72, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(80, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(88, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(96, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},   //
-          bin_config_t{D_ALLOC_SIZE(104, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(112, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(120, 0, 0), D_CHUNK_256MiB, D_USAGE_BLOCK},  //
-          bin_config_t{D_ALLOC_SIZE(128, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(144, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(160, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(176, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(192, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(208, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(224, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(240, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(256, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(288, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(320, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(352, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(384, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(416, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(448, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(480, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
-          bin_config_t{D_ALLOC_SIZE(512, 0, 0), D_CHUNK_1GiB, D_USAGE_BLOCK},    //
+          bin_config_t{(1 << 4) + (1 << (4 - 3)) * 1},
         };
 
         struct segment_t
@@ -457,296 +265,294 @@ namespace ncore
             size_to_bin_fn m_size_to_bin;             // function to map size to bin index
             bin_config_t*  m_bin_configs;             // bin configurations
             region_t**     m_active_region_per_bin;   // active region per bin
-            // segment_t      m_segments[];
+            region_t*      m_regions;                 // all regions
+            segment_t*     m_segments;
         };
 
-        static inline region_t* get_region_at_index(calloc_t* c, u32 region_index) { return (region_t*)(c->m_region_meta_base + (region_index << c->m_region_meta_size_shift)); }
-        static inline u32       get_region_index(calloc_t* c, region_t* region) { return (u32)(((byte*)region - c->m_region_meta_base) >> c->m_region_meta_size_shift); }
+        static inline region_t* get_region_at_index(calloc_t* c, u32 region_index) { return &c->m_regions[region_index]; }
+        static inline u32       get_region_index(calloc_t* c, region_t* region) { return (u32)(region - c->m_regions); }
         static inline byte*     get_region_address(calloc_t* c, u32 region_index) { return c->m_address_base + (region_index << (c->m_region_size_shift + c->m_page_size_shift)); }
         static inline byte*     get_region_chunk_address(calloc_t* c, region_t* region, u32 chunk_index)
         {
             const u32 region_index   = get_region_index(c, region);
             byte*     region_address = get_region_address(c, region_index);
-            return region_address + ((int_t)chunk_index << region->m_chunk_size_shift);
+            return region_address + ((int_t)chunk_index << c->m_bin_configs[region->m_bin].m_chunk_size_shift);
         }
 
-        region_t* get_region(calloc_t* c, const bin_config_t& bin_config)
+        region_t* get_region(calloc_t* c, u8 bin_index)
         {
-            // see if we have an active region for this config
-            // TODO this is actually a list (region should get next/prev pointers)
-            region_t* active_region = c->m_active_region_per_chunk_size[bin_config.m_chunk_size_shift];
-            if (active_region != nullptr)
-                return active_region;
-
-            // TODO obtain a new region and initialize it, this includes computing the amount of initial
-            // pages that need to be committed.
-            const i32 free_region = nbinmap12::find_and_set(&c->m_region_meta_free_bin0, c->m_region_meta_free_bin1, c->m_region_meta_count);
-            if (free_region >= 0)
-            {
-                region_t* region         = get_region_at_index(c, (u32)free_region);
-                byte*     region_address = get_region_address(c, (u32)free_region);
-
-                // reset region
-                region->m_chunk_size_shift       = bin_config.m_chunk_size_shift;
-                region->m_region_type            = bin_config.m_region_type;
-                region->m_region_committed_pages = 0;
-                region->m_region_maximum_pages   = (1 << c->m_region_meta_size_shift) >> c->m_page_size_shift;
-                region->m_free_index             = 0;
-                region->m_free_index_threshold   = 0;
-                region->m_chunks.m_array         = nullptr;
-                region->m_chunks.m_free_list     = nullptr;
-
-                // initialize region
-                if (bin_config.m_region_type == D_USAGE_CHUNK)
-                {
-                    v_alloc_commit(region_address, (int_t)1 << c->m_page_size_shift);  // commit first page
-                    region->m_region_committed_pages = 1;
-                    region->m_free_index_threshold   = (((int_t)1 << c->m_page_size_shift) - sizeof(region_t)) / sizeof(chunk_t);
-                }
-                c->m_active_region_per_chunk_size[bin_config.m_chunk_size_shift] = region;
-                return region;
-            }
-
-            return nullptr;
-        }
-
-        void release_region(calloc_t* c, region_t* region)
-        {
-            ASSERT(region->m_count == 0);
-            const u32 region_index = get_region_index(c, region);
-            nbinmap12::clear(&c->m_region_meta_free_bin0, c->m_region_meta_free_bin1, region_index);
-            v_alloc_decommit(get_region_address(c, region_index), region->m_region_committed_pages << c->m_page_size_shift);
-        }
-
-        chunk_t* get_chunk_from_region(calloc_t* c, region_t* region)
-        {
-            chunk_t* chunk = nullptr;
-            if (region->m_chunks.m_free_list != nullptr)
-            {
-                chunk                        = region->m_chunks.m_free_list;
-                region->m_chunks.m_free_list = &region->m_chunks.m_array[chunk->m_next];
-            }
-            else
-            {
-                if (region->m_free_index == region->m_free_index_threshold)
-                {
-                    if (region->m_region_committed_pages == region->m_region_maximum_pages)
-                        return nullptr;
-                    byte* region_address = get_region_address(c, get_region_index(c, region));
-                    v_alloc_commit(region_address + (region->m_region_committed_pages << c->m_page_size_shift), (int_t)1 << c->m_page_size_shift);
-                    region->m_region_committed_pages++;
-                    region->m_free_index_threshold = ((region->m_region_committed_pages << c->m_page_size_shift) - sizeof(region_t)) / sizeof(chunk_t);
-                }
-                chunk = &region->m_chunks.m_array[region->m_free_index];
-                region->m_free_index++;
-            }
-
-            chunk->m_prev = D_NILL_U16;
-            chunk->m_next = D_NILL_U16;
-
-            return chunk;
-        }
-
-        static inline void activate_chunk(calloc_t* c, region_t* region, chunk_t* chunk, u8 bin_index)
-        {
-            const bin_config_t& bincfg = c->m_bin_configs[bin_index];
-
-            // initialize chunk
-            chunk->m_bin_index  = bin_index;
-            chunk->m_capacity   = (1 << bincfg.m_chunk_size_shift) / bincfg.m_alloc_size;
-            chunk->m_count      = 0;
-            chunk->m_free_index = 0;
-            chunk->m_pages      = ((int_t)1 << (bincfg.m_chunk_size_shift - c->m_page_size_shift));
-            chunk->m_bin0       = D_U64_MAX << ((chunk->m_capacity + 63) >> 6);
-            if (chunk->m_capacity > 64)
-            {
-                chunk->m_bin1 = (u64*)nfsa::allocate(c->m_internal_fsa, ((chunk->m_capacity + 63) >> 6) * sizeof(u64));
-            }
-            else
-            {
-                chunk->m_bin1 = nullptr;
-            }
-
-            // TODO commit all pages for this chunk
-            void* chunk_address = get_region_chunk_address(c, region, region_chunk_index(region, chunk));
-            v_alloc_commit(chunk_address, chunk->m_pages << c->m_page_size_shift);
-        }
-
-        static inline void deactivate_chunk(calloc_t* c, chunk_t* chunk)
-        {
-            // TODO decommit all pages
-
-            chunk->m_bin_index  = D_NILL_U8;
-            chunk->m_capacity   = 0;
-            chunk->m_count      = 0;
-            chunk->m_free_index = 0;
-            chunk->m_pages      = 0;
-            chunk->m_bin0       = 0;
-            if (chunk->m_bin1 != nullptr)
-            {
-                nfsa::deallocate(c->m_internal_fsa, chunk->m_bin1);
-                chunk->m_bin1 = nullptr;
-            }
-        }
-
-        void release_chunk_to_region(calloc_t* c, region_t* region, chunk_t* chunk)
-        {
-            chunk_t* head = region->m_chunks.m_free_list;
-            if (head == nullptr)
-            {
-                chunk->m_prev = D_NILL_U16;
-                chunk->m_next = D_NILL_U16;
-            }
-            else
-            {
-                chunk->m_prev = D_NILL_U16;
-                chunk->m_next = (u16)(region_chunk_index(region, head));
-                head->m_prev  = (u16)(region_chunk_index(region, chunk));
-            }
-            region->m_chunks.m_free_list = chunk;
-        }
-
-        chunk_t* get_active_chunk(calloc_t* c, u8 bin_index)
-        {
-            chunk_t* active_chunk = c->m_active_chunk_per_bin_config[bin_index];
-            return active_chunk;
-        }
-
-        void add_chunk_to_active_list(calloc_t* c, u8 bin_index, chunk_t* chunk)
-        {
-            ASSERT(chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16);
-            if (c->m_active_chunk_per_bin_config[bin_index] == nullptr)
-            {
-                c->m_active_chunk_per_bin_config[bin_index] = chunk;
-            }
-            else
-            {
-                chunk_t* head                               = c->m_active_chunk_per_bin_config[bin_index];
-                chunk->m_next                               = (u16)(region_chunk_index(nullptr, head));  // region is not needed here
-                head->m_prev                                = (u16)(region_chunk_index(nullptr, chunk));
-                c->m_active_chunk_per_bin_config[bin_index] = chunk;
-            }
-        }
-
-        void remove_chunk_from_active_list(calloc_t* c, u8 bin_index, chunk_t* chunk)
-        {
-            chunk_t*& head = c->m_active_chunk_per_bin_config[bin_index];
-            if (chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16)
-            {
-                head = nullptr;
-            }
-            else if (chunk->m_prev == D_NILL_U16)
-            {
-                region_t* region = get_region_at_index(c, chunk->m_region_index);
-                chunk_t*  next   = &region->m_chunks.m_array[chunk->m_next];
-                next->m_prev     = D_NILL_U16;
-                head             = next;
-            }
-            else if (chunk->m_next == D_NILL_U16)
-            {
-                region_t* region = get_region_at_index(c, chunk->m_region_index);
-                chunk_t*  prev   = &region->m_chunks.m_array[chunk->m_prev];
-                prev->m_next     = D_NILL_U16;
-            }
-            else
-            {
-                region_t* region = get_region_at_index(c, chunk->m_region_index);
-                chunk_t*  prev   = &region->m_chunks.m_array[chunk->m_prev];
-                chunk_t*  next   = &region->m_chunks.m_array[chunk->m_next];
-                prev->m_next     = chunk->m_next;
-                next->m_prev     = chunk->m_prev;
-            }
-            chunk->m_prev = D_NILL_U16;
-            chunk->m_next = D_NILL_U16;
-        }
-
-        // Allocate memory of given size
-        void* alloc(calloc_t* c, u32 size)
-        {
-            const u8            bin_index  = c->m_size_to_bin(size);
             const bin_config_t& bin_config = c->m_bin_configs[bin_index];
-            region_t*           region     = get_region(c, bin_config);
-            if (region == nullptr)
-                return nullptr;
+            {
+                // see if we have an active region for this config
+                // TODO this is actually a list (region should get next/prev pointers)
+                region_t* active_region = c->m_active_region_per_bin[bin_index];
+                if (active_region != nullptr)
+                    return active_region;
 
-            if (region_is_block_based(region))
-            {
-                // TODO, allocate a block from a region and make sure enough pages are committed
-                return nullptr;
-            }
-
-            // allocate from chunk-based region
-            chunk_t* chunk = get_active_chunk(c, bin_index);
-            if (chunk == nullptr)
-            {
-                chunk = get_chunk_from_region(c, region);
-                if (chunk == nullptr)
-                    return nullptr;
-                activate_chunk(c, region, chunk, bin_index);
-                add_chunk_to_active_list(c, bin_index, chunk);
-            }
-
-            byte* chunk_address = get_region_chunk_address(c, region, region_chunk_index(region, chunk));
-            void* ptr           = alloc_from_chunk(chunk, chunk_address, bin_config.m_alloc_size);
-            if (chunk_is_full(chunk))
-            {
-                remove_chunk_from_active_list(c, bin_index, chunk);
-            }
-            return ptr;
-        }
-
-        void dealloc(calloc_t* c, void* ptr)
-        {
-            const u32 region_index = (u32)(((const byte*)ptr - c->m_address_base) >> c->m_region_size_shift);
-            ASSERTS(region_index >= 0 && region_index < c->m_region_meta_count, "invalid region index");
-            region_t*   region         = (region_t*)(c->m_region_meta_base + ((int_t)region_index << c->m_region_meta_size_shift));
-            const byte* region_address = c->m_address_base + (region_index << c->m_region_size_shift);
-            if (region_is_block_based(region))
-            {
-                const u32 block_index = ((const byte*)ptr - region_address) >> region->m_chunk_size_shift;
-                // TODO, deallocating from a block:
-                // - validate address within region
-                // - calculate block index
-                // - mark block as free
-                // - if required, decommit pages
-            }
-            else
-            {
-                const u32 chunk_index = ((const byte*)ptr - region_address) >> region->m_chunk_size_shift;
-                chunk_t*  chunk       = &region->m_chunks.m_array[chunk_index];
-                // const byte* chunk_address     = region_address + (chunk_index << region->m_chunk_size_shift);
-                const bool chunk_full_before = chunk_is_full(chunk);
-                if (chunk->m_bin1 == nullptr)
+                // TODO obtain a new region and initialize it, this includes computing the amount of initial
+                // pages that need to be committed.
+                const i32 free_region = nbinmap12::find_and_set(&c->m_region_meta_free_bin0, c->m_region_meta_free_bin1, c->m_region_meta_count);
+                if (free_region >= 0)
                 {
-                    nbinmap6::clr(&chunk->m_bin0, chunk->m_free_index, chunk->m_count);
+                    region_t* region         = get_region_at_index(c, (u32)free_region);
+                    byte*     region_address = get_region_address(c, (u32)free_region);
+
+                    // reset region
+                    region->m_bin        = bin_index;
+                    region->m_type       = bin_config.m_region_type;
+                    region->m_free_index = 0;
+
+                    // initialize region
+                    if (bin_config.m_region_type == D_USAGE_CHUNK)
+                    {
+                        v_alloc_commit(region_address, (int_t)1 << c->m_page_size_shift);  // commit first page
+                        region->m_region_committed_pages = 1;
+                        region->m_free_index_threshold   = (((int_t)1 << c->m_page_size_shift) - sizeof(region_t)) / sizeof(chunk_t);
+                    }
+                    c->m_active_region_per_chunk_size[bin_config.m_chunk_size_shift] = region;
+                    return region;
+                }
+
+                return nullptr;
+            }
+
+            void release_region(calloc_t * c, region_t * region)
+            {
+                ASSERT(region->m_count == 0);
+                const u32 region_index = get_region_index(c, region);
+                nbinmap12::clear(&c->m_region_meta_free_bin0, c->m_region_meta_free_bin1, region_index);
+                v_alloc_decommit(get_region_address(c, region_index), region->m_region_committed_pages << c->m_page_size_shift);
+            }
+
+            chunk_t* get_chunk_from_region(calloc_t * c, region_t * region)
+            {
+                chunk_t* chunk = nullptr;
+                if (region->m_chunks.m_free_list != nullptr)
+                {
+                    chunk                        = region->m_chunks.m_free_list;
+                    region->m_chunks.m_free_list = &region->m_chunks.m_array[chunk->m_next];
                 }
                 else
                 {
-                    nbinmap12::clr(&chunk->m_bin0, chunk->m_bin1, chunk->m_free_index, chunk->m_count);
+                    if (region->m_free_index == region->m_free_index_threshold)
+                    {
+                        if (region->m_region_committed_pages == region->m_region_maximum_pages)
+                            return nullptr;
+                        byte* region_address = get_region_address(c, get_region_index(c, region));
+                        v_alloc_commit(region_address + (region->m_region_committed_pages << c->m_page_size_shift), (int_t)1 << c->m_page_size_shift);
+                        region->m_region_committed_pages++;
+                        region->m_free_index_threshold = ((region->m_region_committed_pages << c->m_page_size_shift) - sizeof(region_t)) / sizeof(chunk_t);
+                    }
+                    chunk = &region->m_chunks.m_array[region->m_free_index];
+                    region->m_free_index++;
                 }
-                chunk->m_count -= 1;
 
-                if (chunk_is_empty(chunk))
+                chunk->m_prev = D_NILL_U16;
+                chunk->m_next = D_NILL_U16;
+
+                return chunk;
+            }
+
+            static inline void activate_chunk(calloc_t * c, region_t * region, chunk_t * chunk, u8 bin_index)
+            {
+                const bin_config_t& bincfg = c->m_bin_configs[bin_index];
+
+                // initialize chunk
+                chunk->m_bin_index  = bin_index;
+                chunk->m_capacity   = (1 << bincfg.m_chunk_size_shift) / bincfg.m_alloc_size;
+                chunk->m_count      = 0;
+                chunk->m_free_index = 0;
+                chunk->m_pages      = ((int_t)1 << (bincfg.m_chunk_size_shift - c->m_page_size_shift));
+                chunk->m_bin0       = D_U64_MAX << ((chunk->m_capacity + 63) >> 6);
+                if (chunk->m_capacity > 64)
                 {
-                    // TODO:
-                    // - need logic for caching empty chunks
-                    // - remove chunk from active list
-                    // - remove chunk from region
-                    // - deactivate chunk
-                    // - if region is now completely free:
-                    //   - remove from segment
-                    //   - if segment was full before, add to active segment list
-                    //   - or if segment is now completely empty, release segment
-                    // - else
-                    //   - add chunk to free list ?
+                    chunk->m_bin1 = (u64*)nfsa::allocate(c->m_internal_fsa, ((chunk->m_capacity + 63) >> 6) * sizeof(u64));
                 }
-                else if (chunk_full_before)
+                else
                 {
-                    // TODO add chunk to active list
+                    chunk->m_bin1 = nullptr;
+                }
+
+                // TODO commit all pages for this chunk
+                void* chunk_address = get_region_chunk_address(c, region, region_chunk_index(region, chunk));
+                v_alloc_commit(chunk_address, chunk->m_pages << c->m_page_size_shift);
+            }
+
+            static inline void deactivate_chunk(calloc_t * c, chunk_t * chunk)
+            {
+                // TODO decommit all pages
+
+                chunk->m_bin_index  = D_NILL_U8;
+                chunk->m_capacity   = 0;
+                chunk->m_count      = 0;
+                chunk->m_free_index = 0;
+                chunk->m_pages      = 0;
+                chunk->m_bin0       = 0;
+                if (chunk->m_bin1 != nullptr)
+                {
+                    nfsa::deallocate(c->m_internal_fsa, chunk->m_bin1);
+                    chunk->m_bin1 = nullptr;
                 }
             }
-        }
 
-    }  // namespace nsuperallocv2
+            void release_chunk_to_region(calloc_t * c, region_t * region, chunk_t * chunk)
+            {
+                chunk_t* head = region->m_chunks.m_free_list;
+                if (head == nullptr)
+                {
+                    chunk->m_prev = D_NILL_U16;
+                    chunk->m_next = D_NILL_U16;
+                }
+                else
+                {
+                    chunk->m_prev = D_NILL_U16;
+                    chunk->m_next = (u16)(region_chunk_index(region, head));
+                    head->m_prev  = (u16)(region_chunk_index(region, chunk));
+                }
+                region->m_chunks.m_free_list = chunk;
+            }
 
-}  // namespace ncore
+            chunk_t* get_active_chunk(calloc_t * c, u8 bin_index)
+            {
+                chunk_t* active_chunk = c->m_active_chunk_per_bin_config[bin_index];
+                return active_chunk;
+            }
+
+            void add_chunk_to_active_list(calloc_t * c, u8 bin_index, chunk_t * chunk)
+            {
+                ASSERT(chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16);
+                if (c->m_active_chunk_per_bin_config[bin_index] == nullptr)
+                {
+                    c->m_active_chunk_per_bin_config[bin_index] = chunk;
+                }
+                else
+                {
+                    chunk_t* head                               = c->m_active_chunk_per_bin_config[bin_index];
+                    chunk->m_next                               = (u16)(region_chunk_index(nullptr, head));  // region is not needed here
+                    head->m_prev                                = (u16)(region_chunk_index(nullptr, chunk));
+                    c->m_active_chunk_per_bin_config[bin_index] = chunk;
+                }
+            }
+
+            void remove_chunk_from_active_list(calloc_t * c, u8 bin_index, chunk_t * chunk)
+            {
+                chunk_t*& head = c->m_active_chunk_per_bin_config[bin_index];
+                if (chunk->m_prev == D_NILL_U16 && chunk->m_next == D_NILL_U16)
+                {
+                    head = nullptr;
+                }
+                else if (chunk->m_prev == D_NILL_U16)
+                {
+                    region_t* region = get_region_at_index(c, chunk->m_region_index);
+                    chunk_t*  next   = &region->m_chunks.m_array[chunk->m_next];
+                    next->m_prev     = D_NILL_U16;
+                    head             = next;
+                }
+                else if (chunk->m_next == D_NILL_U16)
+                {
+                    region_t* region = get_region_at_index(c, chunk->m_region_index);
+                    chunk_t*  prev   = &region->m_chunks.m_array[chunk->m_prev];
+                    prev->m_next     = D_NILL_U16;
+                }
+                else
+                {
+                    region_t* region = get_region_at_index(c, chunk->m_region_index);
+                    chunk_t*  prev   = &region->m_chunks.m_array[chunk->m_prev];
+                    chunk_t*  next   = &region->m_chunks.m_array[chunk->m_next];
+                    prev->m_next     = chunk->m_next;
+                    next->m_prev     = chunk->m_prev;
+                }
+                chunk->m_prev = D_NILL_U16;
+                chunk->m_next = D_NILL_U16;
+            }
+
+            // Allocate memory of given size
+            void* alloc(calloc_t * c, u32 size)
+            {
+                const u8            bin_index  = c->m_size_to_bin(size);
+                const bin_config_t& bin_config = c->m_bin_configs[bin_index];
+                region_t*           region     = get_region(c, bin_config);
+                if (region == nullptr)
+                    return nullptr;
+
+                if (region_is_block_based(region))
+                {
+                    // TODO, allocate a block from a region and make sure enough pages are committed
+                    return nullptr;
+                }
+
+                // allocate from chunk-based region
+                chunk_t* chunk = get_active_chunk(c, bin_index);
+                if (chunk == nullptr)
+                {
+                    chunk = get_chunk_from_region(c, region);
+                    if (chunk == nullptr)
+                        return nullptr;
+                    activate_chunk(c, region, chunk, bin_index);
+                    add_chunk_to_active_list(c, bin_index, chunk);
+                }
+
+                byte* chunk_address = get_region_chunk_address(c, region, region_chunk_index(region, chunk));
+                void* ptr           = alloc_from_chunk(chunk, chunk_address, bin_config.m_alloc_size);
+                if (chunk_is_full(chunk))
+                {
+                    remove_chunk_from_active_list(c, bin_index, chunk);
+                }
+                return ptr;
+            }
+
+            void dealloc(calloc_t * c, void* ptr)
+            {
+                const u32 region_index = (u32)(((const byte*)ptr - c->m_address_base) >> c->m_region_size_shift);
+                ASSERTS(region_index >= 0 && region_index < c->m_region_meta_count, "invalid region index");
+                region_t*   region         = (region_t*)(c->m_region_meta_base + ((int_t)region_index << c->m_region_meta_size_shift));
+                const byte* region_address = c->m_address_base + (region_index << c->m_region_size_shift);
+                if (region_is_block_based(region))
+                {
+                    const u32 block_index = ((const byte*)ptr - region_address) >> region->m_chunk_size_shift;
+                    // TODO, deallocating from a block:
+                    // - validate address within region
+                    // - calculate block index
+                    // - mark block as free
+                    // - if required, decommit pages
+                }
+                else
+                {
+                    const u32 chunk_index = ((const byte*)ptr - region_address) >> region->m_chunk_size_shift;
+                    chunk_t*  chunk       = &region->m_chunks.m_array[chunk_index];
+                    // const byte* chunk_address     = region_address + (chunk_index << region->m_chunk_size_shift);
+                    const bool chunk_full_before = chunk_is_full(chunk);
+                    if (chunk->m_bin1 == nullptr)
+                    {
+                        nbinmap6::clr(&chunk->m_bin0, chunk->m_free_index, chunk->m_count);
+                    }
+                    else
+                    {
+                        nbinmap12::clr(&chunk->m_bin0, chunk->m_bin1, chunk->m_free_index, chunk->m_count);
+                    }
+                    chunk->m_count -= 1;
+
+                    if (chunk_is_empty(chunk))
+                    {
+                        // TODO:
+                        // - need logic for caching empty chunks
+                        // - remove chunk from active list
+                        // - remove chunk from region
+                        // - deactivate chunk
+                        // - if region is now completely free:
+                        //   - remove from segment
+                        //   - if segment was full before, add to active segment list
+                        //   - or if segment is now completely empty, release segment
+                        // - else
+                        //   - add chunk to free list ?
+                    }
+                    else if (chunk_full_before)
+                    {
+                        // TODO add chunk to active list
+                    }
+                }
+            }
+
+        }  // namespace nsuperallocv2
+
+    }  // namespace ncore

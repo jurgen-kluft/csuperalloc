@@ -139,48 +139,56 @@ Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data a
 # Region (32 MiB) with Blocks
 
         - Region = 32 MiB
+        - Block = 64 KiB
         - Minimum Allocation Size <= 64 KiB
         - Max Blocks per Region = 512 (* 4 bytes = 2 KiB)
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 128 KiB
         - Minimum Allocation Size <= 128 KiB
         - Max Blocks per Region = 256
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 256 KiB
         - Minimum Allocation Size <= 256 KiB
         - Max Blocks per Region = 128
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 512 KiB
         - Minimum Allocation Size <= 512 KiB
         - Max Blocks per Region = 64
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 1 MiB
         - Minimum Allocation Size <= 1 MiB
         - Max Blocks per Region = 32
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 2 MiB
         - Minimum Allocation Size <= 2 MiB
         - Max Blocks per Region = 16
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 4 MiB
         - Minimum Allocation Size <= 4 MiB
         - Max Blocks per Region = 8
         - Segment = 1 GiB
         - Max Regions per Segment = 32
 
         - Region = 32 MiB
+        - Block = 8 MiB
         - Minimum Allocation Size <= 8 MiB
         - Max Blocks per Region = 4
         - Segment = 1 GiB
@@ -189,12 +197,14 @@ Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data a
 # Region (256 MiB) with Blocks
 
         - Region = 256 MiB
+        - Block = 16 MiB
         - Minimum Allocation Size <= 16 MiB
         - Max Blocks per Region = 16
         - Segment = 1 GiB
         - Max Regions per Segment = 4
 
         - Region = 256 MiB
+        - Block = 32 MiB
         - Minimum Allocation Size <= 32 MiB
         - Max Blocks per Region = 8
         - Segment = 1 GiB
@@ -202,25 +212,29 @@ Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data a
 
 # Region (1 GiB) with Blocks
 
-        - Region = 1 GiB
+        - Region = 256 MiB
+        - Block = 64 MiB
         - Minimum Allocation Size <= 64 MiB
-        - Max Blocks per Region = 16
-        - Segment = 1 GiB
-        - Max Regions per Segment = 1
-
-        - Region = 1 GiB
-        - Minimum Allocation Size <= 128 MiB
-        - Max Blocks per Region = 8
-        - Segment = 1 GiB
-        - Max Regions per Segment = 1
-
-        - Region = 1 GiB
-        - Minimum Allocation Size <= 256 MiB
         - Max Blocks per Region = 4
         - Segment = 1 GiB
         - Max Regions per Segment = 1
 
+        - Region = 256 MiB
+        - Block = 128 MiB
+        - Minimum Allocation Size <= 128 MiB
+        - Max Blocks per Region = 2
+        - Segment = 1 GiB
+        - Max Regions per Segment = 1
+
+        - Region = 512 MiB
+        - Block = 256 MiB
+        - Minimum Allocation Size <= 256 MiB
+        - Max Blocks per Region = 2
+        - Segment = 1 GiB
+        - Max Regions per Segment = 1
+
         - Region = 1 GiB
+        - Block = 512 MiB
         - Minimum Allocation Size <= 512 MiB
         - Max Blocks per Region = 2
         - Segment = 1 GiB
