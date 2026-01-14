@@ -126,6 +126,7 @@ namespace ncore
 
 #define D_MAX_ELEMENTS_PER_CHUNK 1024
 
+        // A region consists of N chunks
         // A chunk consists of N elements with a maximum of 1024.
         // = 24 bytes (16384 / 24 = 682 chunks in one page)
         struct chunk_t
@@ -139,37 +140,35 @@ namespace ncore
         };
 
         // A region consists of N blocks
-        // Q: linked-list, do we need blocks being part of a linked-list, and for what purpose?
-        // A: we can use a binmap for free blocks as well as cached block, that would change the
-        //    size of a block to 4 bytes, and adding 2 bits for tracking.
+        // A block is a fixed size number of pages (power-of-two number of pages).
+        // But an allocation can use less pages than the block size, so we need to track
+        // the number of committed pages per block.
         struct block_t
         {
             u32 m_pages;  // number of committed pages in the block
-                          // u32 m_next;   // next/prev for linked list
         };
 
         typedef u8 (*size_to_bin_fn)(u32 size);
 
 #define D_MAX_CHUNKS_PER_REGION 512
-#define D_MAX_BLOCKS_PER_REGION 32768
+#define D_MAX_BLOCKS_PER_REGION 512
 
         // A region consists of N chunks/blocks
         // - maximum 512 chunks
-        // - maximum 32768 blocks
-        // Chunks in a region are of the same size (chunk_size_shift).
-        // A region is dedicated to a specific bin
-        // sizeof(region_t) = 32 bytes
+        // - maximum 512 blocks
+        // Chunks/Blocks in a region are of the same size (chunk_size_shift).
+        // A region is dedicated to a specific bin (allocation size).
         struct region_t
         {
             u8   m_bin;                // bin index for this region
-            u8   m_padding;            // padding
+            u8   m_type;               // region type (0=chunks, >=1 = block size shift)
             u16  m_free_index;         // index of the first free chunk/block in the region
             u16  m_count;              // number of chunks/blocks in use
             u16  m_capacity;           // total number of chunks/blocks in this region
             u32  m_chunk_free_bin0;    // free chunks binmap, level 0
-            u32* m_chunk_free_bin1;    // free chunks binmap, level 1
+            u32* m_chunk_free_bin1;    // free chunks binmap, level 1 (fsa)
             u32  m_chunk_active_bin0;  // active chunks binmap, level 0
-            u32* m_chunk_active_bin1;  // active chunks binmap, level 1
+            u32* m_chunk_active_bin1;  // active chunks binmap, level 1 (fsa)
         };
 
         inline bool chunk_is_full(chunk_t* chunk) { return chunk->m_count == chunk->m_capacity; }
