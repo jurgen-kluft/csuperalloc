@@ -425,9 +425,12 @@ namespace ncore
 
         static inline bin_config_t alloc_size_to_bin_config(u32 alloc_size)
         {
-            alloc_size = math::ceilpo2(alloc_size);
             const u8 c = math::ilog2(alloc_size);
-            ASSERT(c < (u8)DARRAYSIZE(c_bin_configs));
+            if (alloc_size > ((u32)1 << c))
+            {
+                ASSERT((c+1) < (u8)DARRAYSIZE(c_bin_configs));
+                return c_bin_configs[c + 1];
+            }
             return c_bin_configs[c];
         }
 

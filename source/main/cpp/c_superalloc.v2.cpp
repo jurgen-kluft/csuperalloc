@@ -15,83 +15,6 @@ namespace ncore
 {
     namespace nsuperallocv2
     {
-        // N region structs exist in a continues separate address space with the following size:
-        // Number-Of-Regions * N MiB. So each region has N MiB of address space to use for
-        // its own management.
-        // Each region starts at X * N MiB, where X is the region index (0,1,2,3,...)
-        // The amount of committed pages for a region depends on the configuration of that region.
-        // Example:
-        // Region-Size in the main address space = 2 GiB
-        // Chunk-Size = 64 KiB
-        // Number of chunks for region to manage = 2 GiB / 64 KiB = 32768 chunks
-        // sizeof(chunk_t) = 32 bytes * 32768 = 1.0 MiB for chunk array
-        // However we will not fully commit the full chunk array, but will commit page by page on demand.
-        // On MacOS, page-size = 16 KiB, so with one page we can already track 16 KiB / 32 B = 512 chunks.
-        // The first committed page starts with struct region_t and followed by the chunk or block array.
-        // sizeof(region_t) = 64 bytes
-        //
-        // When a region is using blocks, it is obvious that there will not be many block and so we will not
-        // even use most of the first committed page.
-        // We will accept this 'waste' for the benefit of simplicity, also there are not many regions to
-        // begin with and even less that are 'block' based. In a large address space of 256 GiB we have
-        // 256GiB/2GiB = 128 regions.
-        //
-        // The address range of a region can also be set to 1GiB, this will increase the number of regions
-        // accross the address space, but will reduce the number of chunks/blocks per region. Or it will
-        // enable to have smaller chunk sizes while keeping the number of chunks/blocks per region manageable.
-        //
-        // Region-Size in the main address space = 1GiB
-        // Chunk-Size = 16 KiB
-        // Number of chunks for region to manage = 1 GiB / 16 KiB = 65536 chunks
-        // sizeof(chunk_t) = 32 bytes * 65536 = 2.0 MiB for chunk array
-        //
-        // Chunk-Size = 64 KiB
-        // Number of chunks for region to manage = 1 GiB / 64 KiB = 16384 chunks
-        // sizeof(chunk_t) = 32 bytes * 16384 = 0.5 MiB for chunk array
-        //
-        // With a full address range of 256 GiB we would have 256 regions of 1 GiB each.
-        // This would mean a maximum of 256 * 2.0 MiB = 512 MiB of address space used for chunk arrays
-        //
-        // Note: If we also want to have the meta-data for chunks be part of the region data then we need
-        // max binmap bin1 = 1024 elements -> 1024 bits = 128 bytes per chunk
-        // max number of chunks = 65536
-        // 128 bytes * 65536 = 8 MiB (bin1) + 2 MiB (chunk_t array) = 10 MiB per region (we could limit it to 32 MiB?)
-        // With 256 regions this would be 256 * 34 MiB = 8.5 GiB of address space used for chunk meta-data
-        //
-        // The above setup makes the whole management of regions and chunks/blocks a lot simpler.
-        //
-        // Note: The array of sections will be outside of the region address space, so that we have
-        //       all the 2 MiB available for either the array of chunks or the array of blocks.
-
-        /*
-        Blocks:
-
-        To manage blocks, every region has a block array (block_t[]) instead of chunk array (chunk_t[]). The sizeof(block_t)
-        is 8 bytes, and in 2 MiB we can hold 2 MiB / 8 = 256 K blocks.
-
-        A region is 4 GiB, so the smallest block we can possibly manage is 4 GiB / 256 K = 16 KiB.
-
-        Blocks are handled differently than chunks, as blocks are committed page by page. So when a block is requested,
-        we need to make sure that the block has enough committed pages to fullfill the request. If not, we need to commit
-        (or decommit) pages to match the requested allocation size.
-
-        */
-
-        /*
-        Caching:
-
-          Every bin (should be) configured with some details on how many chunks/block it should cache.
-          When a chunk/block is freed, it is added to the bin's cache list. When the cache list exceeds the
-          maximum number of cached chunks/blocks, the oldest chunk/block is removed from the cache, deactivated
-          and added to the free list.
-
-          OR
-
-          Should we just track the amount of 'memory' that is cached, and when exceeding a certain threshold,
-          we remove oldest chunks/blocks until we are below the threshold again?
-
-        */
-
         enum
         {
             c4KiB   = 12,
@@ -117,14 +40,6 @@ namespace ncore
             c4GiB   = 32,
         };
 
-        struct region_config_t
-        {
-            u8 m_index;
-            u8 m_region_size_shift;
-            u8 m_chunk_size_shift;
-            u8 m_block_size_shift;
-        };
-
         struct alloc_config_t
         {
             u32 m_alloc_size;  // size of elements in this bin
@@ -132,6 +47,10 @@ namespace ncore
             u8  m_chunk_size_shift;
             u8  m_block_size_shift;
             u8  m_region_index;
+
+            inline u16 num_elements_per_chunk() const { return ((u32)1 << m_chunk_size_shift) / m_alloc_size; }
+            inline u16 num_chunks_per_region() const { return (u16)((u32)1 << (m_region_size_shift - m_chunk_size_shift)); }
+            inline u16 num_blocks_per_region() const { return (u16)((u32)1 << (m_region_size_shift - m_block_size_shift)); }
 
             void chunks(u16 mb, u16 kb, u16 b, u8 rss, u8 css)
             {
@@ -164,11 +83,14 @@ namespace ncore
             return ((u8)(u - 4) * 4) + (u8)i;
         }
 
+#define D_MAX_SEGMENTS           1024
+#define D_MAX_REGIONS            65535
+#define D_MAX_CHUNKS_PER_REGION  512
+#define D_MAX_BLOCKS_PER_REGION  512
 #define D_MAX_ELEMENTS_PER_CHUNK 1024
 
-        // A region consists of N chunks
         // A chunk consists of N elements with a maximum of 1024.
-        // = 16 bytes (512 * 16 = 8 KiB)
+        // 16 bytes
         struct chunk_t
         {
             u16 m_pages;       // number of committed pages in the chunk
@@ -190,43 +112,36 @@ namespace ncore
 
         typedef u8 (*size_to_bin_fn)(u32 size);
 
-#define D_MAX_CHUNKS_PER_REGION 512
-#define D_MAX_BLOCKS_PER_REGION 512
-
         // A region consists of N chunks/blocks
-        // - maximum 512 chunks
-        // - maximum 512 blocks
-        // Chunks/Blocks in a region are of the same size (chunk_size_shift).
-        // A region is dedicated to a specific bin (allocation size).
+        // Chunks in a region are of the same size (chunk_size_shift).
+        // A region is dedicated to a specific index (alloc config).
         struct region_t
         {
-            u32 m_next;               // next region in list
-            u16 m_free_index;         // index of the first free chunk/block in the region
-            u16 m_count;              // number of chunks/blocks in use
-            u16 m_capacity;           // capacity (number of chunks/blocks) in this regionp
+            u16 m_chunk_free_index;   // index of the first free chunk/block in the region
+            u16 m_chunk_count;        // number of chunks/blocks in use
             u8  m_alloc_index;        // the alloc config index for this region
             u8  m_local_index;        // the index of this region in the region array of segment
             u16 m_segment_index;      // the segment index this region belongs to
+            u32 m_chunk_array;        // array of chunk/block indices (fsa, idx2ptr)
             u32 m_chunk_free_bin0;    // free chunks binmap, level 0
+            u32 m_chunk_free_bin1;    // free chunks binmap, level 1 (fsa, idx2ptr)
             u32 m_chunk_active_bin0;  // active chunks binmap, level 0
-            // These 2 array's are always allocated just before the chunk/block array
-            // Each of them is 64 bytes, so both combined are 128 bytes
-            // u32* m_chunk_free_bin1;    // free chunks binmap, level 1 (fsa, idx2ptr)
-            // u32* m_chunk_active_bin1;  // active chunks binmap, level 1 (fsa, idx2ptr)
+            u32 m_chunk_active_bin1;  // active chunks binmap, level 1 (fsa, idx2ptr)
+            u32 m_next;               // next region in list
         };
 
-        // 32 bytes
+        // A segment consists of N regions
+        // 16 bytes
         struct segment_t
         {
-            u32  m_free_bin0;          // binmap level 0 of free regions
-            u8   m_region_size_shift;  // size of regions in this segment
-            u8   m_region_max;         // maximum number of regions in this segment
-            u8   m_region_used;        // number of used regions in this segment
-            u8   m_padding;            // padding
-            u32* m_region_array;       // array of regions in this segment
-            u16  m_next;               // next segment in list
-            u16  m_prev;               // previous segment in list
-            u32  m_padding1;           // padding
+            u32 m_region_free_list;   // binmap level 0 of free regions
+            u32 m_region_array;       // array of region indices (fsa, idx2ptr)
+            u8  m_region_free_index;  // index of first free region in this segment
+            u8  m_region_size_shift;  // size of regions in this segment
+            u8  m_region_capacity;    // maximum number of regions in this segment
+            u8  m_region_count;       // number of used regions in this segment
+            u16 m_next;               // segment list
+            u16 m_prev;               // segment list
         };
 
         struct calloc_t
@@ -255,8 +170,10 @@ namespace ncore
             u32*      m_active_regions_per_index;  // active regions per index
 
             // segments
-            u32        m_segments_free_bin0;              // binmap bin0 of free segments
-            u32*       m_segments_free_bin1;              // binmap bin1 of free segments (heap)
+            u16        m_segments_free_list;              // head of free segment list
+            u32        m_segments_free_index;             // index to the first free segment
+            u32        m_segments_capacity;               // maximum number of segments
+            u32        m_segments_count;                  // number of segments in use
             segment_t* m_segments;                        // segment array (pre-allocated), this is where we allocate segment_t from
             u16*       m_active_segment_per_region_size;  // active segments per region size
         };
@@ -273,9 +190,8 @@ namespace ncore
             u32 const segment_count      = (u32)(c->m_address_size >> segment_size_shift);
             c->m_segments                = (segment_t*)allocator_mem;
             allocator_mem += sizeof(segment_t) * segment_count;
-            c->m_segments_free_bin0 = 0;
-            c->m_segments_free_bin1 = (u32*)allocator_mem;
-            allocator_mem += sizeof(u32) * ((segment_count + 31) / 32);
+            c->m_segments_free_list             = 0xFFFF;
+            c->m_segments_free_index            = 0;
             c->m_active_segment_per_region_size = (u16*)allocator_mem;
             allocator_mem += sizeof(u16) * 16;
         }
@@ -300,13 +216,13 @@ namespace ncore
 
             i32 i = 0;
             c->m_alloc_configs[i++].chunks(0, 0, 16, c8MiB, c16KiB);     // 16
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);    // 20
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);    // 24
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);    // 28
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 20
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 24
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 28
             c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);    // 32
-            c->m_alloc_configs[i++].chunks(0, 0, 48, c32MiB, c64KiB);    // 40
-            c->m_alloc_configs[i++].chunks(0, 0, 48, c32MiB, c64KiB);    // 48
-            c->m_alloc_configs[i++].chunks(0, 0, 64, c32MiB, c64KiB);    // 56
+            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);    // 40
+            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);    // 48
+            c->m_alloc_configs[i++].chunks(0, 0, 64, c16MiB, c32KiB);    // 56
             c->m_alloc_configs[i++].chunks(0, 0, 64, c32MiB, c64KiB);    // 64
             c->m_alloc_configs[i++].chunks(0, 0, 80, c32MiB, c64KiB);    // 80
             c->m_alloc_configs[i++].chunks(0, 0, 96, c32MiB, c64KiB);    // 96
@@ -514,7 +430,53 @@ namespace ncore
             u8 m_block_size_shift;   // size of chunks/blocks in this region
         };
 
-        static inline u16       get_segment_index(calloc_t* c, segment_t* segment) { return (u16)(segment - c->m_segments); }
+        static inline u16 get_segment_index(calloc_t* c, segment_t* segment) { return (u16)(segment - c->m_segments); }
+
+        static inline segment_t* get_segment_at_index(calloc_t* c, u16 segment_index) { return &c->m_segments[segment_index]; }
+        static inline segment_t* get_segment_for_region_size(calloc_t* c, u8 region_size_shift)
+        {
+            const u32 segment_index = c->m_active_segment_per_region_size[region_size_shift];
+            if (segment_index == 0xFFFF)
+                return nullptr;
+            return &c->m_segments[segment_index];
+        }
+        static inline void add_segment_for_region_size(calloc_t* c, segment_t* segment)
+        {
+            u16&      list_head     = c->m_active_segment_per_region_size[segment->m_region_size_shift];
+            const u16 segment_index = get_segment_index(c, segment);
+            segment->m_next         = list_head;
+            list_head               = segment_index;
+        }
+
+        static inline segment_t* allocate_segment(calloc_t* c, u8 region_size_shift)
+        {
+            i16 segment_index = 0xFFFF;
+            if (c->m_segments_free_list != 0xFFFF)
+            {
+                segment_index           = c->m_segments_free_list;
+                c->m_segments_free_list = c->m_segments[segment_index].m_next;
+            }
+            else if (c->m_segments_free_index < c->m_segments_capacity)
+            {
+                segment_index = c->m_segments_free_index++;
+            }
+            else
+            {
+                return nullptr;
+            }
+
+            segment_t* segment           = get_segment_at_index(c, segment_index);
+            segment->m_region_size_shift = region_size_shift;
+            segment->m_region_capacity   = 1 << (c->m_segment_size_shift - region_size_shift);
+            segment->m_region_count      = 0;
+            segment->m_region_free_list  = 0xFFFFFFFF;
+            segment->m_region_free_index = 0;
+            segment->m_next              = 0xFFFF;
+            segment->m_prev              = 0xFFFF;
+
+            return segment;
+        }
+
         static inline u32       get_region_index(calloc_t* c, region_t* region) { return (u32)(region - c->m_regions); }
         static inline region_t* get_region_at_index(calloc_t* c, u32 region_index) { return &c->m_regions[region_index]; }
         static inline byte*     get_region_address(calloc_t* c, region_t* region)
@@ -541,68 +503,94 @@ namespace ncore
             return &c->m_regions[region_index];
         }
 
-        static inline bool allocate_region(calloc_t* c, u8 alloc_index, segment_t* segment, region_t*& out_region)
+        static inline region_t* allocate_region(calloc_t* c, u8 alloc_index, segment_t* segment)
         {
             const u8 min_region_size_shift = 25;  // 32 MiB
 
-            u32 region_index = 0xFFFFFFFF;
-            out_region       = nullptr;
+            u32       region_index = 0xFFFFFFFF;
+            region_t* region       = nullptr;
             if (c->m_regions_free_list != 0xFFFFFFFF)
             {
                 // allocate from free list
                 region_index           = c->m_regions_free_list;
-                out_region             = &c->m_regions[region_index];
-                c->m_regions_free_list = out_region->m_next;
+                region                 = &c->m_regions[region_index];
+                c->m_regions_free_list = region->m_next;
             }
             else if (c->m_regions_free_index < c->m_regions_capacity)
             {
                 // allocate new region
                 region_index = c->m_regions_free_index;
-                out_region   = &c->m_regions[region_index];
+                region       = &c->m_regions[region_index];
                 c->m_regions_free_index += 1;
                 c->m_regions_count += 1;
 
                 // TODO do we need to commit a page for region array ?
             }
 
-            if (out_region != nullptr)
+            if (region != nullptr)
             {
-                out_region->m_alloc_index       = alloc_index;
-                out_region->m_next              = 0xFFFFFFFF;
-                out_region->m_free_index        = 0;
-                out_region->m_count             = 0;
-                out_region->m_capacity          = 0;
-                out_region->m_chunk_free_bin0   = 0;
-                out_region->m_chunk_active_bin0 = 0;
+                const alloc_config_t& alloc_config = c->m_alloc_configs[alloc_index];
+
+                region->m_alloc_index       = alloc_index;
+                region->m_next              = 0xFFFFFFFF;
+                region->m_chunk_free_index  = 0;
+                region->m_chunk_count       = 0;
+                region->m_chunk_free_bin0   = 0;
+                region->m_chunk_active_bin0 = 0;
+
+                if (alloc_config.num_chunks_per_region() > 32)
+                {
+                    u32* free_bin1              = g_allocate_array<u32>(c->m_internal_fsa, (alloc_config.num_chunks_per_region() >> 5));
+                    u32* active_bin1            = g_allocate_array<u32>(c->m_internal_fsa, (alloc_config.num_chunks_per_region() >> 5));
+                    region->m_chunk_free_bin1   = nfsa::ptr2idx(c->m_internal_fsa, free_bin1);
+                    region->m_chunk_active_bin1 = nfsa::ptr2idx(c->m_internal_fsa, active_bin1);
+                }
+                else
+                {
+                    region->m_chunk_free_bin1   = 0xFFFFFFFF;
+                    region->m_chunk_active_bin1 = 0xFFFFFFFF;
+                }
 
                 // add region to segment
-                const s32 segment_region_idx                = nbinmap5::find_and_set(&segment->m_free_bin0, segment->m_region_max);
-                segment->m_region_array[segment_region_idx] = region_index;
-                segment->m_region_used += 1;
+                u8 segment_region_idx = 0;
+
+                if (segment->m_region_free_list != 0xFFFFFFFF)
+                {
+                    segment_region_idx          = (u8)segment->m_region_free_list;
+                    segment->m_region_free_list = segment->m_region_free_index;
+                    segment->m_region_count += 1;
+                }
+                else if (segment->m_region_free_index < segment->m_region_capacity)
+                {
+                    segment_region_idx = (u8)segment->m_region_free_index++;
+                    segment->m_region_count += 1;
+                }
+                else
+                {
+                    ASSERT(false);  // segment has no more free regions?
+                }
 
                 ASSERT(segment_region_idx >= 0 && segment_region_idx < 256);
-                out_region->m_local_index   = (u8)segment_region_idx;
-                out_region->m_segment_index = get_segment_index(c, segment);
-
-                return true;
+                region->m_local_index   = (u8)segment_region_idx;
+                region->m_segment_index = get_segment_index(c, segment);
             }
-            return false;
+            return region;
         }
 
-        static inline void activate_region(calloc_t* c, u8 alloc_index, region_t* region)
+        static inline void activate_region(calloc_t* c, region_t* region)
         {
             // set region properties
-            const alloc_config_t& alloc_config = c->m_alloc_configs[alloc_index];
+            const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
 
-            region->m_alloc_index       = alloc_index;
-            region->m_free_index        = 0;
-            region->m_count             = 0;
-            const u32 capacity          = (u16)(1 << (alloc_config.m_region_size_shift - (alloc_config.m_chunk_size_shift >= 1 ? alloc_config.m_chunk_size_shift : alloc_config.m_chunk_size_shift)));
-            region->m_chunk_free_bin0   = D_U32_MAX << ((capacity + 31) >> 5);
+            region->m_alloc_index       = alloc_config.m_region_index;
+            region->m_chunk_free_index  = 0;
+            region->m_chunk_count       = 0;
+            const u32 capacity          = alloc_config.num_chunks_per_region();
+            region->m_chunk_free_bin0   = D_U32_MAX;
             region->m_chunk_active_bin0 = 0;
 
             // commit region memory
-            const alloc_config_t& alloc_config        = c->m_alloc_configs[alloc_index];
+            const alloc_config_t& alloc_config        = c->m_alloc_configs[region->m_alloc_index];
             const u32             region_data_size    = (u32)(1 << 14);
             void*                 region_data_address = get_region_address(c, region);
             v_alloc_commit(region_data_address, region_data_size);
@@ -639,11 +627,23 @@ namespace ncore
         static inline void release_region(calloc_t* c, region_t* region)
         {
             const u32  region_index         = get_region_index(c, region);
-            const u32  segment_index        = region_index >> 5;
+            const u32  segment_index        = region->m_segment_index;
             segment_t* segment              = &c->m_segments[segment_index];
-            const u32  segment_region_index = region_index & 31;
-            segment->m_free_bin0 |= (1 << segment_region_index);
+            const u32  segment_region_index = region->m_local_index;
+            if (segment->m_region_free_list == 0xFFFFFFFF)
+            {
+                segment->m_region_free_list = region_index;
+                region->m_next              = 0xFFFFFFFF;
+            }
+            else
+            {
+                u32 region_head_index       = segment->m_region_free_list;
+                segment->m_region_free_list = region_index;
+                region->m_next              = region_head_index;
+            }
+
             // TODO decommit region memory and release any other resources
+
         }
 
         static inline u32* get_region_free_chunk_bin1(calloc_t* c, region_t* region)
@@ -658,10 +658,11 @@ namespace ncore
             return (u32*)(region_data + (sizeof(u32) * 32));
         }
 
-        chunk_t* allocate_chunk_from_region(calloc_t* c, region_t* region)
+        static inline chunk_t* allocate_chunk_from_region(calloc_t* c, region_t* region)
         {
+            const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
             u32*      bin1  = get_region_free_chunk_bin1(c, region);
-            const s32 index = nbinmap10::find_and_set(&region->m_chunk_free_bin0, bin1, region->m_capacity);
+            const s32 index = nbinmap10::find_and_set(&region->m_chunk_free_bin0, bin1, alloc_config.num_chunks_per_region());
             if (index >= 0)
             {
                 chunk_t* chunk = region_chunk(c, region, (u32)index);
@@ -670,9 +671,9 @@ namespace ncore
             return nullptr;
         }
 
-        static inline void activate_chunk(calloc_t* c, region_t* region, chunk_t* chunk, u8 alloc_index)
+        static inline void activate_chunk(calloc_t* c, region_t* region, chunk_t* chunk)
         {
-            const alloc_config_t& bincfg = c->m_alloc_configs[alloc_index];
+            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
 
             // initialize chunk
             chunk->m_capacity   = (1 << bincfg.m_chunk_size_shift) / bincfg.m_alloc_size;
@@ -713,27 +714,30 @@ namespace ncore
             // todo
         }
 
-        chunk_t* get_active_chunk(calloc_t* c, u8 alloc_index, region_t* region)
+        chunk_t* get_active_chunk(calloc_t* c, region_t* region)
         {
+            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
             const u32* active_bin1 = get_region_active_chunk_bin1(c, region);
-            s32 const  chunk_index = nbinmap10::find(&region->m_chunk_active_bin0, active_bin1, region->m_capacity);
+            s32 const  chunk_index = nbinmap10::find(&region->m_chunk_active_bin0, active_bin1, bincfg.num_chunks_per_region());
             if (chunk_index < 0)
                 return nullptr;
             return region_chunk(c, region, (u32)chunk_index);
         }
 
-        void add_chunk_to_active(calloc_t* c, u8 alloc_index, region_t* region, chunk_t* chunk)
+        void add_chunk_to_active(calloc_t* c, region_t* region, chunk_t* chunk)
         {
+            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
             const u32 chunk_index = region_chunk_index(c, region, chunk);
             u32*      active_bin1 = get_region_active_chunk_bin1(c, region);
-            nbinmap10::set(&region->m_chunk_active_bin0, active_bin1, chunk_index, region->m_capacity);
+            nbinmap10::set(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
-        void remove_chunk_from_active(calloc_t* c, u8 alloc_index, region_t* region, chunk_t* chunk)
+        void remove_chunk_from_active(calloc_t* c,   region_t* region, chunk_t* chunk)
         {
+            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
             const u32 chunk_index = region_chunk_index(c, region, chunk);
             u32*      active_bin1 = get_region_active_chunk_bin1(c, region);
-            nbinmap10::clr(&region->m_chunk_active_bin0, active_bin1, chunk_index, region->m_capacity);
+            nbinmap10::clr(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
         // Allocate memory of given size
@@ -744,37 +748,44 @@ namespace ncore
             region_t*             region       = get_active_region(c, alloc_config);
             if (region == nullptr)
             {
-                region = allocate_region(c, alloc_config);
+                segment_t* segment = get_segment_for_region_size(c, alloc_config.m_region_size_shift);
+                if (segment == nullptr)
+                {
+                    segment_t* segment = allocate_segment(c, alloc_config.m_region_size_shift);
+                    add_segment_for_region_size(c, segment);
+                }
+
+                region = allocate_region(c, alloc_index, segment);
                 if (region == nullptr)
                     return nullptr;
-                activate_region(c, alloc_config, region);
+                activate_region(c, region);
                 add_region_to_active(c, region, alloc_config);
             }
 
-            if (region_is_block_based(region))
+            if (region_is_block_based(c, region))
             {
                 // TODO, allocate a block from a region and make sure enough pages are committed
                 return nullptr;
             }
 
             // allocate from chunk-based region
-            chunk_t* chunk = get_active_chunk(c, alloc_index);
+            chunk_t* chunk = get_active_chunk(c, region);
             if (chunk == nullptr)
             {
                 chunk = allocate_chunk_from_region(c, region);
                 if (chunk == nullptr)
                     return nullptr;
-                activate_chunk(c, region, chunk, alloc_index);
-                add_chunk_to_active(c, alloc_index, region, chunk);
+                activate_chunk(c, region, chunk);
+                add_chunk_to_active(c, region, chunk);
 
                 // TODO does the region still have empty chunks ?
             }
 
             byte* chunk_address = get_region_chunk_address(c, region, region_chunk_index(c, region, chunk));
-            void* ptr           = alloc_from_chunk(chunk, chunk_address, alloc_config.m_alloc_size);
+            void* ptr           = alloc_from_chunk(c, chunk, chunk_address, alloc_config.m_alloc_size);
             if (chunk_is_full(chunk))
             {
-                remove_chunk_from_active(c, alloc_index, region, chunk);
+                remove_chunk_from_active(c, region, chunk);
             }
             return ptr;
         }
@@ -804,13 +815,14 @@ namespace ncore
                 chunk_t*    chunk             = region_chunk(c, region, chunk_index);
                 const byte* chunk_address     = region_address + (chunk_index << alloc_config.m_chunk_size_shift);
                 const bool  chunk_full_before = chunk_is_full(chunk);
-                if (chunk->m_free_bin1 == nullptr)
+                if (chunk->m_free_bin1 == 0xFFFFFFFF)
                 {
-                    nbinmap6::clr(&chunk->m_free_bin0, chunk->m_free_index, chunk->m_count);
+                    nbinmap5::clr(&chunk->m_free_bin0, chunk->m_free_index, chunk->m_count);
                 }
                 else
                 {
-                    nbinmap12::clr(&chunk->m_free_bin0, chunk->m_free_bin1, chunk->m_free_index, chunk->m_count);
+                    u32* bin1 = (u32*)nfsa::idx2ptr(c->m_internal_fsa, chunk->m_free_bin1);
+                    nbinmap10::clr(&chunk->m_free_bin0, bin1, chunk->m_free_index, chunk->m_count);
                 }
                 chunk->m_count -= 1;
 
