@@ -11,10 +11,11 @@ namespace ncore
 
     namespace nfsa
     {
-        // address range should be a power-of-two, and section size as well
-        // maximum address range = 32 GiB, minimum address range = 256 MiB
+        // address range should be a power-of-two, and a multiple of 64 KiB
+        // maximum address range = 4 GiB, minimum address range = 2 MiB
         fsa_t* new_fsa(u64 address_range = 1 * cGB);
         void   destroy(fsa_t* fsa);
+        // minimum alloc size is 8 bytes, maximum alloc size is 32 KiB
         void*  allocate(fsa_t* fsa, u32 size);
         void   deallocate(fsa_t* fsa, void* ptr);
         u32    get_size(fsa_t* fsa, void* ptr);
