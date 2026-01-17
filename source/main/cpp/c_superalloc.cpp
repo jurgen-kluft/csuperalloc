@@ -528,7 +528,7 @@ namespace ncore
             m_config = config;
 
             m_internal_heap = narena::new_arena(config->m_internal_heap_address_range, config->m_internal_heap_pre_size);
-            m_internal_fsa  = nfsa::new_fsa(config->m_internal_fsa_address_range);
+            m_internal_fsa  = nfsa::new_fsa(config->m_internal_fsa_block_count);
 
             m_superspace = g_allocate<nsuperspace::alloc_t>(m_internal_heap);
             m_superspace->initialize(config, m_internal_heap, m_internal_fsa);

@@ -130,9 +130,8 @@ namespace ncore
             const u64 c_section_address_range       = sSectionSize_Max;
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
-            const u32 c_internal_fsa_address_range  = 256 * cMB;  // Note: max 256 segments
-            const u32 c_internal_fsa_section_size   = 8 * cMB;    // Note: max 256 blocks (smallest block is 64KB)
-            const u32 c_internal_fsa_pre_size       = 16 * cMB;
+            const u32 c_internal_fsa_block_count    = 1024;
+            const u32 c_internal_fsa_block_size     = 64 * cKB;
 
             nsuperalloc_config_25p::config_25p_t* config = &nsuperalloc_config_25p::s_config;
 
@@ -140,9 +139,8 @@ namespace ncore
             config->m_section_address_range       = c_section_address_range;
             config->m_internal_heap_address_range = c_internal_heap_address_range;
             config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
-            config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
-            config->m_internal_fsa_section_size   = c_internal_fsa_section_size;
-            config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+            config->m_internal_fsa_block_count    = c_internal_fsa_block_count;
+            config->m_internal_fsa_block_size     = c_internal_fsa_block_size;
             config->m_section_minsize_shift       = sSectionSize_Min;
             config->m_section_maxsize_shift       = sSectionSize_Max;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;
@@ -312,9 +310,8 @@ namespace ncore
             const u64 c_section_address_range       = sSectionSize_Max;
             const u32 c_internal_heap_address_range = 32 * cMB;
             const u32 c_internal_heap_pre_size      = 4 * cMB;
-            const u32 c_internal_fsa_address_range  = 256 * cMB;
-            const u32 c_internal_fsa_section_size   = 8 * cMB;
-            const u32 c_internal_fsa_pre_size       = 16 * cMB;
+            const u32 c_internal_fsa_block_count    = 2048;
+            const u32 c_internal_fsa_block_size     = 64 * cKB;
 
             nsuperalloc_config_10p::config_10p_t* config = &nsuperalloc_config_10p::s_config;
 
@@ -322,9 +319,8 @@ namespace ncore
             config->m_section_address_range       = c_section_address_range;
             config->m_internal_heap_address_range = c_internal_heap_address_range;
             config->m_internal_heap_pre_size      = c_internal_heap_pre_size;
-            config->m_internal_fsa_address_range  = c_internal_fsa_address_range;
-            config->m_internal_fsa_section_size   = c_internal_fsa_section_size;
-            config->m_internal_fsa_pre_size       = c_internal_fsa_pre_size;
+            config->m_internal_fsa_block_count    = c_internal_fsa_block_count;
+            config->m_internal_fsa_block_size     = c_internal_fsa_block_size;
             config->m_section_minsize_shift       = sSectionSize_Min;
             config->m_section_maxsize_shift       = sSectionSize_Max;
             config->m_num_chunkconfigs            = c_num_chunkconfigs;

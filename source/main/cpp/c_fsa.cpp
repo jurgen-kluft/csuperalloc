@@ -15,7 +15,6 @@ namespace ncore
     struct fsa_t
     {
         u32 m_base_offset;            // offset to the base address
-        u16 m_header_pages;           // number of pages used by fsa header
         u32 m_block_free_index;       //
         u32 m_block_free_list;        //
         u32 m_block_capacity;         //
@@ -56,10 +55,8 @@ namespace ncore
             inline u16 capacity() const { return (1 << (c64KB - m_alloc_size_shift)); }
         };
 
-        static inline void* toaddress(void* base, u64 offset) { return (void*)((ptr_t)base + offset); }
-        static inline ptr_t todistance(void const* base, void const* ptr) { return (ptr_t)((ptr_t)ptr - (ptr_t)base); }
         static inline byte* base_address(fsa_t* fsa) { return (byte*)fsa + fsa->m_base_offset; }
-        static inline bool  is_managed_by(fsa_t* fsa, void const* ptr) { return ptr >= base_address(fsa) && ptr < toaddress(base_address(fsa), ((u64)fsa->m_block_capacity << fsa->m_block_size_shift)); }
+        static inline bool  is_managed_by(fsa_t* fsa, void const* ptr) { return ptr >= base_address(fsa) && ptr < (base_address(fsa) + ((u64)fsa->m_block_capacity << fsa->m_block_size_shift)); }
 
         namespace nblock
         {
@@ -67,12 +64,12 @@ namespace ncore
             inline bool is_empty(block_t* block) { return block->m_item_count == 0; }
 
             inline u16   ptr_to_item_idx(u8 alloc_size_shift, const byte* block_address, const byte* elem) { return (u16)(((u64)elem - (u64)block_address) >> alloc_size_shift); }
-            inline void* item_idx_to_ptr(u8 alloc_size_shift, byte* block_address, u16 index) { return toaddress(block_address, ((u64)index << alloc_size_shift)); }
+            inline byte* item_idx_to_ptr(u8 alloc_size_shift, byte* block_address, u16 index) { return block_address + ((u64)index << alloc_size_shift); }
 
             void* allocate_item(block_t* block, byte* block_address)
             {
                 u16* item = nullptr;
-                if (block->m_item_freelist != D_NILL_U32)
+                if (block->m_item_freelist != D_NILL_U16)
                 {
                     const u16 item_index   = block->m_item_freelist;
                     item                   = (u16*)item_idx_to_ptr(block->m_alloc_size_shift, block_address, item_index);
@@ -96,9 +93,10 @@ namespace ncore
                 return item;
             }
 
-            void deallocate_item(block_t* block, byte* block_address, u16 item_index)
+            void deallocate_item(block_t* block, byte* block_address, byte* ptr)
             {
                 ASSERT(block->m_item_count > 0);
+                u16 const item_index = nblock::ptr_to_item_idx(block->m_alloc_size_shift, block_address, ptr);
                 ASSERT(item_index < block->m_item_freeindex);
                 u16* const item = (u16*)item_idx_to_ptr(block->m_alloc_size_shift, block_address, item_index);
 #ifdef FSA_DEBUG
@@ -109,11 +107,13 @@ namespace ncore
                 block->m_item_count--;
             }
 
+            static inline byte*    get_block_address(fsa_t* fsa, u32 block_index) { return (byte*)fsa + (fsa->m_base_offset) + ((u64)block_index << fsa->m_block_size_shift); }
+            static inline u32      get_block_index(fsa_t* fsa, byte const* ptr) { return (u32)((u64)(ptr - base_address(fsa)) >> fsa->m_block_size_shift); }
             static inline block_t* get_block_array(fsa_t* fsa) { return (block_t*)((byte*)fsa + sizeof(fsa_t)); }
 
-            static inline block_t* block_from_index(fsa_t* fsa, u16 index)
+            static inline block_t* block_from_index(fsa_t* fsa, u32 index)
             {
-                ASSERT(index < section->m_block_max_count);
+                ASSERT(index < fsa->m_block_capacity);
                 block_t* block_array = get_block_array(fsa);
                 return &block_array[index];
             }
@@ -126,13 +126,13 @@ namespace ncore
 
             static inline u32& get_active_block_list(fsa_t* fsa, u8 alloc_size_shift)
             {
-                ASSERT(alloc_size_shift >= 16 && alloc_size_shift < 32);
-                return fsa->m_active_block_list[alloc_size_shift - c64KB];
+                ASSERT(alloc_size_shift >= 3 && alloc_size_shift < 16);
+                return fsa->m_active_block_list[alloc_size_shift];
             }
 
             static inline block_t* get_active_block(fsa_t* fsa, u8 alloc_size_shift)
             {
-                ASSERT(alloc_size_shift >= 16 && alloc_size_shift < 32);
+                ASSERT(alloc_size_shift >= 3 && alloc_size_shift < 16);
                 const u32 head = get_active_block_list(fsa, alloc_size_shift);
                 if (head == D_NILL_U32)
                     return nullptr;
@@ -187,12 +187,9 @@ namespace ncore
                 }
             }
 
-            static inline byte* get_block_address(fsa_t* fsa, u32 block_index) { return (byte*)fsa + (fsa->m_base_offset) + ((u64)block_index << fsa->m_block_size_shift); }
-            static inline u32   get_block_index(fsa_t* fsa, byte const* ptr) { return (u32)((u64)(ptr - base_address(fsa)) >> fsa->m_block_size_shift); }
-
             block_t* allocate_block(fsa_t* fsa, u8 alloc_size_shift)
             {
-                ASSERT(alloc_size_shift < 32);
+                ASSERT(alloc_size_shift < 16);
                 block_t* block       = nullptr;
                 u32      block_index = D_NILL_U32;
                 if (fsa->m_block_free_list != D_NILL_U32)
@@ -206,7 +203,13 @@ namespace ncore
                     block_index = fsa->m_block_free_index++;
                     block       = block_from_index(fsa, block_index);
 
-                    // TODO check if we need to commit more pages for the block array!
+                    // check if we need to commit more pages for the block array!
+                    const u32 previous_page_index = (u32)((u64)block >> fsa->m_page_size_shift);
+                    const u32 next_page_index     = (u32)((u64)(block + 1) >> fsa->m_page_size_shift);
+                    if (next_page_index > previous_page_index)
+                    {
+                        v_alloc_commit((void*)((u64)fsa + ((u64)next_page_index << fsa->m_page_size_shift)), (int_t)(1 << fsa->m_page_size_shift));
+                    }
                 }
                 else
                 {
@@ -217,7 +220,7 @@ namespace ncore
                 block->m_prev             = D_NILL_U32;
                 block->m_item_freeindex   = 0;
                 block->m_item_count       = 0;
-                block->m_item_freelist    = D_NILL_U32;
+                block->m_item_freelist    = D_NILL_U16;
                 block->m_alloc_size_shift = alloc_size_shift;
                 block->m_padding          = 0;
 
@@ -230,7 +233,7 @@ namespace ncore
                 block->m_next           = fsa->m_block_free_list;
                 block->m_item_freeindex = 0;
                 block->m_item_count     = 0;
-                block->m_item_freelist  = D_NILL_U32;
+                block->m_item_freelist  = D_NILL_U16;
 
                 fsa->m_block_free_list = block_to_index(fsa, block);
                 fsa->m_block_count--;
@@ -263,52 +266,43 @@ namespace ncore
         // ------------------------------------------------------------------------------
         // fsa functions
 
-        static inline u8 alloc_size_to_size_shift(u32 alloc_size)
+        fsa_t* new_fsa(u16 num_blocks)
         {
-            const u8 c = math::ilog2(alloc_size);
-            if (alloc_size > ((u32)1 << c))
-                return c + 1;
-            return c;
-        }
-
-        fsa_t* new_fsa(u64 address_range)
-        {
+            ASSERT(num_blocks > 0 && num_blocks <= D_MAX_BLOCKS);
             const u32 page_size       = v_alloc_get_page_size();
             const u8  page_size_shift = v_alloc_get_page_size_shift();
 
             const u8  block_size_shift = c64KB;  // 64 KB blocks
-            const u32 block_capacity   = (u32)(address_range >> block_size_shift);
+            const u32 block_capacity   = num_blocks;
             ASSERT(block_capacity <= D_MAX_BLOCKS);
 
-            // Calculate how many pages to commit for fsa_t, active section list, section array and per section active block lists
-            int_t fsa_bytes = sizeof(fsa_t);
-            fsa_bytes += (D_MAX_BLOCKS * sizeof(block_t));
-
-            ASSERT(fsa_pages <= (1 << 6));                                                  // must easily fit within 64 pages
-            const u32 fsa_pages = (u32)((fsa_bytes + (page_size - 1)) >> page_size_shift);  // round up to pages
+            const u32   fsa_pages         = 1;
+            const int_t fsa_size          = (u64)fsa_pages << page_size_shift;
+            const u32   block_array_pages = (((u64)block_capacity * sizeof(block_t)) + (page_size - 1)) >> page_size_shift;
 
             // Calculate the actual address range we need to reserve that includes the fsa struct and block array
-            address_range = (u64)fsa_pages << page_size_shift;
-            address_range += (u64)block_capacity << block_size_shift;
-
-            void* base_address = v_alloc_reserve(address_range);
+            const int_t address_range = fsa_size + ((int_t)block_array_pages << page_size_shift) + ((int_t)block_capacity << block_size_shift);
+            void*       base_address  = v_alloc_reserve(address_range);
             if (base_address == nullptr)
                 return nullptr;
 
-            if (!v_alloc_commit(base_address, (int_t)fsa_pages << page_size_shift))
+            if (!v_alloc_commit(base_address, (int_t)fsa_size))
             {
                 v_alloc_release(base_address, address_range);
                 return nullptr;
             }
 
             fsa_t* fsa              = (fsa_t*)base_address;
+            fsa->m_base_offset      = (u32)((fsa_pages + block_array_pages) << page_size_shift);
             fsa->m_block_free_index = 0;
             fsa->m_block_free_list  = D_NILL_U32;
             fsa->m_block_capacity   = block_capacity;
+            fsa->m_block_count      = 0;
             fsa->m_block_size_shift = block_size_shift;
             fsa->m_page_size_shift  = page_size_shift;
-            fsa->m_header_pages     = (u16)fsa_pages;
-            fsa->m_base_offset      = (u32)(fsa_pages << page_size_shift);
+
+            for (u32 i = 0; i < 16; ++i)
+                fsa->m_active_block_list[i] = D_NILL_U32;
 
             return fsa;
         }
@@ -318,6 +312,15 @@ namespace ncore
             int_t address_range = (u64)fsa->m_base_offset;
             address_range += ((u64)fsa->m_block_capacity << fsa->m_block_size_shift);
             v_alloc_release((void*)fsa, address_range);
+        }
+
+        static inline u8 alloc_size_to_size_shift(u32 alloc_size)
+        {
+            alloc_size = (alloc_size + 7) & ~7U;  // align to 8 bytes
+            const u8 c = math::ilog2(alloc_size);
+            if (alloc_size > ((u32)1 << c))
+                return c + 1;
+            return c;
         }
 
         void* allocate(fsa_t* fsa, u32 alloc_size)
@@ -332,8 +335,6 @@ namespace ncore
                 block = nblock::allocate_block(fsa, alloc_size_shift);
                 nblock::activate(fsa, block);
                 nblock::add_active_block(fsa, block);
-
-                // TODO is section now empty, if so remove it from the active section list
             }
 
             const u32 block_index   = nblock::block_to_index(fsa, block);
@@ -352,12 +353,11 @@ namespace ncore
                 return;
 
             u32 const block_index   = nblock::get_block_index(fsa, (byte const*)ptr);
-            block_t*  block         = nblock::block_from_index(fsa, block_index);
             byte*     block_address = nblock::get_block_address(fsa, block_index);
-            u16 const item_index    = nblock::ptr_to_item_idx(block->m_alloc_size_shift, block_address, (byte const*)ptr);
+            block_t*  block         = nblock::block_from_index(fsa, block_index);
 
             const bool was_full = nblock::is_full(block);
-            nblock::deallocate_item(block, block_address, item_index);
+            nblock::deallocate_item(block, block_address, (byte*)ptr);
             if (nblock::is_empty(block))
             {
                 if (!was_full)
@@ -381,9 +381,9 @@ namespace ncore
             if (ptr == nullptr)
                 return 0;
             ASSERT(is_managed_by(fsa, ptr));
-            u32 const block_index = nblock::get_block_index(fsa, (byte const*)ptr);
-            ASSERT(block_index < section->m_block_free_index);
-            block_t* block = nblock::block_from_index(fsa, block_index);
+            const u32 block_index = nblock::get_block_index(fsa, (byte const*)ptr);
+            ASSERT(block_index < fsa->m_block_free_index);
+            const block_t* block = nblock::block_from_index(fsa, block_index);
             return ((u32)1 << block->m_alloc_size_shift);
         }
 
@@ -392,13 +392,16 @@ namespace ncore
         void* idx2ptr(fsa_t* fsa, u32 i)
         {
             const u64 dist = ((u64)i << 3);
-            return toaddress(base_address(fsa), dist);
+            byte*     ptr  = base_address(fsa) + dist;
+            ASSERT(is_managed_by(fsa, ptr));
+            return (void*)ptr;
         }
 
         u32 ptr2idx(fsa_t* fsa, void* ptr)
         {
             if (ptr == nullptr)
                 return D_NILL_U32;
+            ASSERT(is_managed_by(fsa, ptr));
             const byte* base = base_address(fsa);
             const u64   dist = ((u64)((byte const*)ptr - base)) >> 3;
             ASSERT(dist <= 0xFFFFFFFF);

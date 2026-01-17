@@ -45,9 +45,8 @@ namespace ncore
                 , m_section_maxsize_shift(0)
                 , m_internal_heap_address_range(0)
                 , m_internal_heap_pre_size(0)
-                , m_internal_fsa_address_range(0)
-                , m_internal_fsa_section_size(0)
-                , m_internal_fsa_pre_size(0)
+                , m_internal_fsa_block_count(1024)
+                , m_internal_fsa_block_size(65536)
                 , m_num_chunkconfigs(0)
                 , m_num_binconfigs(0)
                 , m_achunkconfigs(nullptr)
@@ -63,9 +62,8 @@ namespace ncore
             s8                   m_section_maxsize_shift;
             u32                  m_internal_heap_address_range;
             u32                  m_internal_heap_pre_size;
-            u32                  m_internal_fsa_address_range;
-            u32                  m_internal_fsa_section_size;
-            u32                  m_internal_fsa_pre_size;
+            u32                  m_internal_fsa_block_count;
+            u32                  m_internal_fsa_block_size;
             s16                  m_num_chunkconfigs;
             s16                  m_num_binconfigs;
             chunkconfig_t const* m_achunkconfigs;

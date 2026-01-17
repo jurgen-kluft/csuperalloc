@@ -590,7 +590,6 @@ namespace ncore
             region->m_chunk_active_bin0 = 0;
 
             // commit region memory
-            const alloc_config_t& alloc_config        = c->m_alloc_configs[region->m_alloc_index];
             const u32             region_data_size    = (u32)(1 << 14);
             void*                 region_data_address = get_region_address(c, region);
             v_alloc_commit(region_data_address, region_data_size);
