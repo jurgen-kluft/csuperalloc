@@ -134,7 +134,7 @@ namespace ncore
         // 16 bytes
         struct segment_t
         {
-            u32 m_region_free_list;   // binmap level 0 of free regions
+            u32 m_region_free_list;   // head of free region list in this segment
             u32 m_region_array;       // array of region indices (fsa, idx2ptr)
             u8  m_region_free_index;  // index of first free region in this segment
             u8  m_region_size_shift;  // size of regions in this segment
@@ -552,17 +552,17 @@ namespace ncore
                 }
 
                 // add region to segment
-                u8 segment_region_idx = 0;
+                u32 segment_region_idx = 0;
 
                 if (segment->m_region_free_list != 0xFFFFFFFF)
                 {
-                    segment_region_idx          = (u8)segment->m_region_free_list;
+                    segment_region_idx          = segment->m_region_free_list;
                     segment->m_region_free_list = segment->m_region_free_index;
                     segment->m_region_count += 1;
                 }
                 else if (segment->m_region_free_index < segment->m_region_capacity)
                 {
-                    segment_region_idx = (u8)segment->m_region_free_index++;
+                    segment_region_idx = segment->m_region_free_index++;
                     segment->m_region_count += 1;
                 }
                 else
@@ -570,7 +570,7 @@ namespace ncore
                     ASSERT(false);  // segment has no more free regions?
                 }
 
-                ASSERT(segment_region_idx >= 0 && segment_region_idx < 256);
+                ASSERT((segment_region_idx >= 0) && (segment_region_idx < 256));
                 region->m_local_index   = (u8)segment_region_idx;
                 region->m_segment_index = get_segment_index(c, segment);
             }

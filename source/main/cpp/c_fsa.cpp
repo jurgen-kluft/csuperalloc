@@ -26,29 +26,25 @@ namespace ncore
 
     namespace nfsa
     {
-
-// Constraints
-#define D_MAX_BLOCKS          65534  // maximum number of blocks
-#define D_MAX_ITEMS_PER_BLOCK 8192   // maximum number of items in a block
+        // One large address space, the first page(s) contain the fsa_t struct
+        // as well as the start of the block_t[] array.
 
         // Uncomment to enable debug fills
 #define FSA_DEBUG
-
-        // One large address space, the first page(s) contain the fsa_t struct
-        // as well as the start of the block_t[] array.
-        //
-
         static const u8 c64KB = 16;
 
         // Maximum number of items in a block is 32768 items
-        // This struct is 16 bytes on a 64-bit system
+#define D_MAX_ITEMS_PER_BLOCK 32768
+
+        // sizeof(block_t) = 16 bytes
+        // TODO do not commit all pages for a block upfront, only commit additional pages following m_item_freeindex
         struct block_t
         {
             u16 m_item_freeindex;    // index of the next free item if freelist is empty
             u16 m_item_count;        // current number of allocated items
             u16 m_item_freelist;     // index of the first free item in the freelist, D_NILL_U32 if none
             u8  m_alloc_size_shift;  // allocation size shift
-            u8  m_padding;           //
+            u8  m_pages;             // number of committed pages
             u32 m_next;              //
             u32 m_prev;              //
 
@@ -222,7 +218,7 @@ namespace ncore
                 block->m_item_count       = 0;
                 block->m_item_freelist    = D_NILL_U16;
                 block->m_alloc_size_shift = alloc_size_shift;
-                block->m_padding          = 0;
+                block->m_pages            = 0;  // TODO not used yet
 
                 fsa->m_block_count++;
                 return block;
@@ -266,15 +262,13 @@ namespace ncore
         // ------------------------------------------------------------------------------
         // fsa functions
 
-        fsa_t* new_fsa(u16 num_blocks)
+        fsa_t* new_fsa(u32 num_blocks)
         {
-            ASSERT(num_blocks > 0 && num_blocks <= D_MAX_BLOCKS);
             const u32 page_size       = v_alloc_get_page_size();
             const u8  page_size_shift = v_alloc_get_page_size_shift();
 
             const u8  block_size_shift = c64KB;  // 64 KB blocks
             const u32 block_capacity   = num_blocks;
-            ASSERT(block_capacity <= D_MAX_BLOCKS);
 
             const u32   fsa_pages         = 1;
             const int_t fsa_size          = (u64)fsa_pages << page_size_shift;
@@ -366,7 +360,6 @@ namespace ncore
                 }
                 nblock::deallocate_block(fsa, block);
                 nblock::deactivate(fsa, block);
-                // TODO Is section now empty?, if so release section and add to free list
             }
             else if (was_full)
             {

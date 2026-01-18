@@ -11,8 +11,8 @@ namespace ncore
 
     namespace nfsa
     {
-        // number of 64 KiB blocks, maximum is 65534 blocks
-        fsa_t* new_fsa(u16 num_blocks=1024);
+        // number of 64 KiB blocks
+        fsa_t* new_fsa(u32 num_blocks=1024);
         void   destroy(fsa_t* fsa);
         // minimum alloc size is 8 bytes, maximum alloc size is 32 KiB
         void*  allocate(fsa_t* fsa, u32 size);
@@ -32,6 +32,13 @@ namespace ncore
     T* g_allocate_array(fsa_t* fsa, u32 count)
     {
         return (T*)nfsa::allocate(fsa, sizeof(T) * count);
+    }
+
+    template <typename T>
+    T* g_allocate_array_and_clear(fsa_t* fsa, u32 count)
+    {
+        T* array = (T*)nfsa::allocate(fsa, sizeof(T) * count);
+
     }
 
     template <typename T>
