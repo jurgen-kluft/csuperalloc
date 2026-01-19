@@ -15,7 +15,7 @@ It only uses the following data structures:
 
 * array; plain old c style arrays
 * list; doubly linked list
-* binmap; 2 layer bit array (maximum of 4096 (2^12) items)
+* binmap; N layer bit array
 
 Execution behaviour:
 

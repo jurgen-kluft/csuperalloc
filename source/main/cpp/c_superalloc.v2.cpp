@@ -7,8 +7,6 @@
 #include "ccore/c_math.h"
 #include "ccore/c_arena.h"
 
-#include "csuperalloc/private/c_items.h"
-#include "csuperalloc/private/c_list.h"
 #include "csuperalloc/c_fsa.h"
 
 namespace ncore
