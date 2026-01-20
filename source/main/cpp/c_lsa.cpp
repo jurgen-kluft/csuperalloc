@@ -20,6 +20,7 @@ namespace ncore
         u16 m_block_count;       // currently allocated blocks
         u8  m_block_size_shift;  // log2(block size)
         u8  m_page_size_shift;   // log2(page size)
+        u16 m_padding;           // padding for alignment
     };
 
     namespace nlsa
@@ -190,7 +191,7 @@ namespace ncore
         void* allocate(lsa_t* lsa, u32 alloc_size)
         {
             // allocate a new block, and activate it
-            block_t* block = nblock::allocate_block(lsa );
+            block_t* block = nblock::allocate_block(lsa);
             if (block == nullptr)
                 return nullptr;
             nblock::activate(lsa, block, alloc_size);
