@@ -34,7 +34,7 @@ namespace ncore
         //       and a separate address space for the book-keeping data (lsa_t + block_t array).
 
         // number of 64 KiB blocks, maximum of 32768 blocks
-        lsa_t* new_lsa(void* data, u32& data_page_offset, void* base, u32& base_page_offset, u16 sizeof_block = 64 * 1024, u16 num_blocks = 1024);
+        lsa_t* new_lsa(void* data, u32& data_page_offset, void* base, u32& base_page_offset, u32 sizeof_block = 64 * 1024, u16 num_blocks = 1024);
         lsa_t* new_lsa(u32 sizeof_block = 64 * 1024, u16 num_blocks = 1024);
         void   destroy(lsa_t* lsa);
         void*  allocate(lsa_t* lsa, u32 size);

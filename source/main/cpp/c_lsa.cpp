@@ -61,6 +61,8 @@ namespace ncore
             // allocate block metadata (does not commit the data pages of the block)
             block_t* allocate_block(lsa_t* lsa)
             {
+                ASSERT(lsa->m_block_count < lsa->m_block_capacity);
+
                 block_t* block       = nullptr;
                 u16      block_index = D_NILL_U16;
                 if (lsa->m_block_free_list != D_NILL_U16)
@@ -105,10 +107,11 @@ namespace ncore
 
             void deallocate_block(lsa_t* lsa, block_t* block)
             {
-                block->m_next  = lsa->m_block_free_list;
-                block->m_prev  = D_NILL_U16;
-                block->m_pages = 0;
+                ASSERT(block->m_pages == 0);
+                ASSERT(lsa->m_block_count > 0);
 
+                block->m_next = lsa->m_block_free_list;
+                block->m_prev = D_NILL_U16;
                 if (lsa->m_block_free_list != D_NILL_U16)
                 {
                     block_t* head = block_from_index(lsa, lsa->m_block_free_list);
@@ -146,7 +149,7 @@ namespace ncore
 
         // ------------------------------------------------------------------------------
         // lsa functions
-        lsa_t* new_lsa(void* data, u32& data_page_offset, void* base, u32& base_page_offset, u16 sizeof_block, u16 num_blocks)
+        lsa_t* new_lsa(void* data, u32& data_page_offset, void* base, u32& base_page_offset, u32 sizeof_block, u16 num_blocks)
         {
             const u32 page_size        = v_alloc_get_page_size();
             const u8  page_size_shift  = v_alloc_get_page_size_shift();
@@ -163,7 +166,7 @@ namespace ncore
             }
 
             lsa_t* lsa              = (lsa_t*)data;
-            lsa->m_base_address     = base;
+            lsa->m_base_address     = (byte*)base;
             lsa->m_base_offset      = base_page_offset;
             lsa->m_block_free_index = 0;
             lsa->m_block_free_list  = D_NILL_U16;
@@ -186,8 +189,7 @@ namespace ncore
 
             const u16 block_capacity = num_blocks;
 
-            const u32   lsa_pages      = 1;
-            const int_t lsa_size       = (u64)lsa_pages << page_size_shift;
+            const int_t lsa_size       = (u64)1 << page_size_shift;
             const u32   lsa_full_pages = (sizeof(lsa_t) + ((u64)block_capacity * sizeof(block_t)) + (page_size - 1)) >> page_size_shift;
 
             const int_t address_range = ((int_t)lsa_full_pages << page_size_shift) + ((int_t)block_capacity << block_size_shift);
@@ -204,7 +206,7 @@ namespace ncore
 
             lsa_t* lsa              = (lsa_t*)base_address;
             lsa->m_base_address     = (byte*)base_address;
-            lsa->m_base_offset      = (u32)(lsa_full_pages << page_size_shift);
+            lsa->m_base_offset      = lsa_full_pages;
             lsa->m_block_free_index = 0;
             lsa->m_block_free_list  = D_NILL_U16;
             lsa->m_block_capacity   = block_capacity;
@@ -217,13 +219,18 @@ namespace ncore
 
         void destroy(lsa_t* lsa)
         {
-            int_t address_range = (u64)lsa->m_base_offset;
+            int_t address_range = ((u64)lsa->m_base_offset << lsa->m_page_size_shift);
             address_range += ((u64)lsa->m_block_capacity << lsa->m_block_size_shift);
             v_alloc_release((void*)lsa, address_range);
         }
 
         void* allocate(lsa_t* lsa, u32 alloc_size)
         {
+            // The allocation size should fall between (1 << (block_size_shift-1)) and (1 << block_size_shift), furthermore
+            // it should not be zero.
+            if (alloc_size == 0 || alloc_size > ((u32)1 << lsa->m_block_size_shift))
+                return nullptr;
+
             // allocate a new block, and activate it
             block_t* block = nblock::allocate_block(lsa);
             if (block == nullptr)
@@ -240,12 +247,11 @@ namespace ncore
             if (ptr == nullptr)
                 return;
 
-            u16 const block_index   = nblock::block_index_from_ptr(lsa, (byte const*)ptr);
-            byte*     block_address = nblock::block_index_to_address(lsa, block_index);
-            block_t*  block         = nblock::block_from_index(lsa, block_index);
+            u16 const block_index = nblock::block_index_from_ptr(lsa, (byte const*)ptr);
+            block_t*  block       = nblock::block_from_index(lsa, block_index);
 
-            nblock::deallocate_block(lsa, block);
             nblock::deactivate(lsa, block);
+            nblock::deallocate_block(lsa, block);
         }
 
         u32 get_size(lsa_t* lsa, void* ptr)
