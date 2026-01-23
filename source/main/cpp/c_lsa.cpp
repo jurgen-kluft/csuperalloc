@@ -13,14 +13,15 @@ namespace ncore
 {
     struct lsa_t
     {
-        u32 m_base_offset;       // offset to the base address
-        u16 m_block_free_index;  // next unused block index
-        u16 m_block_free_list;   // free list head (indices)
-        u16 m_block_capacity;    // total blocks
-        u16 m_block_count;       // currently allocated blocks
-        u8  m_block_size_shift;  // log2(block size)
-        u8  m_page_size_shift;   // log2(page size)
-        u16 m_padding;           // padding for alignment
+        byte* m_base_address;      // base address of the managed memory
+        u32   m_base_offset;       // offset to the base address (unit = pages)
+        u16   m_block_free_index;  // next unused block index
+        u16   m_block_free_list;   // free list head (indices)
+        u16   m_block_capacity;    // total blocks
+        u16   m_block_count;       // currently allocated blocks
+        u8    m_block_size_shift;  // log2(block size)
+        u8    m_page_size_shift;   // log2(page size)
+        u16   m_padding;           // padding for alignment
     };
 
     namespace nlsa
@@ -35,12 +36,12 @@ namespace ncore
             u16 m_prev;   // index for linked lists
         };
 
-        static inline byte* base_address(lsa_t* lsa) { return (byte*)lsa + lsa->m_base_offset; }
+        static inline byte* base_address(lsa_t* lsa) { return lsa->m_base_address + (lsa->m_base_offset << lsa->m_page_size_shift); }
         static inline bool  is_managed_by(lsa_t* lsa, void const* ptr) { return ptr >= base_address(lsa) && ptr < (base_address(lsa) + ((u64)lsa->m_block_capacity << lsa->m_block_size_shift)); }
 
         namespace nblock
         {
-            static inline byte*    block_index_to_address(lsa_t* lsa, u16 block_index) { return (byte*)lsa + (lsa->m_base_offset) + ((u64)block_index << lsa->m_block_size_shift); }
+            static inline byte*    block_index_to_address(lsa_t* lsa, u16 block_index) { return base_address(lsa) + ((u64)block_index << lsa->m_block_size_shift); }
             static inline block_t* get_block_array(lsa_t* lsa) { return (block_t*)((byte*)lsa + sizeof(lsa_t)); }
 
             static inline u16      block_index_from_ptr(lsa_t* lsa, byte const* ptr) { return (u16)((u64)(ptr - base_address(lsa)) >> lsa->m_block_size_shift); }
@@ -145,19 +146,51 @@ namespace ncore
 
         // ------------------------------------------------------------------------------
         // lsa functions
+        lsa_t* new_lsa(void* data, u32& data_page_offset, void* base, u32& base_page_offset, u16 sizeof_block, u16 num_blocks)
+        {
+            const u32 page_size        = v_alloc_get_page_size();
+            const u8  page_size_shift  = v_alloc_get_page_size_shift();
+            const u8  block_size_shift = (u8)math::ilog2(sizeof_block);
+            const u16 block_capacity   = num_blocks;
+
+            const u32   lsa_pages     = 1;
+            const int_t lsa_size      = (u64)lsa_pages << page_size_shift;
+            const u32   lsa_max_pages = (sizeof(lsa_t) + ((u64)block_capacity * sizeof(block_t)) + (page_size - 1)) >> page_size_shift;
+
+            if (!v_alloc_commit(data, (int_t)lsa_size))
+            {
+                return nullptr;
+            }
+
+            lsa_t* lsa              = (lsa_t*)data;
+            lsa->m_base_address     = base;
+            lsa->m_base_offset      = base_page_offset;
+            lsa->m_block_free_index = 0;
+            lsa->m_block_free_list  = D_NILL_U16;
+            lsa->m_block_capacity   = block_capacity;
+            lsa->m_block_count      = 0;
+            lsa->m_block_size_shift = block_size_shift;
+            lsa->m_page_size_shift  = page_size_shift;
+
+            base_page_offset += ((int_t)block_capacity << block_size_shift) >> page_size_shift;
+            data_page_offset += lsa_max_pages;
+
+            return lsa;
+        }
 
         lsa_t* new_lsa(u32 sizeof_block, u16 num_blocks)
         {
-            const u32 page_size       = v_alloc_get_page_size();
-            const u8  page_size_shift = v_alloc_get_page_size_shift();
+            const u32 page_size        = v_alloc_get_page_size();
+            const u8  page_size_shift  = v_alloc_get_page_size_shift();
+            const u8  block_size_shift = (u8)math::ilog2(sizeof_block);
 
             const u16 block_capacity = num_blocks;
 
-            const u32   lsa_pages         = 1;
-            const int_t lsa_size          = (u64)lsa_pages << page_size_shift;
-            const u32   block_array_pages = (((u64)block_capacity * sizeof(block_t)) + (page_size - 1)) >> page_size_shift;
+            const u32   lsa_pages      = 1;
+            const int_t lsa_size       = (u64)lsa_pages << page_size_shift;
+            const u32   lsa_full_pages = (sizeof(lsa_t) + ((u64)block_capacity * sizeof(block_t)) + (page_size - 1)) >> page_size_shift;
 
-            const int_t address_range = lsa_size + ((int_t)block_array_pages << page_size_shift) + ((int_t)block_capacity << (u32)math::ilog2(sizeof_block));
+            const int_t address_range = ((int_t)lsa_full_pages << page_size_shift) + ((int_t)block_capacity << block_size_shift);
             void*       base_address  = v_alloc_reserve(address_range);
             if (base_address == nullptr)
                 return nullptr;
@@ -170,12 +203,13 @@ namespace ncore
             }
 
             lsa_t* lsa              = (lsa_t*)base_address;
-            lsa->m_base_offset      = (u32)((lsa_pages + block_array_pages) << page_size_shift);
+            lsa->m_base_address     = (byte*)base_address;
+            lsa->m_base_offset      = (u32)(lsa_full_pages << page_size_shift);
             lsa->m_block_free_index = 0;
             lsa->m_block_free_list  = D_NILL_U16;
             lsa->m_block_capacity   = block_capacity;
             lsa->m_block_count      = 0;
-            lsa->m_block_size_shift = (u8)math::ilog2(sizeof_block);
+            lsa->m_block_size_shift = block_size_shift;
             lsa->m_page_size_shift  = page_size_shift;
 
             return lsa;
