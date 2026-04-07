@@ -169,7 +169,7 @@ namespace ncore
 
             // alloc_config_t
             u32             m_num_alloc_configs;  // number of bin configurations
-            size_to_bin_fn  m_size_to_bin;        // function to map size to bin index
+            size_to_bin_fn  m_size_to_bin_fn;     // function to map size to bin index
             alloc_config_t* m_alloc_configs;      // bin configurations
 
             // regions
@@ -742,7 +742,7 @@ namespace ncore
         // Allocate memory of given size
         void* alloc(calloc_t* c, u32 size)
         {
-            const u8              alloc_index  = c->m_size_to_bin(size);
+            const u8              alloc_index  = c->m_size_to_bin_fn(size);
             const alloc_config_t& alloc_config = c->m_alloc_configs[alloc_index];
             region_t*             region       = get_active_region(c, alloc_config);
             if (region == nullptr)
