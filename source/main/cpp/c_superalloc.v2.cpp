@@ -72,11 +72,11 @@ namespace ncore
         {
             if (a.m_block_size_shift == 0 && b.m_block_size_shift == 0)
             {  // both are chunk based regions
-                return a.m_region_size_shift == b.m_region_size_shift && a.m_chunk_size_shift == b.m_chunk_size_shift;
+                return a.m_region_size_shift == b.m_region_size_shift && a.m_chunk_size_shift == b.m_chunk_size_shift && a.m_alloc_size == b.m_alloc_size;
             }
             else if (a.m_block_size_shift > 0 && b.m_block_size_shift > 0)
             {  // both are block based regions
-                return a.m_region_size_shift == b.m_region_size_shift && a.m_block_size_shift == b.m_block_size_shift;
+                return a.m_region_size_shift == b.m_region_size_shift && a.m_block_size_shift == b.m_block_size_shift && a.m_alloc_size == b.m_alloc_size;
             }
             return false;
         }
@@ -263,14 +263,14 @@ namespace ncore
             c->m_alloc_configs[i++].chunks(0, 6, 0, c32MiB, c64KiB);      //
             c->m_alloc_configs[i++].chunks(0, 7, 0, c32MiB, c64KiB);      //
             c->m_alloc_configs[i++].chunks(0, 8, 0, c32MiB, c64KiB);      //
-            c->m_alloc_configs[i++].chunks(0, 10, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 12, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 14, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 16, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 20, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 24, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 28, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 32, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 10, 0, c8MiB, c16KiB);      //
+            c->m_alloc_configs[i++].blocks(0, 12, 0, c8MiB, c16KiB);      //
+            c->m_alloc_configs[i++].blocks(0, 14, 0, c8MiB, c16KiB);      //
+            c->m_alloc_configs[i++].blocks(0, 16, 0, c8MiB, c16KiB);      //
+            c->m_alloc_configs[i++].blocks(0, 20, 0, c16MiB, c32KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 24, 0, c16MiB, c32KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 28, 0, c16MiB, c32KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 32, 0, c16MiB, c32KiB);     //
             c->m_alloc_configs[i++].blocks(0, 40, 0, c32MiB, c64KiB);     //
             c->m_alloc_configs[i++].blocks(0, 48, 0, c32MiB, c64KiB);     //
             c->m_alloc_configs[i++].blocks(0, 56, 0, c32MiB, c64KiB);     //
