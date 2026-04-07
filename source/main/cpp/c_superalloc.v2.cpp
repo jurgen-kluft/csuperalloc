@@ -52,7 +52,7 @@ namespace ncore
 
             void chunks(u16 mb, u16 kb, u16 b, u8 rss, u8 css)
             {
-                m_alloc_size        = mb * 1024 * 1024 + kb * 1024 + b;
+                m_alloc_size        = ((u32)mb * 1024 + kb) * 1024 + b;
                 m_region_index      = 0;
                 m_region_size_shift = rss;
                 m_chunk_size_shift  = css;
@@ -67,6 +67,19 @@ namespace ncore
                 m_block_size_shift  = bss;
             }
         };
+
+        static bool is_region_equal(alloc_config_t const& a, alloc_config_t const& b)
+        {
+            if (a.m_block_size_shift == 0 && b.m_block_size_shift == 0)
+            {  // both are chunk based regions
+                return a.m_region_size_shift == b.m_region_size_shift && a.m_chunk_size_shift == b.m_chunk_size_shift;
+            }
+            else if (a.m_block_size_shift > 0 && b.m_block_size_shift > 0)
+            {  // both are block based regions
+                return a.m_region_size_shift == b.m_region_size_shift && a.m_block_size_shift == b.m_block_size_shift;
+            }
+            return false;
+        }
 
 #define D_CHUNK_REGION(index, region_size, chunk_size) {(u8)index, (u8)region_size, (u8)chunk_size, (u8)0}
 #define D_BLOCK_REGION(index, region_size, block_size) {(u8)index, (u8)region_size, (u8)0, (u8)block_size}
@@ -213,124 +226,115 @@ namespace ncore
             c->m_alloc_configs = (alloc_config_t*)allocator_mem;
 
             i32 i = 0;
-            c->m_alloc_configs[i++].chunks(0, 0, 16, c8MiB, c16KiB);     // 16
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 20
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 24
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c8MiB, c16KiB);     // 28
-            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);    // 32
-            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);    // 40
-            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);    // 48
-            c->m_alloc_configs[i++].chunks(0, 0, 64, c16MiB, c32KiB);    // 56
-            c->m_alloc_configs[i++].chunks(0, 0, 64, c32MiB, c64KiB);    // 64
-            c->m_alloc_configs[i++].chunks(0, 0, 80, c32MiB, c64KiB);    // 80
-            c->m_alloc_configs[i++].chunks(0, 0, 96, c32MiB, c64KiB);    // 96
-            c->m_alloc_configs[i++].chunks(0, 0, 112, c32MiB, c64KiB);   // 112
-            c->m_alloc_configs[i++].chunks(0, 0, 128, c32MiB, c64KiB);   // 128
-            c->m_alloc_configs[i++].chunks(0, 0, 160, c32MiB, c64KiB);   // 160
-            c->m_alloc_configs[i++].chunks(0, 0, 192, c32MiB, c64KiB);   // 192
-            c->m_alloc_configs[i++].chunks(0, 0, 224, c32MiB, c64KiB);   // 224
-            c->m_alloc_configs[i++].chunks(0, 0, 256, c32MiB, c64KiB);   // 256
-            c->m_alloc_configs[i++].chunks(0, 0, 320, c32MiB, c64KiB);   // 320
-            c->m_alloc_configs[i++].chunks(0, 0, 384, c32MiB, c64KiB);   // 384
-            c->m_alloc_configs[i++].chunks(0, 0, 448, c32MiB, c64KiB);   // 448
-            c->m_alloc_configs[i++].chunks(0, 0, 512, c32MiB, c64KiB);   // 512
-            c->m_alloc_configs[i++].chunks(0, 0, 640, c32MiB, c64KiB);   // 640
-            c->m_alloc_configs[i++].chunks(0, 0, 768, c32MiB, c64KiB);   // 768
-            c->m_alloc_configs[i++].chunks(0, 0, 896, c32MiB, c64KiB);   // 896
-            c->m_alloc_configs[i++].chunks(0, 1, 0, c32MiB, c64KiB);     // 1KB
-            c->m_alloc_configs[i++].chunks(0, 1, 256, c32MiB, c64KiB);   //
-            c->m_alloc_configs[i++].chunks(0, 1, 512, c32MiB, c64KiB);   //
-            c->m_alloc_configs[i++].chunks(0, 1, 768, c32MiB, c64KiB);   //
-            c->m_alloc_configs[i++].chunks(0, 2, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 2, 512, c32MiB, c64KiB);   //
-            c->m_alloc_configs[i++].chunks(0, 3, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 3, 512, c32MiB, c64KiB);   //
-            c->m_alloc_configs[i++].chunks(0, 4, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 5, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 6, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 7, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 8, 0, c32MiB, c64KiB);     //
-            c->m_alloc_configs[i++].chunks(0, 10, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 12, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 14, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 16, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 20, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 24, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 28, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].chunks(0, 32, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].blocks(0, 40, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].blocks(0, 48, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].blocks(0, 56, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].blocks(0, 64, 0, c32MiB, c64KiB);    //
-            c->m_alloc_configs[i++].blocks(0, 80, 0, c32MiB, c128KiB);   //
-            c->m_alloc_configs[i++].blocks(0, 96, 0, c32MiB, c128KiB);   //
-            c->m_alloc_configs[i++].blocks(0, 112, 0, c32MiB, c128KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 128, 0, c32MiB, c128KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 160, 0, c32MiB, c256KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 192, 0, c32MiB, c256KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 224, 0, c32MiB, c256KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 256, 0, c32MiB, c256KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 320, 0, c32MiB, c512KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 384, 0, c32MiB, c512KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 448, 0, c32MiB, c512KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 512, 0, c32MiB, c512KiB);  //
-            c->m_alloc_configs[i++].blocks(0, 640, 0, c32MiB, c1MiB);    //
-            c->m_alloc_configs[i++].blocks(0, 768, 0, c32MiB, c1MiB);    //
-            c->m_alloc_configs[i++].blocks(0, 896, 0, c32MiB, c1MiB);    //
-            c->m_alloc_configs[i++].blocks(1, 0, 0, c32MiB, c1MiB);      //
-            c->m_alloc_configs[i++].blocks(1, 256, 0, c32MiB, c2MiB);    //
-            c->m_alloc_configs[i++].blocks(1, 512, 0, c32MiB, c2MiB);    //
-            c->m_alloc_configs[i++].blocks(1, 768, 0, c32MiB, c2MiB);    //
-            c->m_alloc_configs[i++].blocks(2, 0, 0, c32MiB, c2MiB);      //
-            c->m_alloc_configs[i++].blocks(2, 512, 0, c32MiB, c4MiB);    //
-            c->m_alloc_configs[i++].blocks(3, 0, 0, c32MiB, c4MiB);      //
-            c->m_alloc_configs[i++].blocks(3, 512, 0, c32MiB, c4MiB);    //
-            c->m_alloc_configs[i++].blocks(4, 0, 0, c32MiB, c4MiB);      //
-            c->m_alloc_configs[i++].blocks(5, 0, 0, c32MiB, c8MiB);      //
-            c->m_alloc_configs[i++].blocks(6, 0, 0, c32MiB, c8MiB);      //
-            c->m_alloc_configs[i++].blocks(7, 0, 0, c32MiB, c8MiB);      //
-            c->m_alloc_configs[i++].blocks(8, 0, 0, c32MiB, c8MiB);      //
-            c->m_alloc_configs[i++].blocks(10, 0, 0, c32MiB, c16MiB);    //
-            c->m_alloc_configs[i++].blocks(12, 0, 0, c32MiB, c16MiB);    //
-            c->m_alloc_configs[i++].blocks(14, 0, 0, c32MiB, c16MiB);    //
-            c->m_alloc_configs[i++].blocks(16, 0, 0, c32MiB, c16MiB);    //
-            c->m_alloc_configs[i++].blocks(20, 0, 0, c32MiB, c32MiB);    //
-            c->m_alloc_configs[i++].blocks(24, 0, 0, c32MiB, c32MiB);    //
-            c->m_alloc_configs[i++].blocks(28, 0, 0, c32MiB, c32MiB);    //
-            c->m_alloc_configs[i++].blocks(32, 0, 0, c32MiB, c32MiB);    //
-            c->m_alloc_configs[i++].blocks(40, 0, 0, c32MiB, c64MiB);    //
-            c->m_alloc_configs[i++].blocks(48, 0, 0, c32MiB, c64MiB);    //
-            c->m_alloc_configs[i++].blocks(56, 0, 0, c32MiB, c64MiB);    //
-            c->m_alloc_configs[i++].blocks(64, 0, 0, c32MiB, c64MiB);    //
-            c->m_alloc_configs[i++].blocks(80, 0, 0, c32MiB, c128MiB);   //
-            c->m_alloc_configs[i++].blocks(96, 0, 0, c32MiB, c128MiB);   //
-            c->m_alloc_configs[i++].blocks(112, 0, 0, c32MiB, c128MiB);  //
-            c->m_alloc_configs[i++].blocks(128, 0, 0, c32MiB, c128MiB);  //
-            c->m_alloc_configs[i++].blocks(160, 0, 0, c32MiB, c256MiB);  //
-            c->m_alloc_configs[i++].blocks(192, 0, 0, c32MiB, c256MiB);  //
-            c->m_alloc_configs[i++].blocks(224, 0, 0, c32MiB, c256MiB);  //
-            c->m_alloc_configs[i++].blocks(256, 0, 0, c32MiB, c256MiB);  //
-            c->m_alloc_configs[i++].blocks(320, 0, 0, c32MiB, c512MiB);  //
-            c->m_alloc_configs[i++].blocks(384, 0, 0, c32MiB, c512MiB);  //
-            c->m_alloc_configs[i++].blocks(448, 0, 0, c32MiB, c512MiB);  //
-            c->m_alloc_configs[i++].blocks(512, 0, 0, c32MiB, c512MiB);  //
+            c->m_alloc_configs[i++].chunks(0, 0, 16, c8MiB, c16KiB);      // 16
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);     // 20
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);     // 24
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);     // 28
+            c->m_alloc_configs[i++].chunks(0, 0, 32, c16MiB, c32KiB);     // 32
+            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);     // 40
+            c->m_alloc_configs[i++].chunks(0, 0, 48, c16MiB, c32KiB);     // 48
+            c->m_alloc_configs[i++].chunks(0, 0, 64, c32MiB, c64KiB);     // 56
+            c->m_alloc_configs[i++].chunks(0, 0, 64, c32MiB, c64KiB);     // 64
+            c->m_alloc_configs[i++].chunks(0, 0, 80, c32MiB, c64KiB);     // 80
+            c->m_alloc_configs[i++].chunks(0, 0, 96, c32MiB, c64KiB);     // 96
+            c->m_alloc_configs[i++].chunks(0, 0, 112, c32MiB, c64KiB);    // 112
+            c->m_alloc_configs[i++].chunks(0, 0, 128, c32MiB, c64KiB);    // 128
+            c->m_alloc_configs[i++].chunks(0, 0, 160, c32MiB, c64KiB);    // 160
+            c->m_alloc_configs[i++].chunks(0, 0, 192, c32MiB, c64KiB);    // 192
+            c->m_alloc_configs[i++].chunks(0, 0, 224, c32MiB, c64KiB);    // 224
+            c->m_alloc_configs[i++].chunks(0, 0, 256, c32MiB, c64KiB);    // 256
+            c->m_alloc_configs[i++].chunks(0, 0, 320, c32MiB, c64KiB);    // 320
+            c->m_alloc_configs[i++].chunks(0, 0, 384, c32MiB, c64KiB);    // 384
+            c->m_alloc_configs[i++].chunks(0, 0, 448, c32MiB, c64KiB);    // 448
+            c->m_alloc_configs[i++].chunks(0, 0, 512, c32MiB, c64KiB);    // 512
+            c->m_alloc_configs[i++].chunks(0, 0, 640, c32MiB, c64KiB);    // 640
+            c->m_alloc_configs[i++].chunks(0, 0, 768, c32MiB, c64KiB);    // 768
+            c->m_alloc_configs[i++].chunks(0, 0, 896, c32MiB, c64KiB);    // 896
+            c->m_alloc_configs[i++].chunks(0, 1, 0, c32MiB, c64KiB);      // 1KB
+            c->m_alloc_configs[i++].chunks(0, 1, 256, c32MiB, c64KiB);    //
+            c->m_alloc_configs[i++].chunks(0, 1, 512, c32MiB, c64KiB);    //
+            c->m_alloc_configs[i++].chunks(0, 1, 768, c32MiB, c64KiB);    //
+            c->m_alloc_configs[i++].chunks(0, 2, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 2, 512, c32MiB, c64KiB);    //
+            c->m_alloc_configs[i++].chunks(0, 3, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 3, 512, c32MiB, c64KiB);    //
+            c->m_alloc_configs[i++].chunks(0, 4, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 5, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 6, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 7, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 8, 0, c32MiB, c64KiB);      //
+            c->m_alloc_configs[i++].chunks(0, 10, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 12, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 14, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 16, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 20, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 24, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 28, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].chunks(0, 32, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 40, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 48, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 56, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 64, 0, c32MiB, c64KiB);     //
+            c->m_alloc_configs[i++].blocks(0, 80, 0, c32MiB, c128KiB);    //
+            c->m_alloc_configs[i++].blocks(0, 96, 0, c32MiB, c128KiB);    //
+            c->m_alloc_configs[i++].blocks(0, 112, 0, c32MiB, c128KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 128, 0, c32MiB, c128KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 160, 0, c32MiB, c256KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 192, 0, c32MiB, c256KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 224, 0, c32MiB, c256KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 256, 0, c32MiB, c256KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 320, 0, c32MiB, c512KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 384, 0, c32MiB, c512KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 448, 0, c32MiB, c512KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 512, 0, c32MiB, c512KiB);   //
+            c->m_alloc_configs[i++].blocks(0, 640, 0, c32MiB, c1MiB);     //
+            c->m_alloc_configs[i++].blocks(0, 768, 0, c32MiB, c1MiB);     //
+            c->m_alloc_configs[i++].blocks(0, 896, 0, c32MiB, c1MiB);     //
+            c->m_alloc_configs[i++].blocks(1, 0, 0, c32MiB, c1MiB);       //
+            c->m_alloc_configs[i++].blocks(1, 256, 0, c32MiB, c2MiB);     //
+            c->m_alloc_configs[i++].blocks(1, 512, 0, c32MiB, c2MiB);     //
+            c->m_alloc_configs[i++].blocks(1, 768, 0, c32MiB, c2MiB);     //
+            c->m_alloc_configs[i++].blocks(2, 0, 0, c32MiB, c2MiB);       //
+            c->m_alloc_configs[i++].blocks(2, 512, 0, c32MiB, c4MiB);     //
+            c->m_alloc_configs[i++].blocks(3, 0, 0, c32MiB, c4MiB);       //
+            c->m_alloc_configs[i++].blocks(3, 512, 0, c32MiB, c4MiB);     //
+            c->m_alloc_configs[i++].blocks(4, 0, 0, c32MiB, c4MiB);       //
+            c->m_alloc_configs[i++].blocks(5, 0, 0, c32MiB, c8MiB);       //
+            c->m_alloc_configs[i++].blocks(6, 0, 0, c32MiB, c8MiB);       //
+            c->m_alloc_configs[i++].blocks(7, 0, 0, c32MiB, c8MiB);       //
+            c->m_alloc_configs[i++].blocks(8, 0, 0, c32MiB, c8MiB);       //
+            c->m_alloc_configs[i++].blocks(10, 0, 0, c256MiB, c16MiB);    //
+            c->m_alloc_configs[i++].blocks(12, 0, 0, c256MiB, c16MiB);    //
+            c->m_alloc_configs[i++].blocks(14, 0, 0, c256MiB, c16MiB);    //
+            c->m_alloc_configs[i++].blocks(16, 0, 0, c256MiB, c16MiB);    //
+            c->m_alloc_configs[i++].blocks(20, 0, 0, c256MiB, c32MiB);    //
+            c->m_alloc_configs[i++].blocks(24, 0, 0, c256MiB, c32MiB);    //
+            c->m_alloc_configs[i++].blocks(28, 0, 0, c256MiB, c32MiB);    //
+            c->m_alloc_configs[i++].blocks(32, 0, 0, c256MiB, c32MiB);    //
+            c->m_alloc_configs[i++].blocks(40, 0, 0, c256MiB, c64MiB);    //
+            c->m_alloc_configs[i++].blocks(48, 0, 0, c256MiB, c64MiB);    //
+            c->m_alloc_configs[i++].blocks(56, 0, 0, c256MiB, c64MiB);    //
+            c->m_alloc_configs[i++].blocks(64, 0, 0, c256MiB, c64MiB);    //
+            c->m_alloc_configs[i++].blocks(80, 0, 0, c256MiB, c128MiB);   //
+            c->m_alloc_configs[i++].blocks(96, 0, 0, c256MiB, c128MiB);   //
+            c->m_alloc_configs[i++].blocks(112, 0, 0, c256MiB, c128MiB);  //
+            c->m_alloc_configs[i++].blocks(128, 0, 0, c256MiB, c128MiB);  //
+            c->m_alloc_configs[i++].blocks(160, 0, 0, c512MiB, c256MiB);  //
+            c->m_alloc_configs[i++].blocks(192, 0, 0, c512MiB, c256MiB);  //
+            c->m_alloc_configs[i++].blocks(224, 0, 0, c512MiB, c256MiB);  //
+            c->m_alloc_configs[i++].blocks(256, 0, 0, c512MiB, c256MiB);  //
+            c->m_alloc_configs[i++].blocks(320, 0, 0, c1GiB, c512MiB);    //
+            c->m_alloc_configs[i++].blocks(384, 0, 0, c1GiB, c512MiB);    //
+            c->m_alloc_configs[i++].blocks(448, 0, 0, c1GiB, c512MiB);    //
+            c->m_alloc_configs[i++].blocks(512, 0, 0, c1GiB, c512MiB);    //
             c->m_num_alloc_configs = i;
 
             u8 region_index = 0;
             for (i32 j = 1; j < i; ++j)
             {
-                if (j > 0)
+                if (!is_region_equal(c->m_alloc_configs[j], c->m_alloc_configs[j - 1]))
                 {
-                    if (c->m_alloc_configs[j].m_block_size_shift == 0)
-                    {
-                        if (c->m_alloc_configs[j].m_alloc_size != c->m_alloc_configs[j - 1].m_alloc_size)
-                            region_index += 1;
-                    }
-                    else
-                    {
-                        if (c->m_alloc_configs[j].m_block_size_shift != c->m_alloc_configs[j - 1].m_block_size_shift)
-                            region_index += 1;
-                    }
+                    region_index += 1;
                 }
                 c->m_alloc_configs[j].m_region_index = region_index;
             }
@@ -580,7 +584,6 @@ namespace ncore
             // set region properties
             const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
 
-            region->m_alloc_index       = alloc_config.m_region_index;
             region->m_chunk_free_index  = 0;
             region->m_chunk_count       = 0;
             const u32 capacity          = alloc_config.num_chunks_per_region();
@@ -588,8 +591,8 @@ namespace ncore
             region->m_chunk_active_bin0 = 0;
 
             // commit region memory
-            const u32             region_data_size    = (u32)(1 << 14);
-            void*                 region_data_address = get_region_address(c, region);
+            const u32 region_data_size    = (u32)(1 << 14);
+            void*     region_data_address = get_region_address(c, region);
             v_alloc_commit(region_data_address, region_data_size);
         }
 
@@ -640,7 +643,6 @@ namespace ncore
             }
 
             // TODO decommit region memory and release any other resources
-
         }
 
         static inline u32* get_region_free_chunk_bin1(calloc_t* c, region_t* region)
@@ -658,8 +660,8 @@ namespace ncore
         static inline chunk_t* allocate_chunk_from_region(calloc_t* c, region_t* region)
         {
             const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
-            u32*      bin1  = get_region_free_chunk_bin1(c, region);
-            const s32 index = nbinmap10::find_and_set(&region->m_chunk_free_bin0, bin1, alloc_config.num_chunks_per_region());
+            u32*                  bin1         = get_region_free_chunk_bin1(c, region);
+            const s32             index        = nbinmap10::find_and_set(&region->m_chunk_free_bin0, bin1, alloc_config.num_chunks_per_region());
             if (index >= 0)
             {
                 chunk_t* chunk = region_chunk(c, region, (u32)index);
@@ -713,9 +715,9 @@ namespace ncore
 
         chunk_t* get_active_chunk(calloc_t* c, region_t* region)
         {
-            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
-            const u32* active_bin1 = get_region_active_chunk_bin1(c, region);
-            s32 const  chunk_index = nbinmap10::find(&region->m_chunk_active_bin0, active_bin1, bincfg.num_chunks_per_region());
+            const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
+            const u32*            active_bin1 = get_region_active_chunk_bin1(c, region);
+            s32 const             chunk_index = nbinmap10::find(&region->m_chunk_active_bin0, active_bin1, bincfg.num_chunks_per_region());
             if (chunk_index < 0)
                 return nullptr;
             return region_chunk(c, region, (u32)chunk_index);
@@ -723,17 +725,17 @@ namespace ncore
 
         void add_chunk_to_active(calloc_t* c, region_t* region, chunk_t* chunk)
         {
-            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
-            const u32 chunk_index = region_chunk_index(c, region, chunk);
-            u32*      active_bin1 = get_region_active_chunk_bin1(c, region);
+            const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
+            const u32             chunk_index = region_chunk_index(c, region, chunk);
+            u32*                  active_bin1 = get_region_active_chunk_bin1(c, region);
             nbinmap10::set(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
-        void remove_chunk_from_active(calloc_t* c,   region_t* region, chunk_t* chunk)
+        void remove_chunk_from_active(calloc_t* c, region_t* region, chunk_t* chunk)
         {
-            const alloc_config_t& bincfg = c->m_alloc_configs[region->m_alloc_index];
-            const u32 chunk_index = region_chunk_index(c, region, chunk);
-            u32*      active_bin1 = get_region_active_chunk_bin1(c, region);
+            const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
+            const u32             chunk_index = region_chunk_index(c, region, chunk);
+            u32*                  active_bin1 = get_region_active_chunk_bin1(c, region);
             nbinmap10::clr(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
