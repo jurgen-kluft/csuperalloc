@@ -1,7 +1,7 @@
 #include "ccore/c_target.h"
 #include "ccore/c_allocator.h"
 #include "ccore/c_arena.h"
-#include "ccore/c_binmap1.h"
+#include "ccore/c_bitvec.h"
 #include "ccore/c_debug.h"
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"

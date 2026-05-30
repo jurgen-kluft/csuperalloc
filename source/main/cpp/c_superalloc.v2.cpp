@@ -1,6 +1,6 @@
 #include "ccore/c_target.h"
 #include "ccore/c_allocator.h"
-#include "ccore/c_binmap1.h"
+#include "ccore/c_bitvec.h"
 #include "ccore/c_debug.h"
 #include "ccore/c_limits.h"
 #include "ccore/c_memory.h"
@@ -387,12 +387,12 @@ namespace ncore
             i32 free_index;
             if (chunk->m_free_bin1 == 0xFFFFFFFF)
             {
-                free_index = nbinmap5::find_and_set(&chunk->m_free_bin0, chunk->m_count);
+                free_index = nbitvec5::find_and_remove(&chunk->m_free_bin0, chunk->m_count);
             }
             else
             {
                 u32* bin1  = (u32*)nfsa::idx2ptr(c->m_internal_fsa, chunk->m_free_bin1);
-                free_index = nbinmap10::find_and_set(&chunk->m_free_bin0, bin1, chunk->m_count);
+                free_index = nbitvec10::find_and_remove(&chunk->m_free_bin0, bin1, chunk->m_count);
             }
             if (free_index < 0)
                 return nullptr;
@@ -661,7 +661,7 @@ namespace ncore
         {
             const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
             u32*                  bin1         = get_region_free_chunk_bin1(c, region);
-            const s32             index        = nbinmap10::find_and_set(&region->m_chunk_free_bin0, bin1, alloc_config.num_chunks_per_region());
+            const s32             index        = nbitvec10::find_and_remove(&region->m_chunk_free_bin0, bin1, alloc_config.num_chunks_per_region());
             if (index >= 0)
             {
                 chunk_t* chunk = region_chunk(c, region, (u32)index);
@@ -717,7 +717,7 @@ namespace ncore
         {
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32*            active_bin1 = get_region_active_chunk_bin1(c, region);
-            s32 const             chunk_index = nbinmap10::find(&region->m_chunk_active_bin0, active_bin1, bincfg.num_chunks_per_region());
+            s32 const             chunk_index = nbitvec10::find(&region->m_chunk_active_bin0, active_bin1, bincfg.num_chunks_per_region());
             if (chunk_index < 0)
                 return nullptr;
             return region_chunk(c, region, (u32)chunk_index);
@@ -728,7 +728,7 @@ namespace ncore
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32             chunk_index = region_chunk_index(c, region, chunk);
             u32*                  active_bin1 = get_region_active_chunk_bin1(c, region);
-            nbinmap10::set(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
+            nbitvec10::set(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
         void remove_chunk_from_active(calloc_t* c, region_t* region, chunk_t* chunk)
@@ -736,7 +736,7 @@ namespace ncore
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32             chunk_index = region_chunk_index(c, region, chunk);
             u32*                  active_bin1 = get_region_active_chunk_bin1(c, region);
-            nbinmap10::clr(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
+            nbitvec10::clr(&region->m_chunk_active_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
         // Allocate memory of given size
@@ -816,12 +816,12 @@ namespace ncore
                 const bool  chunk_full_before = chunk_is_full(chunk);
                 if (chunk->m_free_bin1 == 0xFFFFFFFF)
                 {
-                    nbinmap5::clr(&chunk->m_free_bin0, chunk->m_free_index, chunk->m_count);
+                    nbitvec5::clr(&chunk->m_free_bin0, chunk->m_free_index, chunk->m_count);
                 }
                 else
                 {
                     u32* bin1 = (u32*)nfsa::idx2ptr(c->m_internal_fsa, chunk->m_free_bin1);
-                    nbinmap10::clr(&chunk->m_free_bin0, bin1, chunk->m_free_index, chunk->m_count);
+                    nbitvec10::clr(&chunk->m_free_bin0, bin1, chunk->m_free_index, chunk->m_count);
                 }
                 chunk->m_count -= 1;
 
