@@ -11,8 +11,15 @@ marking active chunks.
 The allocator has a pre-allocated array of segment, while regions are allocated
 from an array of regions that can grow dynamically using virtual memory. But this
 virtual memory is part of the total virtual address space managed by the allocator.
-The allocator does make use of a fixed size allocator (fsa, power-of-two sizes only), 
-to be able to allocate binmap level 1 (free and active) for chunks dynamically.
+The allocator makes use of ncore::bin_t to manage small fsa allocations, 
+to be able to allocate:
+
+- region index arrays for segments
+- chunk array for regions with chunks
+- block array for regions with blocks
+- region binmap level 0 (free and active) for chunks and blocks for regions with chunks/blocks
+- binmap level 1 (free and active) for chunks dynamically
+
 The fsa is also used to allocate the region index arrays for segments, since each
 segment might require a different number of regions depending on the region size.
 
@@ -40,6 +47,8 @@ Example: 256 GiB of virtual address space for allocations:
   - 256 GiB for the actual virtual address space for allocations
 
 Active Region Sizes:
+- 8 MiB
+- 16 MiB
 - 32 MiB
 - 256 MiB
 - 512 MiB
@@ -49,7 +58,7 @@ Active Region Sizes:
 
 Who?:
 
-- segment; allocate an array of region indices, depending on the region size.
+- segment; allocate an array of region indices
 - chunk; allocate binmap level 1 for free items
 
 Sizes:
@@ -85,101 +94,101 @@ Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data a
         - Segment = 1 GiB
         - Max Regions per Segment = 128
 
-        - Region = 16 MiB
+        - Region = 8 MiB
         - Chunk = 32 KiB
         - 32 <= Allocation Size < 64 B
         - Max Items per Chunk <= 1024
-        - Max Chunks per Region = 512 
+        - Max Chunks per Region = 256 
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 64 <= Allocation Size < 128 B
         - Max Items per Chunk = 1024
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 128 <= Allocation Size < 256 B
         - Max Items per Chunk = 512
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 256 <= Allocation Size < 512 B
         - Max Items per Chunk = 256
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 512 <= Allocation Size < 1 KiB
         - Max Items per Chunk = 128
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 1 KiB <= Allocation Size < 2 KiB
         - Max Items per Chunk = 64
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 2 KiB <= Allocation Size < 4 KiB
         - Max Items per Chunk = 32
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 4 KiB <= Allocation Size < 8 KiB
         - Max Items per Chunk = 16
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 8 KiB <= Allocation Size < 16 KiB
         - Max Items per Chunk = 8
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Chunk = 64 KiB
         - 16 KiB <= Allocation Size < 32 KiB
         - Max Items per Chunk = 4
-        - Max Chunks per Region = 512
+        - Max Chunks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
 # Region (32 MiB) with Blocks
 
-        - Region = 32 MiB
+        - Region = 8 MiB
         - Block = 64 KiB
         - 32 KiB <= Allocation Size <= 64 KiB
-        - Max Blocks per Region = 512 (* 4 bytes = 2 KiB)
+        - Max Blocks per Region = 128 (* 4 bytes = 512)
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 128
 
-        - Region = 32 MiB
+        - Region = 16 MiB
         - Block = 128 KiB
         - 64 KiB < Allocation Size <= 128 KiB
-        - Max Blocks per Region = 256
+        - Max Blocks per Region = 128
         - Segment = 1 GiB
-        - Max Regions per Segment = 32
+        - Max Regions per Segment = 64
 
         - Region = 32 MiB
         - Block = 256 KiB
@@ -277,5 +286,5 @@ Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data a
 
 # Allocations larger than 1 GiB
 
-TODO, any allocation size larger than 1 GiB
+Any allocation size larger than 1 GiB will be allocated from a separate virtual address space or directly from the OS.
 
