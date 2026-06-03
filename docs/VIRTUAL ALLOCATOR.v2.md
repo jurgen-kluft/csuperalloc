@@ -1,16 +1,16 @@
 # Virtual Allocator v2.0
 
 This allocator can handle a maximum of 1024 segments (1 TiB of virtual address space).
-A segment is 1 GiB in size, and contains up to 32 regions of 32 MiB each, or
-4 regions of 256 MiB each, or 1 region of 1 GiB, etc..
-A region consists of chunks or blocks, depending on the allocation size.
+A segment is locked to 1 GiB in size, and contains N regions (1 <= N <= 128), e.g.
+4 regions of 256 MiB each, or 2 regions of 512 MiB each, etc..
+A region consists of N chunks or blocks, depending on the allocation size.
 Chunks are used for allocations up to 32 KiB, and blocks are used for allocations
 larger than 32 KiB. Regions have two binmaps, one marking free chunks, and another
 marking active chunks.
 
-The allocator has a pre-allocated array of segment, while regions are allocated
-from an array of regions that can grow dynamically using virtual memory. But this
-virtual memory is part of the total virtual address space managed by the allocator.
+The allocator has a pre-allocated array of segments, while regions are allocated
+from an array of regions that can grow dynamically using virtual memory. 
+
 The allocator makes use of ncore::bin_t to manage small fsa allocations, 
 to be able to allocate:
 
@@ -23,30 +23,8 @@ to be able to allocate:
 The fsa is also used to allocate the region index arrays for segments, since each
 segment might require a different number of regions depending on the region size.
 
-```c++
-struct segment_t
-{
-    u8          m_regions_in_use;        // number of regions in use in this segment
-    u8          m_region_size_shift;     // size shift of each region in this segment
-    u32         m_region_free_bin0;      // free regions binmap, level 0
-    u16         m_next;                  // next segment in linked list
-    u16         m_prev;                  // previous segment in linked list
-};
-```
+# Active Region Sizes
 
-Example: 256 GiB of virtual address space for allocations:
-  - 16 KiB
-    - allocator_t struct, 128 bytes
-    - alloc_config_t[128], 128 * 8 bytes = 1 KiB allocation config array
-    - segment_t*[16], list heads for active segments per region size, 128 bytes
-    - u32[128], a region list per 'index' for access to a region with free chunks/blocks, 128 * 4 bytes = 512 bytes
-    - u32[128], a region list per 'index' for access to a region with active chunks/blocks, 128 * 4 bytes = 512 bytes
-    - segment_t[1024], pre-allocated segment array for book-keeping data (12 KiB), 1024 segments * 12 bytes = 12 KiB
-  - region_t[], virtual region array for allocating region_t structs from (32 B * 65536 = 2 MiB, 2 MiB of virtual address space)
-  - chunk_t[], virtual chunk array for allocating chunk_t structs from (16 B * 1024*1024 = 16 MiB, 16 MiB of virtual address space)
-  - 256 GiB for the actual virtual address space for allocations
-
-Active Region Sizes:
 - 8 MiB
 - 16 MiB
 - 32 MiB
@@ -55,8 +33,6 @@ Active Region Sizes:
 - 1 GiB
 
 # Dynamic Allocation
-
-Who?:
 
 - segment; allocate an array of region indices
 - chunk; allocate binmap level 1 for free items
@@ -73,216 +49,63 @@ Sizes:
 - 1 KiB
 - 2 KiB
 
-Notes:
+---
 
-- The array of region indices per segment could come from the first region book-keeping data since
-  there is still some space left there.
-  Current usage is like this: 
-    free chunks bin1 + active chunks bin1 + region indices + 512 * sizeof(chunk_t) =
-     64 + 64 + 32*4 + 512 * 16 bytes = 128 B + 128 B + 8 KiB = 256 B + 8 KiB 
+# Memory Architecture Specifications
 
-# Region (32 MiB) with Chunks
 
-A separate address space that contains the book-keeping data for each region. 
-Each region has 16 KiB (16 KiB pages, or 4 * 4 KiB pages) of book-keeping data associated with it.
 
-        - Region = 8 MiB
-        - Chunk = 16 KiB
-        - 16 <= Allocation Size < 32 B
-        - Max Items per Chunk <= 1024
-        - Max Chunks per Region = 512 
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+## Core System Constraints
+* **Region Size:** 8 MiB up to 1 GiB
+* **Segment Size:** fixed at 1 GiB
+* **Max Regions per Segment:** 128
 
-        - Region = 8 MiB
-        - Chunk = 32 KiB
-        - 32 <= Allocation Size < 64 B
-        - Max Items per Chunk <= 1024
-        - Max Chunks per Region = 256 
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+---
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 64 <= Allocation Size < 128 B
-        - Max Items per Chunk = 1024
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+## 1. Sub-Page Chunk Allocations (Small Objects)
+For allocations under 16 KiB, the allocator uses **Chunks** to manage small allocations. Each chunk is a contiguous memory block used to allocate from. The allocator maintains two binmaps for each region: one for tracking free chunks and another for tracking active chunks. The chunk sizes and their corresponding configurations are as follows:
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 128 <= Allocation Size < 256 B
-        - Max Items per Chunk = 512
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 256 <= Allocation Size < 512 B
-        - Max Items per Chunk = 256
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+| Allocation Size Range | Region Size | Strategy | Chunk Size | Items/Chunk | Chunks/Region |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 16 B ≤ Size < 32 B | 8 MiB | Chunk | 16 KiB | ≤ 1024 | 512 |
+| 32 B < Size ≤ 64 B | 8 MiB | Chunk | 32 KiB | < 1024 | 256 |
+| 64 B < Size ≤ 128 B | 8 MiB | Chunk | 64 KiB | < 1024 | 128 |
+| 128 B < Size ≤ 256 B | 8 MiB | Chunk | 64 KiB | < 512 | 128 |
+| 256 B < Size ≤ 512 B | 8 MiB | Chunk | 64 KiB | < 256 | 128 |
+| 512 B < Size ≤ 1 KiB | 8 MiB | Chunk | 64 KiB | < 128 | 128 |
+| 1 KiB < Size ≤ 2 KiB | 8 MiB | Chunk | 64 KiB | < 64 | 128 |
+| 2 KiB < Size ≤ 4 KiB | 8 MiB | Chunk | 64 KiB | < 32 | 128 |
+| 4 KiB < Size ≤ 8 KiB | 8 MiB | Chunk | 64 KiB | < 16 | 128 |
+| 8 KiB < Size ≤ 16 KiB | 8 MiB | Chunk | 64 KiB | < 8 | 128 |
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 512 <= Allocation Size < 1 KiB
-        - Max Items per Chunk = 128
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+---
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 1 KiB <= Allocation Size < 2 KiB
-        - Max Items per Chunk = 64
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+## 2. Page Scale Allocations (Medium Objects)
+From 16 KiB up to 512 MiB, the allocator uses a `block` based strategy instead of the `chunk` strategy. It allocates sizes calculated by the number of pages, managed by what we call a `block`, which tracks the amount of committed pages.
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 2 KiB <= Allocation Size < 4 KiB
-        - Max Items per Chunk = 32
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+Note: On MacOS a virtual page is 16 KiB, while on Windows and Linux it is 4 KiB.
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 4 KiB <= Allocation Size < 8 KiB
-        - Max Items per Chunk = 16
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 8 KiB <= Allocation Size < 16 KiB
-        - Max Items per Chunk = 8
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
+| Allocation Size Range | Region Size | Strategy | Block Size | Blocks/Region | Regions/Segment |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| 16 KiB < Size ≤ 32 KiB | 8 MiB | Block | 32 KiB | 256 | 128 |
+| 32 KiB < Size ≤ 64 KiB | 8 MiB | Block | 64 KiB | 128 | 128 |
+| 64 KiB < Size ≤ 128 KiB | 16 MiB | Block | 128 KiB | 128 | 64 |
+| 128 KiB < Size ≤ 256 KiB | 32 MiB | Block | 256 KiB | 128 | 32 |
+| 256 KiB < Size ≤ 512 KiB | 32 MiB | Block | 512 KiB | 64 | 32 |
+| 512 KiB < Size ≤ 1 MiB | 32 MiB | Block | 1 MiB | 32 | 32 |
+| 1 MiB < Size ≤ 2 MiB | 32 MiB | Block | 2 MiB | 16 | 32 |
+| 2 MiB < Size ≤ 4 MiB | 32 MiB | Block | 4 MiB | 8 | 32 |
+| 4 MiB < Size ≤ 8 MiB | 32 MiB | Block | 8 MiB | 4 | 32 |
+| 8 MiB < Size ≤ 16 MiB | 256 MiB | Block | 16 MiB | 16 | 4 |
+| 16 MiB < Size ≤ 32 MiB | 256 MiB | Block | 32 MiB | 8 | 4 |
+| 32 MiB < Size ≤ 64 MiB | 256 MiB | Block | 64 MiB | 4 | 4 |
+| 64 MiB < Size ≤ 128 MiB | 512 MiB | Block | 128 MiB | 4 | 2 |
+| 128 MiB < Size ≤ 256 MiB | 512 MiB | Block | 256 MiB | 2 | 2 |
+| 256 MiB < Size ≤ 512 MiB | 1 GiB | Block | 512 MiB | 2 | 1 |
+| 512 MiB < Size ≤ 1 GiB | 1 GiB | Block | 1 GiB | 1 | 1 |
 
-        - Region = 8 MiB
-        - Chunk = 64 KiB
-        - 16 KiB <= Allocation Size < 32 KiB
-        - Max Items per Chunk = 4
-        - Max Chunks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
-
-# Region (32 MiB) with Blocks
-
-        - Region = 8 MiB
-        - Block = 64 KiB
-        - 32 KiB <= Allocation Size <= 64 KiB
-        - Max Blocks per Region = 128 (* 4 bytes = 512)
-        - Segment = 1 GiB
-        - Max Regions per Segment = 128
-
-        - Region = 16 MiB
-        - Block = 128 KiB
-        - 64 KiB < Allocation Size <= 128 KiB
-        - Max Blocks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 64
-
-        - Region = 32 MiB
-        - Block = 256 KiB
-        - 128 KiB < Allocation Size <= 256 KiB
-        - Max Blocks per Region = 128
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-        - Region = 32 MiB
-        - Block = 512 KiB
-        - 256 KiB < Allocation Size <= 512 KiB
-        - Max Blocks per Region = 64
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-        - Region = 32 MiB
-        - Block = 1 MiB
-        - 512 KiB < Allocation Size <= 1 MiB
-        - Max Blocks per Region = 32
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-        - Region = 32 MiB
-        - Block = 2 MiB
-        - 1 MiB < Allocation Size <= 2 MiB
-        - Max Blocks per Region = 16
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-        - Region = 32 MiB
-        - Block = 4 MiB
-        - 2 MiB < Allocation Size <= 4 MiB
-        - Max Blocks per Region = 8
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-        - Region = 32 MiB
-        - Block = 8 MiB
-        - 4 MiB < Allocation Size <= 8 MiB
-        - Max Blocks per Region = 4
-        - Segment = 1 GiB
-        - Max Regions per Segment = 32
-
-# Region (256 MiB) with Blocks
-
-        - Region = 256 MiB
-        - Block = 16 MiB
-        - 8 MiB < Allocation Size <= 16 MiB
-        - Max Blocks per Region = 16
-        - Segment = 1 GiB
-        - Max Regions per Segment = 4
-
-        - Region = 256 MiB
-        - Block = 32 MiB
-        - 16 MiB < Allocation Size <= 32 MiB
-        - Max Blocks per Region = 8
-        - Segment = 1 GiB
-        - Max Regions per Segment = 4
-
-# Region (1 GiB) with Blocks
-
-        - Region = 256 MiB
-        - Block = 64 MiB
-        - 32 MiB < Allocation Size <= 64 MiB
-        - Max Blocks per Region = 4
-        - Segment = 1 GiB
-        - Max Regions per Segment = 4
-
-        - Region = 256 MiB
-        - Block = 128 MiB
-        - 64 MiB < Allocation Size <= 128 MiB
-        - Max Blocks per Region = 2
-        - Segment = 1 GiB
-        - Max Regions per Segment = 4
-
-        - Region = 512 MiB
-        - Block = 256 MiB
-        - 128 MiB < Allocation Size <= 256 MiB
-        - Max Blocks per Region = 2
-        - Segment = 1 GiB
-        - Max Regions per Segment = 2
-
-        - Region = 1 GiB
-        - Block = 512 MiB
-        - 256 MiB < Allocation Size <= 512 MiB
-        - Max Blocks per Region = 2
-        - Segment = 1 GiB
-        - Max Regions per Segment = 1
-
-        - Region = 1 GiB
-        - 512 MiB < Allocation Size <= 1 GiB
-        - Max Blocks per Region = 1
-        - Segment = 1 GiB
-        - Max Regions per Segment = 1
 
 # Allocations larger than 1 GiB
 

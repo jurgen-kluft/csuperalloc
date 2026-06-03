@@ -195,29 +195,6 @@ namespace ncore
         //   888   888   Y8888   888       888       888    d8888888888 888        888    d88P        d8888888888     888       888  Y88b. .d88P 888   Y8888
         // 8888888 888    Y888 8888888     888     8888888 d88P     888 88888888 8888888 d8888888888 d88P     888     888     8888888 "Y88888P"  888    Y888
 
-        static void initialize_segments(calloc_t* c, u8 segment_size_shift)
-        {
-            c->m_segments_free_list  = 0xFFFF;              // head of free segment list
-            c->m_segments_free_index = 0;                   // index to the first free segment
-            c->m_segment_size_shift  = segment_size_shift;  // segment size
-            c->m_segments_count      = 0;
-            c->m_segments_capacity   = (u32)(c->m_address_size >> c->m_segment_size_shift);
-            c->m_segments            = g_allocate_array_and_clear<segment_t>(c->m_arena, c->m_segments_capacity);
-        }
-
-        static void initialize_regions(calloc_t* c)
-        {
-            // average number of regions per segment, can be tuned based on expected usage
-            const u32 c_average_regions_per_segment = 64;
-
-            c->m_regions_capacity         = c->m_segments_capacity * c_average_regions_per_segment;
-            c->m_regions                  = narena::new_arena(c->m_regions_capacity * sizeof(region_t), sizeof(region_t));
-            c->m_regions_free_list        = 0xFFFFFFFF;
-            c->m_regions_free_index       = 0;
-            c->m_regions_count            = 0;
-            c->m_active_regions_per_index = g_allocate_array_and_clear<u32>(c->m_arena, 128);
-        }
-
         static inline void add_chunks_config(arena_t* a, u16 mb, u16 kb, u16 b, u8 rss, u8 css)
         {
             alloc_config_t* c = g_allocate<alloc_config_t>(a);
@@ -236,50 +213,50 @@ namespace ncore
 
             alloc_config_t* array_start = narena::current_ptr_as<alloc_config_t>(a);
             add_chunks_config(a, 0, 0, 16, c8MiB, c16KiB);      // 16
-            add_chunks_config(a, 0, 0, 32, c16MiB, c32KiB);     // 20
-            add_chunks_config(a, 0, 0, 32, c16MiB, c32KiB);     // 24
-            add_chunks_config(a, 0, 0, 32, c16MiB, c32KiB);     // 28
-            add_chunks_config(a, 0, 0, 32, c16MiB, c32KiB);     // 32
-            add_chunks_config(a, 0, 0, 48, c16MiB, c32KiB);     // 40
-            add_chunks_config(a, 0, 0, 48, c16MiB, c32KiB);     // 48
-            add_chunks_config(a, 0, 0, 64, c32MiB, c64KiB);     // 56
-            add_chunks_config(a, 0, 0, 64, c32MiB, c64KiB);     // 64
-            add_chunks_config(a, 0, 0, 80, c32MiB, c64KiB);     // 80
-            add_chunks_config(a, 0, 0, 96, c32MiB, c64KiB);     // 96
-            add_chunks_config(a, 0, 0, 112, c32MiB, c64KiB);    // 112
-            add_chunks_config(a, 0, 0, 128, c32MiB, c64KiB);    // 128
-            add_chunks_config(a, 0, 0, 160, c32MiB, c64KiB);    // 160
-            add_chunks_config(a, 0, 0, 192, c32MiB, c64KiB);    // 192
-            add_chunks_config(a, 0, 0, 224, c32MiB, c64KiB);    // 224
-            add_chunks_config(a, 0, 0, 256, c32MiB, c64KiB);    // 256
-            add_chunks_config(a, 0, 0, 320, c32MiB, c64KiB);    // 320
-            add_chunks_config(a, 0, 0, 384, c32MiB, c64KiB);    // 384
-            add_chunks_config(a, 0, 0, 448, c32MiB, c64KiB);    // 448
-            add_chunks_config(a, 0, 0, 512, c32MiB, c64KiB);    // 512
-            add_chunks_config(a, 0, 0, 640, c32MiB, c64KiB);    // 640
-            add_chunks_config(a, 0, 0, 768, c32MiB, c64KiB);    // 768
-            add_chunks_config(a, 0, 0, 896, c32MiB, c64KiB);    // 896
-            add_chunks_config(a, 0, 1, 0, c32MiB, c64KiB);      // 1KB
-            add_chunks_config(a, 0, 1, 256, c32MiB, c64KiB);    //
-            add_chunks_config(a, 0, 1, 512, c32MiB, c64KiB);    //
-            add_chunks_config(a, 0, 1, 768, c32MiB, c64KiB);    //
-            add_chunks_config(a, 0, 2, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 2, 512, c32MiB, c64KiB);    //
-            add_chunks_config(a, 0, 3, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 3, 512, c32MiB, c64KiB);    //
-            add_chunks_config(a, 0, 4, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 5, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 6, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 7, 0, c32MiB, c64KiB);      //
-            add_chunks_config(a, 0, 8, 0, c32MiB, c64KiB);      //
-            add_blocks_config(a, 0, 10, 0, c8MiB, c16KiB);      //
-            add_blocks_config(a, 0, 12, 0, c8MiB, c16KiB);      //
-            add_blocks_config(a, 0, 14, 0, c8MiB, c16KiB);      //
-            add_blocks_config(a, 0, 16, 0, c8MiB, c16KiB);      //
-            add_blocks_config(a, 0, 20, 0, c16MiB, c32KiB);     //
-            add_blocks_config(a, 0, 24, 0, c16MiB, c32KiB);     //
-            add_blocks_config(a, 0, 28, 0, c16MiB, c32KiB);     //
-            add_blocks_config(a, 0, 32, 0, c16MiB, c32KiB);     //
+            add_chunks_config(a, 0, 0, 32, c8MiB, c32KiB);      // 20
+            add_chunks_config(a, 0, 0, 32, c8MiB, c32KiB);      // 24
+            add_chunks_config(a, 0, 0, 32, c8MiB, c32KiB);      // 28
+            add_chunks_config(a, 0, 0, 32, c8MiB, c32KiB);      // 32
+            add_chunks_config(a, 0, 0, 48, c8MiB, c32KiB);      // 40
+            add_chunks_config(a, 0, 0, 48, c8MiB, c32KiB);      // 48
+            add_chunks_config(a, 0, 0, 64, c8MiB, c64KiB);      // 56
+            add_chunks_config(a, 0, 0, 64, c8MiB, c64KiB);      // 64
+            add_chunks_config(a, 0, 0, 80, c8MiB, c64KiB);      // 80
+            add_chunks_config(a, 0, 0, 96, c8MiB, c64KiB);      // 96
+            add_chunks_config(a, 0, 0, 112, c8MiB, c64KiB);     // 112
+            add_chunks_config(a, 0, 0, 128, c8MiB, c64KiB);     // 128
+            add_chunks_config(a, 0, 0, 160, c8MiB, c64KiB);     // 160
+            add_chunks_config(a, 0, 0, 192, c8MiB, c64KiB);     // 192
+            add_chunks_config(a, 0, 0, 224, c8MiB, c64KiB);     // 224
+            add_chunks_config(a, 0, 0, 256, c8MiB, c64KiB);     // 256
+            add_chunks_config(a, 0, 0, 320, c8MiB, c64KiB);     // 320
+            add_chunks_config(a, 0, 0, 384, c8MiB, c64KiB);     // 384
+            add_chunks_config(a, 0, 0, 448, c8MiB, c64KiB);     // 448
+            add_chunks_config(a, 0, 0, 512, c8MiB, c64KiB);     // 512
+            add_chunks_config(a, 0, 0, 640, c8MiB, c64KiB);     // 640
+            add_chunks_config(a, 0, 0, 768, c8MiB, c64KiB);     // 768
+            add_chunks_config(a, 0, 0, 896, c8MiB, c64KiB);     // 896
+            add_chunks_config(a, 0, 1, 0, c8MiB, c64KiB);       // 1KB
+            add_chunks_config(a, 0, 1, 256, c8MiB, c64KiB);     //
+            add_chunks_config(a, 0, 1, 512, c8MiB, c64KiB);     //
+            add_chunks_config(a, 0, 1, 768, c8MiB, c64KiB);     //
+            add_chunks_config(a, 0, 2, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 2, 512, c8MiB, c64KiB);     //
+            add_chunks_config(a, 0, 3, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 3, 512, c8MiB, c64KiB);     //
+            add_chunks_config(a, 0, 4, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 5, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 6, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 7, 0, c8MiB, c64KiB);       //
+            add_chunks_config(a, 0, 8, 0, c8MiB, c64KiB);       //
+            add_blocks_config(a, 0, 10, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 12, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 14, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 16, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 20, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 24, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 28, 0, c8MiB, c64KiB);      //
+            add_blocks_config(a, 0, 32, 0, c8MiB, c64KiB);      //
             add_blocks_config(a, 0, 40, 0, c32MiB, c64KiB);     //
             add_blocks_config(a, 0, 48, 0, c32MiB, c64KiB);     //
             add_blocks_config(a, 0, 56, 0, c32MiB, c64KiB);     //
@@ -388,12 +365,12 @@ namespace ncore
             i32 free_index;
             if (chunk->m_free_bin1 == 0xFFFFFFFF)
             {
-                free_index = nbitvec5::find_and_remove(&chunk->m_free_bin0, chunk->m_count);
+                free_index = nbitvec5::find_free_and_remove(&chunk->m_free_bin0, chunk->m_count);
             }
             else
             {
                 u32* bin1  = (u32*)nfsa::idx2ptr(c->m_internal_fsa, chunk->m_free_bin1);
-                free_index = nbitvec10::find_and_remove(&chunk->m_free_bin0, bin1, chunk->m_count);
+                free_index = nbitvec10::find_free_and_remove(&chunk->m_free_bin0, bin1, chunk->m_count);
             }
             if (free_index < 0)
                 return nullptr;
@@ -426,15 +403,7 @@ namespace ncore
 #define D_USAGE_BLOCK      1
 #define D_CACHE_SIZE(size) ((u8)(size))
 
-        struct region_config_t
-        {
-            u8 m_region_size_shift;  // size of region in main address space
-            u8 m_chunk_size_shift;   // size of chunks in this region
-            u8 m_block_size_shift;   // size of blocks in this region
-        };
-
-        static inline u16 get_segment_index(calloc_t* c, segment_t* segment) { return (u16)(segment - c->m_segments); }
-
+        static inline u16        get_segment_index(calloc_t* c, segment_t* segment) { return (u16)(segment - c->m_segments); }
         static inline segment_t* get_segment_at_index(calloc_t* c, u16 segment_index) { return &c->m_segments[segment_index]; }
         static inline segment_t* get_segment_for_region_size(calloc_t* c, u8 region_size_shift)
         {
@@ -508,8 +477,6 @@ namespace ncore
 
         static inline region_t* allocate_region(calloc_t* c, u8 alloc_index, segment_t* segment)
         {
-            const u8 min_region_size_shift = 25;  // 32 MiB
-
             u32       region_index = 0xFFFFFFFF;
             region_t* region       = nullptr;
             if (c->m_regions_free_list != 0xFFFFFFFF)
@@ -717,7 +684,7 @@ namespace ncore
         {
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32*            active_bin1 = get_region_chunk_bin1(c, region);
-            s32 const             chunk_index = nbitvec10::find(&region->m_chunk_used_bin0, active_bin1, bincfg.num_chunks_per_region());
+            s32 const             chunk_index = nbitvec10::find_free(&region->m_chunk_used_bin0, active_bin1, bincfg.num_chunks_per_region());
             if (chunk_index < 0)
                 return nullptr;
             return region_chunk(c, region, (u32)chunk_index);
@@ -728,7 +695,7 @@ namespace ncore
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32             chunk_index = region_chunk_index(c, region, chunk);
             u32*                  active_bin1 = get_region_chunk_bin1(c, region);
-            nbitvec10::set(&region->m_chunk_used_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
+            nbitvec10::set_used(&region->m_chunk_used_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
         void remove_chunk_from_active(calloc_t* c, region_t* region, chunk_t* chunk)
@@ -736,7 +703,7 @@ namespace ncore
             const alloc_config_t& bincfg      = c->m_alloc_configs[region->m_alloc_index];
             const u32             chunk_index = region_chunk_index(c, region, chunk);
             u32*                  active_bin1 = get_region_chunk_bin1(c, region);
-            nbitvec10::clr(&region->m_chunk_used_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
+            nbitvec10::set_free(&region->m_chunk_used_bin0, active_bin1, chunk_index, bincfg.num_chunks_per_region());
         }
 
         // Allocate memory of given size
@@ -816,12 +783,12 @@ namespace ncore
                 const u32   item_index     = ((const byte*)ptr - chunk_address) / alloc_config.m_alloc_size;
                 if (chunk->m_free_bin1 == 0xFFFFFFFF)
                 {
-                    nbitvec5::clr(&chunk->m_free_bin0, chunk->m_free_index, item_index);
+                    nbitvec5::set_free(&chunk->m_free_bin0, chunk->m_free_index, item_index);
                 }
                 else
                 {
                     u32* bin1 = (u32*)nfsa::idx2ptr(c->m_internal_fsa, chunk->m_free_bin1);
-                    nbitvec10::clr(&chunk->m_free_bin0, bin1, chunk->m_free_index, item_index);
+                    nbitvec10::set_free(&chunk->m_free_bin0, bin1, chunk->m_free_index, item_index);
                 }
                 chunk->m_count -= 1;
 
@@ -850,16 +817,32 @@ namespace ncore
         {
             arena_t* arena = narena::new_arena(c1MiB, 0);
 
-            calloc_t* allocator          = g_allocate_and_clear<calloc_t>(arena);
-            allocator->m_arena           = arena;
-            allocator->m_address_size    = address_size;
-            allocator->m_page_size_shift = v_alloc_get_page_size_shift();
+            calloc_t* c          = g_allocate_and_clear<calloc_t>(arena);
+            c->m_arena           = arena;
+            c->m_address_size    = address_size;
+            c->m_page_size_shift = v_alloc_get_page_size_shift();
 
-            initialize_alloc_configs(allocator);
-            initialize_segments(allocator, 30);
-            initialize_regions(allocator);
+            initialize_alloc_configs(c);
 
-            return allocator;
+            // average number of regions per segment, can be tuned based on expected usage
+            const u32 c_average_regions_per_segment = 64;
+            const u8  segment_size_shift            = 30;  // 1 GiB segments
+
+            c->m_segments_free_list  = 0xFFFF;              // head of free segment list
+            c->m_segments_free_index = 0;                   // index to the first free segment
+            c->m_segment_size_shift  = segment_size_shift;  // segment size
+            c->m_segments_count      = 0;
+            c->m_segments_capacity   = (u32)(c->m_address_size >> c->m_segment_size_shift);
+            c->m_segments            = g_allocate_array_and_clear<segment_t>(c->m_arena, c->m_segments_capacity);
+
+            c->m_regions_capacity         = c->m_segments_capacity * c_average_regions_per_segment;
+            c->m_regions                  = narena::new_arena(c->m_regions_capacity * sizeof(region_t), sizeof(region_t));
+            c->m_regions_free_list        = 0xFFFFFFFF;
+            c->m_regions_free_index       = 0;
+            c->m_regions_count            = 0;
+            c->m_active_regions_per_index = g_allocate_array_and_clear<u32>(c->m_arena, 128);
+
+            return c;
         }
 
     }  // namespace nsuperallocv2
