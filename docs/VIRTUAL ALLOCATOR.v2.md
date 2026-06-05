@@ -11,17 +11,7 @@ marking active chunks.
 The allocator has a pre-allocated array of segments, while regions are allocated
 from an array of regions that can grow dynamically using virtual memory. 
 
-The allocator makes use of ncore::bin_t to manage small fsa allocations, 
-to be able to allocate:
-
-- region index arrays for segments
-- chunk array for regions with chunks
-- block array for regions with blocks
-- region binmap level 0 (free and active) for chunks and blocks for regions with chunks/blocks
-- binmap level 1 (free and active) for chunks dynamically
-
-The fsa is also used to allocate the region index arrays for segments, since each
-segment might require a different number of regions depending on the region size.
+In `ccore` we now have `block bin`, `chunk bin`, and `index bin`, that can be used to take over a lot of the infra-structure that is need for this allocator. 
 
 # Active Region Sizes
 
