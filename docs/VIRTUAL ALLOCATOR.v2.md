@@ -1,15 +1,11 @@
 # Virtual Allocator v2.0
 
 This allocator can handle a maximum of 1024 segments (1 TiB of virtual address space).
-A segment is locked to 1 GiB in size, and contains N regions (1 <= N <= 128), e.g.
-4 regions of 256 MiB each, or 2 regions of 512 MiB each, etc..
+A segment is locked to 1 GiB in size, and contains N regions (1 <= N <= 128), e.g. 4 regions of 256 MiB each, or 2 regions of 512 MiB each, etc..
 A region consists of N chunks or blocks, depending on the allocation size.
-Chunks are used for allocations up to 32 KiB, and blocks are used for allocations
-larger than 32 KiB. Regions have two binmaps, one marking free chunks, and another
-marking active chunks.
+Chunks are used for allocations up to 32 KiB, and blocks are used for allocations larger than 32 KiB. Regions have two binmaps, one marking free chunks, and another marking active chunks.
 
-The allocator has a pre-allocated array of segments, while regions are allocated
-from an array of regions that can grow dynamically using virtual memory. 
+The allocator has a pre-allocated array of segments, while regions are allocated from an array of regions that can grow dynamically using virtual memory. 
 
 In `ccore` we now have `block bin`, `chunk bin`, and `index bin`, that can be used to take over a lot of the infra-structure that is need for this allocator. 
 
@@ -43,8 +39,6 @@ Sizes:
 
 # Memory Architecture Specifications
 
-
-
 ## Core System Constraints
 * **Region Size:** 8 MiB up to 1 GiB
 * **Segment Size:** fixed at 1 GiB
@@ -54,7 +48,6 @@ Sizes:
 
 ## 1. Sub-Page Chunk Allocations (Small Objects)
 For allocations under 16 KiB, the allocator uses **Chunks** to manage small allocations. Each chunk is a contiguous memory block used to allocate from. The allocator maintains two binmaps for each region: one for tracking free chunks and another for tracking active chunks. The chunk sizes and their corresponding configurations are as follows:
-
 
 | Allocation Size Range | Region Size | Strategy | Chunk Size | Items/Chunk | Chunks/Region |
 | :--- | :--- | :--- | :--- | :--- | :--- |
