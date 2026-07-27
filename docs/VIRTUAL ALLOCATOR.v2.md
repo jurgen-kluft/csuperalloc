@@ -51,16 +51,16 @@ For allocations under 16 KiB, the allocator uses **Chunks** to manage small allo
 
 | Allocation Size Range | Region Size | Strategy | Chunk Size | Items/Chunk | Chunks/Region |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 16 B ≤ Size < 32 B | 8 MiB | Chunk | 16 KiB | ≤ 1024 | 512 |
-| 32 B < Size ≤ 64 B | 8 MiB | Chunk | 32 KiB | < 1024 | 256 |
-| 64 B < Size ≤ 128 B | 8 MiB | Chunk | 64 KiB | < 1024 | 128 |
-| 128 B < Size ≤ 256 B | 8 MiB | Chunk | 64 KiB | < 512 | 128 |
-| 256 B < Size ≤ 512 B | 8 MiB | Chunk | 64 KiB | < 256 | 128 |
-| 512 B < Size ≤ 1 KiB | 8 MiB | Chunk | 64 KiB | < 128 | 128 |
-| 1 KiB < Size ≤ 2 KiB | 8 MiB | Chunk | 64 KiB | < 64 | 128 |
-| 2 KiB < Size ≤ 4 KiB | 8 MiB | Chunk | 64 KiB | < 32 | 128 |
-| 4 KiB < Size ≤ 8 KiB | 8 MiB | Chunk | 64 KiB | < 16 | 128 |
-| 8 KiB < Size ≤ 16 KiB | 8 MiB | Chunk | 64 KiB | < 8 | 128 |
+| 16 B ≤ Size < 32 B | 8 MiB | Chunk | 16 KiB | ≤ 512 | 512 |
+| 32 B < Size ≤ 64 B | 8 MiB | Chunk | 32 KiB | < 512 | 256 |
+| 64 B < Size ≤ 128 B | 8 MiB | Chunk | 64 KiB | < 512 | 128 |
+| 128 B < Size ≤ 256 B | 8 MiB | Chunk | 64 KiB | < 256 | 128 |
+| 256 B < Size ≤ 512 B | 8 MiB | Chunk | 64 KiB | < 128 | 128 |
+| 512 B < Size ≤ 1 KiB | 8 MiB | Chunk | 64 KiB | < 64 | 128 |
+| 1 KiB < Size ≤ 2 KiB | 8 MiB | Chunk | 64 KiB | < 32 | 128 |
+| 2 KiB < Size ≤ 4 KiB | 8 MiB | Chunk | 64 KiB | < 16 | 128 |
+| 4 KiB < Size ≤ 8 KiB | 8 MiB | Chunk | 64 KiB | < 8 | 128 |
+| 8 KiB < Size ≤ 16 KiB | 8 MiB | Chunk | 64 KiB | < 4 | 128 |
 
 ---
 
@@ -68,7 +68,6 @@ For allocations under 16 KiB, the allocator uses **Chunks** to manage small allo
 From 16 KiB up to 512 MiB, the allocator uses a `block` based strategy instead of the `chunk` strategy. It allocates sizes calculated by the number of pages, managed by what we call a `block`, which tracks the amount of committed pages.
 
 Note: On MacOS a virtual page is 16 KiB, while on Windows and Linux it is 4 KiB.
-
 
 | Allocation Size Range | Region Size | Strategy | Block Size | Blocks/Region | Regions/Segment |
 | :--- | :--- | :--- | :--- | :--- | :--- |
