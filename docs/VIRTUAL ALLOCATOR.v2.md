@@ -9,6 +9,16 @@ The allocator has a pre-allocated array of segments, while regions are allocated
 
 In `ccore` we now have `block bin`, `chunk bin`, and `index bin`, that can be used to take over a lot of the infra-structure that is need for this allocator. 
 
+So to make use of `chunk bin` and `block bin`, we need a continues piece of virtual memory, and divide it up into regions. The
+smallest region size is 8 MiB, and the largest is 1 GiB. 
+For deallocations we need to be able to obtain the region, so we need an `u16[]` array that covers the entire virtual address space, and maps each region to a region index. This array is allocated at startup, and is used to map a virtual address to a region index.
+
+```C
+const u16 region_index = region_index_array[virtual_address >> 23]; // 8 MiB = 2^23
+```
+
+When a region larger than 8 MiB is allocated, the region index array is updated to point to the new region index for all addresses in that region.
+
 # Active Region Sizes
 
 - 8 MiB
