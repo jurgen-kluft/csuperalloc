@@ -7,14 +7,22 @@ Chunks are used for allocations up to 32 KiB, and blocks are used for allocation
 
 The allocator has a pre-allocated array of segments, while regions are allocated from an array of regions that can grow dynamically using virtual memory. 
 
-In `ccore` we now have `block bin`, `chunk bin`, and `index bin`, that can be used to take over a lot of the infra-structure that is need for this allocator. 
+In `ccore` we now have `block bin`, `chunk bin`, `index bin`, and `segment`, that can be used to take over a lot, if not all, of the infra-structure that is needed for this allocator. 
 
 So to make use of `chunk bin` and `block bin`, we need a continues piece of virtual memory, and divide it up into regions. The
-smallest region size is 8 MiB, and the largest is 1 GiB. 
+smallest region size is 8 MiB, and the largest is 1 GiB, this can be done by using `nsegment::allocator_t` to allocate regions.
 For deallocations we need to be able to obtain the region, so we need an `u16[]` array that covers the entire virtual address space, and maps each region to a region index. This array is allocated at startup, and is used to map a virtual address to a region index.
 
 ```C
-const u16 region_index = region_index_array[virtual_address >> 23]; // 8 MiB = 2^23
+// deallocation code-path example:
+const node_t region_node = nsegment::address_to_node(&allocator, virtual_address);
+u16 region_index;
+if (nsegment::get_node_tag(&allocator, region_node, region_index)) {
+    // region_index is valid, use it to access the region
+    // we now can get a 
+} else {
+    // region_index is invalid, the address is not in a valid region
+};
 ```
 
 When a region larger than 8 MiB is allocated, the region index array is updated to point to the new region index for all addresses in that region.
