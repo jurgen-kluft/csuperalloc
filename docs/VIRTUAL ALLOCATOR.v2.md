@@ -14,15 +14,66 @@ smallest region size is 8 MiB, and the largest is 1 GiB, this can be done by usi
 For deallocations we need to be able to obtain the region, so we need an `u16[]` array that covers the entire virtual address space, and maps each region to a region index. This array is allocated at startup, and is used to map a virtual address to a region index.
 
 ```C
-// deallocation code-path example:
-const node_t region_node = nsegment::address_to_node(&allocator, virtual_address);
-u16 region_index;
-if (nsegment::get_node_tag(&allocator, region_node, region_index)) {
-    // region_index is valid, use it to access the region
-    // we now can get a 
-} else {
-    // region_index is invalid, the address is not in a valid region
+struct super_alloc_t
+{
+    nsegment::allocator_t*  m_segment_allocator;
+    region_t*               m_active_regions[32];
+    cbin_t*                 m_region_allocator;
+    bbin_t*                 m_bookkeeping_block;
 };
+
+struct region_t
+{
+    region_t*  m_next;
+    region_t*  m_prev;
+    bin_info_t m_bin_info;
+    union
+    {
+        cbin_t*    m_cbin;
+        bbin_t*    m_bbin;
+    };
+};
+
+// allocation code-path example:
+void allocate(u32 allocation_size) {
+    u8 const bin_index = get_bin_index(allocation_size);
+    bin_info_t const bin_info = get_bin_info(bin_index);
+    region_t* region = nullptr;
+    if (active_regions[bin_info.m_index] == nullptr) {
+        // allocate a new region for this bin_index
+        // update the region index array to point to the new region index for all addresses in that region
+        nsegment::node_t node = nsegment::alloc_node(&segment_allocator, bin_info.region_size);
+        region_t* region = alloc_region(&allocator);
+        region->m_bin_info = bin_info;
+        active_regions[bin_index] = region;
+    } else {
+        region = active_regions[bin_info.m_index];
+    }
+    void* ptr = alloc_from_region(region, allocation_size);
+    return ptr;
+}
+
+// deallocation code-path example:
+void deallocate(void* ptr) 
+{
+    const u64 virtual_address = reinterpret_cast<u64>(ptr);
+    const node_t node = nsegment::address_to_node(&segment_allocator, virtual_address);
+    u16 tag;
+    if (nsegment::get_node_tag(&segment_allocator, node, tag)) {
+        // tag is valid, use it to access the region
+        // a region is either a chunk bin or a block bin, depending on the allocation size
+        // region->m_bin_info will contain the necessary information
+        //    - index            (byte)
+        //    - region type      (byte)
+        //    - region size      (unit = shift size)
+        //    - chunk/block size (unit = shift size)
+        //    - allocation size  (u32)
+        // a region belongs to one allocation size
+        // an allocation size has a list of active regions
+    } else {
+        // region_index is invalid, the address is not in a valid region
+    };
+}
 ```
 
 When a region larger than 8 MiB is allocated, the region index array is updated to point to the new region index for all addresses in that region.
