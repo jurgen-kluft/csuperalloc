@@ -4,7 +4,7 @@ import (
 	callocator "github.com/jurgen-kluft/callocator/package"
 	ccore "github.com/jurgen-kluft/ccore/package"
 	cunittest "github.com/jurgen-kluft/cunittest/package"
-	denv "github.com/jurgen-kluft/gide/denv"
+	denv "github.com/jurgen-kluft/go-ide/denv"
 )
 
 const (
