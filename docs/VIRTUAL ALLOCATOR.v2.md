@@ -118,18 +118,19 @@ Sizes:
 ## 1. Sub-Page Chunk Allocations (Small Objects)
 For allocations under 16 KiB, the allocator uses **Chunks** to manage small allocations. Each chunk is a contiguous memory block used to allocate from. The allocator maintains two binmaps for each region: one for tracking free chunks and another for tracking active chunks. The chunk sizes and their corresponding configurations are as follows:
 
-| Allocation Size Range | Region Size | Strategy | Chunk Size | Items/Chunk | Chunks/Region |
+| Allocation Size Range | Region Size | Strategy | Chunk Size | Items/Chunk | Chunks/Region | Chunk-Group |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 16 B ≤ Size < 32 B | 16 MiB | Chunk | 16 KiB | ≤ 1024 | 1024 |
-| 32 B < Size ≤ 64 B | 16 MiB | Chunk | 32 KiB | ≤ 1024 | 512 |
-| 64 B < Size ≤ 128 B | 16 MiB | Chunk | 64 KiB | ≤ 1024 | 256 |
-| 128 B < Size ≤ 256 B | 16 MiB | Chunk | 64 KiB | ≤ 512 | 256 |
-| 256 B < Size ≤ 512 B | 16 MiB | Chunk | 64 KiB | ≤ 256 | 256 |
-| 512 B < Size ≤ 1 KiB | 16 MiB | Chunk | 64 KiB | ≤ 128 | 256 |
-| 1 KiB < Size ≤ 2 KiB | 16 MiB | Chunk | 64 KiB | ≤ 64 | 256 |
-| 2 KiB < Size ≤ 4 KiB | 16 MiB | Chunk | 64 KiB | ≤ 32 | 256 |
-| 4 KiB < Size ≤ 8 KiB | 16 MiB | Chunk | 64 KiB | ≤ 16 | 256 |
-| 8 KiB < Size ≤ 16 KiB | 16 MiB | Chunk | 64 KiB | ≤ 8 | 256 |
+|   8 B ≤ Size <   16 B | 16 MiB | Chunk | 16 KiB | ≤ 2048 | 512 | 0 |
+|  16 B ≤ Size <   32 B | 16 MiB | Chunk | 16 KiB | ≤ 1024 | 512 | 1 |
+|  32 B ≤ Size <   64 B | 16 MiB | Chunk | 32 KiB | ≤ 1024 | 512 | 2 |
+|  64 B ≤ Size <  128 B | 16 MiB | Chunk | 32 KiB | ≤  512 | 256 | 3 |
+| 128 B ≤ Size <  256 B | 16 MiB | Chunk | 64 KiB | ≤  512 | 256 | 4 |
+| 256 B ≤ Size <  512 B | 16 MiB | Chunk | 64 KiB | ≤  256 | 256 | 5 |
+| 512 B ≤ Size <  1 KiB | 16 MiB | Chunk | 16 KiB | ≤   32 | 256 | 6 |
+| 1 KiB ≤ Size <  2 KiB | 16 MiB | Chunk | 32 KiB | ≤   32 | 256 | 6 |
+| 2 KiB ≤ Size <  4 KiB | 16 MiB | Chunk | 64 KiB | ≤   32 | 256 | 6 |
+| 4 KiB ≤ Size <  8 KiB | 16 MiB | Chunk | 64 KiB | ≤   16 | 256 | 6 |
+| 8 KiB ≤ Size < 16 KiB | 16 MiB | Chunk | 64 KiB | ≤    8 | 256 | 6 |
 
 ---
 
@@ -140,8 +141,9 @@ Note: On MacOS a virtual page is 16 KiB, while on Windows and Linux it is 4 KiB.
 
 | Allocation Size Range | Region Size | Strategy | Block Size | Blocks/Region | Regions/Segment |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| 16 KiB < Size ≤ 32 KiB | 16 MiB | Block | 32 KiB | 256 | 256 |
-| 32 KiB < Size ≤ 64 KiB | 16 MiB | Block | 64 KiB | 128 | 256 |
+| 14 KiB < Size ≤ 16 KiB | 16 MiB | Block | 16 KiB | 1024 | 256 |
+| 16 KiB < Size ≤ 32 KiB | 16 MiB | Block | 32 KiB | 512 | 256 |
+| 32 KiB < Size ≤ 64 KiB | 16 MiB | Block | 64 KiB | 256 | 256 |
 | 64 KiB < Size ≤ 128 KiB | 16 MiB | Block | 128 KiB | 128 | 128 |
 | 128 KiB < Size ≤ 256 KiB | 32 MiB | Block | 256 KiB | 128 | 32 |
 | 256 KiB < Size ≤ 512 KiB | 32 MiB | Block | 512 KiB | 64 | 32 |
