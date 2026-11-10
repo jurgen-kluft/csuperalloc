@@ -58,8 +58,8 @@ A region size is a multiple of 16 MB, e.g. 16 MB << N, and it needs to fill (1<<
             u32 m_capacity : 12;   // max number of elements in the chunk
             u32 m_count : 12;      // cur number of elements in the chunk
             u32 m_alloc_index : 8; // allocation info index for this chunk
-            u32 m_region_index;    // region this chunk belongs to (offset into arena memory)
-            u32 m_next;            // next chunk in list (offset into arena memory)
+            u32 m_region_index;    // region this chunk belongs to (index into allocator->m_region_array)
+            u32 m_onext;           // next chunk in list (offset into arena memory)
             u32 m_free_bin0;       // binmap, level 0 (5)
             //u32 m_free_bin1[];   // binmap, level 1 (5) (after this struct, max 128 bytes)
             //u32 m_tags[];        // tags for each element in the chunk (after the chunk struct + m_free_bin1[])
@@ -73,8 +73,8 @@ A region size is a multiple of 16 MB, e.g. 16 MB << N, and it needs to fill (1<<
         {
             u32 m_pages : 24;       // number of committed pages in the block
             u32 m_alloc_index : 8;  // allocation info index for this block
-            u32 m_region_index;     // region this block belongs to (offset into arena memory)
-            u32 m_next;             // next block in list (offset into arena memory)
+            u32 m_region_index;     // region this block belongs to (index into allocator->m_region_array)
+            u32 m_onext;            // next block in list (offset into arena memory)
             u32 m_tag;              // tag for the block
         };
 
@@ -84,14 +84,14 @@ A region size is a multiple of 16 MB, e.g. 16 MB << N, and it needs to fill (1<<
         // A region is thus dedicated to a specific alloc range
         struct region_t
         {
-            u32 m_next;              // next region in list (offset into arena memory)
-            u32 m_index;             // index of this region within the allocator's region array
+            u32 m_onext;             // next region in list (offset into arena memory)
+            u32 m_index;             // index into allocator->m_region_array
             u8  m_region_type;       // the type of the region (e.g., chunk-based or block-based)
-            u8  m_alloc_config;      // the alloc config (first config entryin the alloc range) for this region
-            u16 m_free_index;        // index of the first untouched chunk/block in the region
-            u16 m_capacity;          // maximum number of chunks/blocks in the region
+            u8  m_region_sizeshift;  // shift value to calculate the size of this region (1 << region_sizeshift)
+            u16 m_free_slot_index;   // index of the first virgin chunk/block slot in m_array
+            //u16 m_capacity;        // max num chunks/blocks (1 << (region_sizeshift - chunk/block_sizeshift))
             u16 m_count;             // current number of chunks/blocks in use
-            u32 m_array;             // array of chunk/block offsets (into arena memory)
+            u32 m_oarray;            // array of chunk/block offsets (offset into arena memory)
         };
 
         // An allocator consists of N regions
@@ -107,14 +107,15 @@ A region size is a multiple of 16 MB, e.g. 16 MB << N, and it needs to fill (1<<
 
             alloc_info* m_alloc_info_array;
 
-            s8          m_region_shift;                        // shift value to calculate region size
+            s8          m_region_sizeshift;         // shift value to calculate region size
             
-            byte*       m_memory_base;                         // Virtual memory base for the allocator (aligned to region size)
-            u64         m_memory_size;                         // Size of the virtual memory for the allocator
-            u32*        m_region_array;                        // (nil = 0xffffffff), covers virtual memory range
+            byte*       m_memory_base;              // Virtual memory base for the allocator (aligned to region size)
+            u64         m_memory_size;              // Size of the virtual memory for the allocator
+            u32*        m_oregion_array;            // (nil = 0xffffffff), covers virtual memory range
 
-            byte*       m_arena_memory_base;                   // For allocating regions/chunks/blocks
+            byte*       m_arena_memory_base;        // For allocating regions/chunks/blocks
             byte*       m_arena_memory_cursor;
+            u64         m_arena_memory_size;        // Size of the arena memory for allocating regions/chunks/blocks
         };
 
 ```
