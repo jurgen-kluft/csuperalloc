@@ -218,7 +218,7 @@ namespace ncore
                         chunk = g_allocate<chunk_t>(fsa);
                         chunk->clear();
 
-                        s32 const section_chunk_index = nbitvec12::find_and_remove(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max);
+                        s32 const section_chunk_index = nbitvec12::find_free_and_remove(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max);
                         if (section_chunk_index >= 0)
                         {
                             section->m_chunk_array[section_chunk_index] = chunk;
@@ -226,7 +226,7 @@ namespace ncore
                         }
                         else
                         {
-                            nbitvec12::tick_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section->m_chunks_free_index);
+                            nbitvec12::tick_used_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section->m_chunks_free_index);
                             chunk->m_section_chunk_index                         = section->m_chunks_free_index;
                             section->m_chunk_array[section->m_chunks_free_index] = chunk;
                             section->m_chunks_free_index += 1;
@@ -245,7 +245,7 @@ namespace ncore
                         // fully initializing the binmap with all elements being free, so this is
                         // mainly for performance reasons.
                         chunk->m_elem_free_bin1 = g_allocate_array<u64>(fsa, 8);
-                        nbitvec12::setup_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
+                        nbitvec12::setup_used_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
                     }
 
                     // Make sure that only the required physical pages are committed
@@ -317,7 +317,7 @@ namespace ncore
                         m_used_physical_pages -= chunk->m_physical_pages;
 
                         // Mark this chunk in the binmap as free
-                        nbitvec12::clr(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, chunk->m_section_chunk_index);
+                        nbitvec12::set_free(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, chunk->m_section_chunk_index);
 
                         // Deallocate and unregister the chunk
                         section->m_chunk_array[chunk->m_section_chunk_index] = nullptr;
@@ -370,7 +370,7 @@ namespace ncore
                     // fully initializing the binmap with all elements being free, so this is
                     // mainly for performance reasons.
                     // section->m_chunks_free_binmap->setup_used_lazy(fsa, section_chunk_count);
-                    nbitvec12::setup_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section_chunk_count);
+                    nbitvec12::setup_used_lazy(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section_chunk_count);
 
                     // How many nodes do we span in the full mapping, based on our section size.
                     // For that whole span we need to fill in our section index, so that the
@@ -402,7 +402,7 @@ namespace ncore
                         chunk_t*  chunk               = ll_pop(section->m_chunks_cached_list);
                         u32 const section_chunk_index = chunk->m_section_chunk_index;
 
-                        nbitvec12::clr(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section_chunk_index);
+                        nbitvec12::set_free(&section->m_chunks_free_bin0, section->m_chunks_free_bin1, section->m_count_chunks_max, section_chunk_index);
                         v_alloc_decommit(chunk_to_address(chunk), ((u32)1 << m_page_size_shift) * chunk->m_physical_pages);
 
                         {  // release resources allocated for this chunk
@@ -569,11 +569,11 @@ namespace ncore
 
             // If we have elements in the binmap, we can use it to get a free element.
             // If not, we need to use free_index to obtain a free element.
-            s32 elem_index = nbitvec12::find_and_remove(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
+            s32 elem_index = nbitvec12::find_free_and_remove(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count);
             if (elem_index < 0)
             {
                 elem_index = chunk->m_elem_free_index++;
-                nbitvec12::tick_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
+                nbitvec12::tick_used_lazy(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
             }
             ASSERT(elem_index < (s32)bin.m_max_alloc_count);
 
@@ -609,7 +609,7 @@ namespace ncore
                 void* const chunk_address = m_superspace->chunk_to_address(chunk);
                 u32 const   elem_index    = (u32)(todistance(chunk_address, ptr) / bin.m_alloc_size);
                 ASSERT(elem_index < chunk->m_elem_free_index && elem_index < bin.m_max_alloc_count);
-                nbitvec12::clr(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
+                nbitvec12::set_free(&chunk->m_elem_free_bin0, chunk->m_elem_free_bin1, bin.m_max_alloc_count, elem_index);
                 u32* elem_tag_array = chunk->m_elem_tag_array;
                 if (elem_tag_array[elem_index] == 0xFEFEEFEE)  // Double freeing this element ?
                 {

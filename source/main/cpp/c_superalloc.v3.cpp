@@ -107,6 +107,19 @@ namespace ncore
           REGION_CONFIG(cRegionTypeBlock, c2GiB, c1GiB),      //
         };
 
+        // A region consists of N chunks/blocks
+        // Example size of a region: 16 MB
+        // Chunks in a region are in the same size range
+        // A region is thus dedicated to a specific alloc range
+        struct region_t
+        {
+            u32 m_o_next;               // next region in list (offset into arena memory)
+            u32 m_index;                // index into allocator->m_region_array
+            u16 m_region_config_index;  // the type of the region (e.g., chunk-based or block-based)
+            u16 m_free_slot_index;      // index of the first virgin chunk/block slot in m_array
+            u32 m_o_array;              // array of chunk/block offsets (offset into arena memory)
+        };
+
         struct alloc_config_t
         {
             u32 m_alloc_size;           // size of the allocation
@@ -120,6 +133,103 @@ namespace ncore
         static alloc_config_t s_alloc_configs[] = {
 
         };
+
+        // An allocator consists of N regions
+        // Example size of an allocator: 128 GB or 256 GB
+        struct allocator_t
+        {
+            u32* m_active_chunks_per_alloc_index;
+            u32* m_cached_empty_chunks_per_alloc_range;
+            u32* m_cached_empty_blocks_per_alloc_range;
+            u32* m_free_empty_chunks_per_alloc_range;
+            u32* m_free_empty_blocks_per_alloc_range;
+            u32* m_active_regions_per_alloc_range;
+
+            region_config_t* m_region_config_array;
+            alloc_config_t*  m_alloc_config_array;
+
+            s8 m_region_sizeshift;  // shift value to calculate region size
+
+            byte* m_memory_base;     // Virtual memory base for the allocator (aligned to region size)
+            u64   m_memory_size;     // Size of the virtual memory for the allocator
+            u32*  m_o_region_array;  // (nil = 0xffffffff), covers virtual memory range
+
+            byte* m_arena_memory_base;  // For allocating regions/chunks/blocks
+            byte* m_arena_memory_cursor;
+            u64   m_arena_memory_size;  // Size of the arena memory for allocating regions/chunks/blocks
+        };
+
+        static inline u32       s_region_to_offset(allocator_t* a, region_t* region) { return (u32)((byte*)region - a->m_arena_memory_base); }
+        static inline region_t* s_offset_to_region(allocator_t* a, u32 offset) { return (region_t*)(a->m_arena_memory_base + offset); }
+        static inline u32       s_chunk_to_offset(allocator_t* a, chunk_t* chunk) { return (u32)((byte*)chunk - a->m_arena_memory_base); }
+        static inline chunk_t*  s_offset_to_chunk(allocator_t* a, u32 offset) { return (chunk_t*)(a->m_arena_memory_base + offset); }
+        static inline u32       s_block_to_offset(allocator_t* a, block_t* block) { return (u32)((byte*)block - a->m_arena_memory_base); }
+        static inline block_t*  s_offset_to_block(allocator_t* a, u32 offset) { return (block_t*)(a->m_arena_memory_base + offset); }
+
+        static s32 s_size_to_bin_d2(u32& alloc_size)
+        {
+            const s32 w   = math::countLeadingZeros(alloc_size);
+            const u32 f   = (u32)0x80000000 >> w;
+            const u32 r   = 0xFFFFFFFF << (30 - w);
+            const u32 t   = ((f - 1) >> 1);
+            alloc_size    = (alloc_size + t) & ~t;
+            const s32 bin = (s32)((alloc_size & r) >> (30 - w)) + ((30 - w) * 2);
+            return bin;
+        }
+
+        static s32 s_size_to_bin_d4(u32& alloc_size)
+        {
+            const s32 w   = math::countLeadingZeros(alloc_size);
+            const u32 f   = (u32)0x80000000 >> w;
+            const u32 r   = 0xFFFFFFFF << (29 - w);
+            const u32 t   = ((f - 1) >> 2);
+            alloc_size    = (alloc_size + t) & ~t;
+            const s32 bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
+            return bin;
+        }
+
+        static alloc_config_t* s_get_alloc_config_for_size(allocator_t* a, u32 alloc_size)
+        {
+            // Between every power-of-2 and the next power-of-2 we want D sizes.
+            // If D is 2, then we want the following:
+            //    - step = (next power-of-2 - current power-of-2) / 2
+            //    - sizes = current-power-of-2, current-power-of-2 + step
+            // If D is 4, then we want the following:
+            //    - step = (next power-of-2 - current power-of-2) / 4
+            //    - sizes = current-power-of-2, current-power-of-2 + step, current-power-of-2 + 2 * step, current-power-of-2 + 3 * step
+
+            // Additional requirements:
+            // - Any size below 8 should act as 'size = 8'
+            // - Every size should be a multiple of 8
+
+            ASSERT(alloc_size > 0);
+            alloc_size = ((alloc_size + 7) / 8) * 8;
+
+            const s32 bin = s_size_to_bin_d4(alloc_size);
+            ASSERT(alloc_size <= a->m_alloc_config_array[bin].m_alloc_size);
+        }
+
+        void* allocate(allocator_t* a, u32 size)
+        {
+            // - alloc_config_t* ac = get_alloc_config_for_size(a, size);
+            // - Is there an active chunk for this allocation config
+            //   - If not, check if there is an active region for this allocation config
+            //     - If not, allocate a new region for the region configuration
+            //     - If yes, allocate a new chunk within the active region, add it to the active chunks
+            //   - Allocate item from the active chunk
+            //   - If chunk is now full remove it from the active list
+            // - return item
+        }
+
+        void deallocate(allocator_t* a, void* item)
+        {
+            // - Determine region the item belongs to
+            // - If region is chunk region find the chunk c ontaining the item
+            //   else find the block containing the item
+            // - Mark the item as free within the chunk or block
+            // - If the chunk or block is now empty, move it to the cached or free list
+            // - If the chunk was full before this deallocation, add it back to the active list
+        }
 
     }  // namespace nsuperallocv3
 

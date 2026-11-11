@@ -319,7 +319,7 @@ namespace ncore
             c->m_alloc_configs     = array_start;
 
             u8 region_index = 0;
-            for (i32 j = 1; j < c->m_num_alloc_configs; ++j)
+            for (u32 j = 1; j < c->m_num_alloc_configs; ++j)
             {
                 if (!is_region_equal(c->m_alloc_configs[j], c->m_alloc_configs[j - 1]))
                 {
@@ -511,7 +511,6 @@ namespace ncore
                 if (alloc_config.num_chunks_per_region() > 32)
                 {
                     u32* free_bin1       = g_allocate_array<u32>(c->m_internal_fsa, (alloc_config.num_chunks_per_region() >> 5));
-                    u32* active_bin1     = g_allocate_array<u32>(c->m_internal_fsa, (alloc_config.num_chunks_per_region() >> 5));
                     region->m_chunk_bin1 = nfsa::ptr2idx(c->m_internal_fsa, free_bin1);
                 }
                 else
@@ -552,7 +551,7 @@ namespace ncore
 
             region->m_chunk_free_index = 0;
             region->m_chunk_count      = 0;
-            const u32 capacity         = alloc_config.num_chunks_per_region();
+
             region->m_chunk_free_bin0  = D_U32_MAX;
             region->m_chunk_used_bin0  = 0;
 
