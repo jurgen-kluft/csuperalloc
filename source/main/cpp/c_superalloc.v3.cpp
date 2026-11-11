@@ -12,6 +12,9 @@ namespace ncore
 {
     namespace nsuperallocv3
     {
+
+#define CSUPERALLOC_V3_D2
+
         enum
         {
             c4KiB   = 12,
@@ -78,34 +81,34 @@ namespace ncore
             cRegionTypeBlock = 1,
         };
 
-        typedef u32 region_config_t;
+        typedef u16 region_config_t;
 
-#define REGION_CONFIG(type, region_size, chunk_size) (((type) & 0xFF) | (((region_size) & 0xFF) << 8) | (((chunk_size) & 0xFF) << 16))
+#define REGION_CONFIG(type, region_size, chunk_size) (((type) & 0x1) | (((region_size) & 0x3F) << 1) | (((chunk_size) & 0x3F) << (1 + 6)))
 
-        static inline u8 region_type(region_config_t config) { return (config >> 0) & 0xFF; }
-        static inline u8 region_size_shift(region_config_t config) { return (config >> 8) & 0xFF; }
-        static inline u8 chunk_size_shift(region_config_t config) { return (config >> 16) & 0xFF; }
+        static inline u8 region_type(region_config_t config) { return (config >> 0) & 0x1; }
+        static inline u8 region_size_shift(region_config_t config) { return (config >> 1) & 0x3F; }
+        static inline u8 chunk_size_shift(region_config_t config) { return (config >> 7) & 0x3F; }
 
-        static region_config_t s_regions[] = {
-          REGION_CONFIG(cRegionTypeChunk, c16MiB, c16KiB),    //
-          REGION_CONFIG(cRegionTypeChunk, c16MiB, c32KiB),    //
-          REGION_CONFIG(cRegionTypeChunk, c16MiB, c64KiB),    //
-          REGION_CONFIG(cRegionTypeBlock, c32MiB, c64KiB),    //
-          REGION_CONFIG(cRegionTypeBlock, c32MiB, c128KiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c32MiB, c256KiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c32MiB, c512KiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c32MiB, c1MiB),     //
-          REGION_CONFIG(cRegionTypeBlock, c64MiB, c2MiB),     //
-          REGION_CONFIG(cRegionTypeBlock, c64MiB, c4MiB),     //
-          REGION_CONFIG(cRegionTypeBlock, c64MiB, c8MiB),     //
-          REGION_CONFIG(cRegionTypeBlock, c512MiB, c16MiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c512MiB, c32MiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c512MiB, c64MiB),   //
-          REGION_CONFIG(cRegionTypeBlock, c512MiB, c128MiB),  //
-          REGION_CONFIG(cRegionTypeBlock, c1GiB, c256MiB),    //
-          REGION_CONFIG(cRegionTypeBlock, c1GiB, c512MiB),    //
-          REGION_CONFIG(cRegionTypeBlock, c2GiB, c1GiB),      //
-        };
+        // static region_config_t s_regions[] = {
+        //   REGION_CONFIG(cRegionTypeChunk, c16MiB, c16KiB),    //
+        //   REGION_CONFIG(cRegionTypeChunk, c16MiB, c32KiB),    //
+        //   REGION_CONFIG(cRegionTypeChunk, c16MiB, c64KiB),    //
+        //   REGION_CONFIG(cRegionTypeBlock, c32MiB, c64KiB),    //
+        //   REGION_CONFIG(cRegionTypeBlock, c32MiB, c128KiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c32MiB, c256KiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c32MiB, c512KiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c32MiB, c1MiB),     //
+        //   REGION_CONFIG(cRegionTypeBlock, c64MiB, c2MiB),     //
+        //   REGION_CONFIG(cRegionTypeBlock, c64MiB, c4MiB),     //
+        //   REGION_CONFIG(cRegionTypeBlock, c64MiB, c8MiB),     //
+        //   REGION_CONFIG(cRegionTypeBlock, c512MiB, c16MiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c512MiB, c32MiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c512MiB, c64MiB),   //
+        //   REGION_CONFIG(cRegionTypeBlock, c512MiB, c128MiB),  //
+        //   REGION_CONFIG(cRegionTypeBlock, c1GiB, c256MiB),    //
+        //   REGION_CONFIG(cRegionTypeBlock, c1GiB, c512MiB),    //
+        //   REGION_CONFIG(cRegionTypeBlock, c2GiB, c1GiB),      //
+        // };
 
         // A region consists of N chunks/blocks
         // Example size of a region: 16 MB
@@ -113,26 +116,104 @@ namespace ncore
         // A region is thus dedicated to a specific alloc range
         struct region_t
         {
-            u32 m_o_next;               // next region in list (offset into arena memory)
-            u32 m_index;                // index into allocator->m_region_array
-            u16 m_region_config_index;  // the type of the region (e.g., chunk-based or block-based)
-            u16 m_free_slot_index;      // index of the first virgin chunk/block slot in m_array
-            u32 m_o_array;              // array of chunk/block offsets (offset into arena memory)
+            u32             m_o_next;           // next region in list (offset into arena memory)
+            u32             m_index;            // index into allocator->m_region_array
+            region_config_t m_region_config;    // the type of the region (e.g., chunk-based or block-based)
+            u16             m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
+            u32             m_o_array;          // array of chunk/block offsets (offset into arena memory)
         };
 
         struct alloc_config_t
         {
-            u32 m_alloc_size;           // size of the allocation
-            u8  m_alloc_range_index;    // index of the allocation range
-            u8  m_alloc_range_min;      // index to the minimum allocation config
-            u8  m_alloc_range_max;      // index to the maximum allocation config
-            u8  m_region_config_index;  // index into region configuration array
+            u32 m_alloc_size;     // size of the allocation
+            u16 m_region_config;  // index into region configuration array
         };
 
-        // Min
+#define ALLOC_CONFIG(size, config) {(size), (config)}
+
+        static const region_config_t cChunk16KiB        = REGION_CONFIG(cRegionTypeChunk, c8MiB, c16KiB);
+        static const region_config_t cChunk32KiB        = REGION_CONFIG(cRegionTypeChunk, c8MiB, c32KiB);
+        static const region_config_t cChunk64KiB        = REGION_CONFIG(cRegionTypeChunk, c8MiB, c64KiB);
+        static const region_config_t cBlock8MiB64KiB    = REGION_CONFIG(cRegionTypeBlock, c8MiB, c64KiB);
+        static const region_config_t cBlock32MiB64KiB   = REGION_CONFIG(cRegionTypeBlock, c32MiB, c64KiB);
+        static const region_config_t cBlock32MiB128KiB  = REGION_CONFIG(cRegionTypeBlock, c32MiB, c128KiB);
+        static const region_config_t cBlock32MiB256KiB  = REGION_CONFIG(cRegionTypeBlock, c32MiB, c256KiB);
+        static const region_config_t cBlock32MiB512KiB  = REGION_CONFIG(cRegionTypeBlock, c32MiB, c512KiB);
+        static const region_config_t cBlock32MiB1MiB    = REGION_CONFIG(cRegionTypeBlock, c32MiB, c1MiB);
+        static const region_config_t cBlock32MiB2MiB    = REGION_CONFIG(cRegionTypeBlock, c32MiB, c2MiB);
+        static const region_config_t cBlock32MiB4MiB    = REGION_CONFIG(cRegionTypeBlock, c32MiB, c4MiB);
+        static const region_config_t cBlock32MiB8MiB    = REGION_CONFIG(cRegionTypeBlock, c32MiB, c8MiB);
+        static const region_config_t cBlock256MiB16MiB  = REGION_CONFIG(cRegionTypeBlock, c256MiB, c16MiB);
+        static const region_config_t cBlock256MiB32MiB  = REGION_CONFIG(cRegionTypeBlock, c256MiB, c32MiB);
+        static const region_config_t cBlock256MiB64MiB  = REGION_CONFIG(cRegionTypeBlock, c256MiB, c64MiB);
+        static const region_config_t cBlock256MiB128MiB = REGION_CONFIG(cRegionTypeBlock, c256MiB, c128MiB);
+        static const region_config_t cBlock512MiB256MiB = REGION_CONFIG(cRegionTypeBlock, c512MiB, c256MiB);
+        static const region_config_t cBlock1GiB512MiB   = REGION_CONFIG(cRegionTypeBlock, c1GiB, c512MiB);
+
+#ifdef CSUPERALLOC_V3_D2
+
+        static const s32 cMinBin = 6;
+
+        // D == 2
         static alloc_config_t s_alloc_configs[] = {
-
+          ALLOC_CONFIG(8, cChunk16KiB),
+          ALLOC_CONFIG(16, cChunk16KiB),
+          ALLOC_CONFIG(16, cChunk16KiB),
+          ALLOC_CONFIG(24, cChunk32KiB),
+          ALLOC_CONFIG(32, cChunk32KiB),
+          ALLOC_CONFIG(48, cChunk32KiB),
+          ALLOC_CONFIG(64, cChunk64KiB),
+          ALLOC_CONFIG(96, cChunk64KiB),
+          ALLOC_CONFIG(128, cChunk64KiB),
+          ALLOC_CONFIG(192, cChunk64KiB),
+          ALLOC_CONFIG(256, cChunk64KiB),
+          ALLOC_CONFIG(384, cChunk64KiB),
+          ALLOC_CONFIG(512, cChunk64KiB),
+          ALLOC_CONFIG(768, cChunk64KiB),
+          ALLOC_CONFIG(1 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(1 * cKB + 512, cChunk64KiB),
+          ALLOC_CONFIG(2 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(3 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(4 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(6 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(8 * cKB, cChunk64KiB),
+          ALLOC_CONFIG(12 * cKB, cBlock8MiB64KiB),
+          ALLOC_CONFIG(16 * cKB, cBlock8MiB64KiB),
+          ALLOC_CONFIG(24 * cKB, cBlock8MiB64KiB),
+          ALLOC_CONFIG(32 * cKB, cBlock8MiB64KiB),
+          ALLOC_CONFIG(48 * cKB, cBlock32MiB64KiB),
+          ALLOC_CONFIG(64 * cKB, cBlock32MiB64KiB),
+          ALLOC_CONFIG(96 * cKB, cBlock32MiB128KiB),
+          ALLOC_CONFIG(128 * cKB, cBlock32MiB128KiB),
+          ALLOC_CONFIG(192 * cKB, cBlock32MiB256KiB),
+          ALLOC_CONFIG(256 * cKB, cBlock32MiB256KiB),
+          ALLOC_CONFIG(384 * cKB, cBlock32MiB512KiB),
+          ALLOC_CONFIG(512 * cKB, cBlock32MiB512KiB),
+          ALLOC_CONFIG(768 * cKB, cBlock32MiB1MiB),
+          ALLOC_CONFIG(1 * cMB, cBlock32MiB1MiB),
+          ALLOC_CONFIG(1 * cMB + 512 * cKB, cBlock32MiB2MiB),
+          ALLOC_CONFIG(2 * cMB, cBlock32MiB2MiB),
+          ALLOC_CONFIG(3 * cMB, cBlock32MiB4MiB),
+          ALLOC_CONFIG(4 * cMB, cBlock32MiB4MiB),
+          ALLOC_CONFIG(6 * cMB, cBlock32MiB8MiB),
+          ALLOC_CONFIG(8 * cMB, cBlock32MiB8MiB),
+          ALLOC_CONFIG(12 * cMB, cBlock256MiB16MiB),
+          ALLOC_CONFIG(16 * cMB, cBlock256MiB16MiB),
+          ALLOC_CONFIG(24 * cMB, cBlock256MiB32MiB),
+          ALLOC_CONFIG(32 * cMB, cBlock256MiB32MiB),
+          ALLOC_CONFIG(48 * cMB, cBlock256MiB64MiB),
+          ALLOC_CONFIG(64 * cMB, cBlock256MiB64MiB),
+          ALLOC_CONFIG(96 * cMB, cBlock256MiB128MiB),
+          ALLOC_CONFIG(128 * cMB, cBlock256MiB128MiB),
+          ALLOC_CONFIG(192 * cMB, cBlock512MiB256MiB),
+          ALLOC_CONFIG(256 * cMB, cBlock512MiB256MiB),
+          ALLOC_CONFIG(384 * cMB, cBlock1GiB512MiB),
+          ALLOC_CONFIG(512 * cMB, cBlock1GiB512MiB),
         };
+
+        static const s32 cAllocConfigCount = DARRAYSIZE(s_alloc_configs);
+        static const s32 cMaxBin           = cMinBin + cAllocConfigCount - 1;
+#endif
 
         // An allocator consists of N regions
         // Example size of an allocator: 128 GB or 256 GB
@@ -166,7 +247,8 @@ namespace ncore
         static inline u32       s_block_to_offset(allocator_t* a, block_t* block) { return (u32)((byte*)block - a->m_arena_memory_base); }
         static inline block_t*  s_offset_to_block(allocator_t* a, u32 offset) { return (block_t*)(a->m_arena_memory_base + offset); }
 
-        static s32 s_size_to_bin_d2(u32& alloc_size)
+#ifdef CSUPERALLOC_V3_D2
+        static s32 s_size_to_bin(u32& alloc_size)
         {
             const s32 w   = math::countLeadingZeros(alloc_size);
             const u32 f   = (u32)0x80000000 >> w;
@@ -176,8 +258,10 @@ namespace ncore
             const s32 bin = (s32)((alloc_size & r) >> (30 - w)) + ((30 - w) * 2);
             return bin;
         }
+#endif
 
-        static s32 s_size_to_bin_d4(u32& alloc_size)
+#ifdef CSUPERALLOC_V3_D4
+        static s32 s_size_to_bin(u32& alloc_size)
         {
             const s32 w   = math::countLeadingZeros(alloc_size);
             const u32 f   = (u32)0x80000000 >> w;
@@ -187,6 +271,7 @@ namespace ncore
             const s32 bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
             return bin;
         }
+#endif
 
         static alloc_config_t* s_get_alloc_config_for_size(allocator_t* a, u32 alloc_size)
         {
@@ -204,9 +289,14 @@ namespace ncore
 
             ASSERT(alloc_size > 0);
             alloc_size = ((alloc_size + 7) / 8) * 8;
-
-            const s32 bin = s_size_to_bin_d4(alloc_size);
-            ASSERT(alloc_size <= a->m_alloc_config_array[bin].m_alloc_size);
+            s32 bin    = s_size_to_bin(alloc_size);
+            if (bin > cMaxBin)
+                return nullptr;
+            if (bin < cMinBin)
+                bin = cMinBin;
+            alloc_config_t* config = &s_alloc_configs[bin - cMinBin];
+            ASSERT(alloc_size <= config->m_alloc_size);
+            return config;
         }
 
         void* allocate(allocator_t* a, u32 size)
