@@ -40,16 +40,10 @@ namespace ncore
             c4GiB   = 32,
         };
 
-        struct array_t
-        {
-            u32 m_capacity;  // u32[capacity]
-            u32 m_o_next;    // offset to the next array_t in memory
-        };
-
         // A chunk based region consists of N chunks
         // A chunk consists of N elements with a maximum of 2048.
         // Note: Bitvector should be lazily initialized.
-        // Size: 20 bytes (must be <= 24 bytes)
+        // Size: 24 bytes (must be <= 24 bytes)
         struct chunk_t
         {
             u16 m_capacity;         // max number of elements
@@ -198,21 +192,23 @@ namespace ncore
         static const s32 cMaxBin           = cMinBin + cAllocConfigCount - 1;
 #endif
 
-        // Regions:
-        // A region is 16MB in size, so with 65535 regions we can cover up to 1TB of memory.
-
-        // Regions, blocks, chunks, and arrays can be added to a list by using array_t.
-        // This means that all lists are using array_t to put objects into a singly linked list.
+        struct meta_arena_t
+        {
+            u32   m_allocation_size;  // size of each allocation within the arena
+            byte* m_memory_base;      // For allocating regions/chunks/blocks
+            byte* m_memory_cursor;    // Current cursor position within the arena memory (aligned to 8 bytes)
+            u64   m_memory_size;      // Size of the arena memory for allocating regions/chunks/blocks
+        };
 
         // An allocator consists of N regions
         // Example size of an allocator: 128 GB or 256 GB
         struct allocator_t
         {
-            u32* m_active_chunks_per_alloc_index;
-            u32* m_cached_empty_chunks_per_alloc_range;
-            u32* m_cached_empty_blocks_per_alloc_range;
-            u32* m_active_regions_per_region_size;  //
-            u32* m_unused_region_array;             // free lists per region size, (nil = 0xffffffff), covers virtual memory range
+            u32* m_active_chunks_per_alloc_index;        // array of active chunks per allocation index
+            u32* m_cached_empty_chunks_per_chunk_index;  // array of cached empty chunks per chunk index
+            u32* m_cached_empty_blocks_per_block_index;  // array of cached empty blocks per block index
+            u32* m_active_regions_per_region_size;       // array of active regions per region size
+            u32* m_unused_region_array;                  // free lists per region size, (nil = 0xffffffff), covers virtual memory range
 
             alloc_config_t* m_alloc_config_array;
 
@@ -222,20 +218,19 @@ namespace ncore
             s8   m_min_region_sizeshift;   // shift value to calculate minimum region size
             u16* m_o_region_lookup_array;  // (nil = 0xffff), covers virtual memory range
 
-            byte* m_memory_base;  // Virtual memory base for the allocator (aligned to region size)
-            u64   m_memory_size;  // Size of the virtual memory for the allocator
+            byte* m_memory_base;  // virtual memory base for the allocator (must be aligned to region size)
+            u64   m_memory_size;  // size of the virtual memory address range for this allocator
 
-            byte* m_arena_memory_base;  // For allocating regions/chunks/blocks
-            byte* m_arena_memory_cursor;
-            u64   m_arena_memory_size;  // Size of the arena memory for allocating regions/chunks/blocks
+            meta_arena_t m_meta_arena;       // metadata arena (chunk_t/block_t/region_t)
+            meta_arena_t m_array_arenas[6];  // array arenas (for different array sizes, 8/16/32/64/128/256)
         };
 
-        static inline u32       s_region_to_offset(allocator_t* a, region_t* region) { return (u32)((byte*)region - a->m_arena_memory_base); }
-        static inline region_t* s_offset_to_region(allocator_t* a, u32 offset) { return (region_t*)(a->m_arena_memory_base + offset); }
-        static inline u32       s_chunk_to_offset(allocator_t* a, chunk_t* chunk) { return (u32)((byte*)chunk - a->m_arena_memory_base); }
-        static inline chunk_t*  s_offset_to_chunk(allocator_t* a, u32 offset) { return (chunk_t*)(a->m_arena_memory_base + offset); }
-        static inline u32       s_block_to_offset(allocator_t* a, block_t* block) { return (u32)((byte*)block - a->m_arena_memory_base); }
-        static inline block_t*  s_offset_to_block(allocator_t* a, u32 offset) { return (block_t*)(a->m_arena_memory_base + offset); }
+        static inline u32       s_region_to_offset(allocator_t* a, region_t* region) { return (u32)((byte*)region - a->m_meta_arena.m_memory_base); }
+        static inline region_t* s_offset_to_region(allocator_t* a, u32 offset) { return (region_t*)(a->m_meta_arena.m_memory_base + offset); }
+        static inline u32       s_chunk_to_offset(allocator_t* a, chunk_t* chunk) { return (u32)((byte*)chunk - a->m_meta_arena.m_memory_base); }
+        static inline chunk_t*  s_offset_to_chunk(allocator_t* a, u32 offset) { return (chunk_t*)(a->m_meta_arena.m_memory_base + offset); }
+        static inline u32       s_block_to_offset(allocator_t* a, block_t* block) { return (u32)((byte*)block - a->m_meta_arena.m_memory_base); }
+        static inline block_t*  s_offset_to_block(allocator_t* a, u32 offset) { return (block_t*)(a->m_meta_arena.m_memory_base + offset); }
 
 #ifdef CSUPERALLOC_V3_D2
         static s32 s_size_to_bin(u32& alloc_size)
