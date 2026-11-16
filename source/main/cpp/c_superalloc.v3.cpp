@@ -40,22 +40,39 @@ namespace ncore
             c4GiB   = 32,
         };
 
+        enum offset_id_t
+        {
+            c_offset_nil        = 0x0fffffff,
+            c_offset_value_mask = 0x0fffffff,
+            c_offset_id_mask    = 0xf,
+            c_offset_id_shift   = 28,
+        };
+
+        typedef u32 arena_offset_t;
+
+        static inline u32 s_offset_value(arena_offset_t offset) { return static_cast<u32>(offset) & c_offset_value_mask; }
+        static inline u8  s_offset_id(arena_offset_t offset) { return static_cast<u8>((offset >> c_offset_id_shift) & c_offset_id_mask); }
+
+        template <typename T>
+        static inline T* s_offset_to_ptr(arena_offset_t offset, void* arena_base)
+        { return static_cast<T*>(static_cast<u8*>(arena_base) + s_offset_value(offset)); }
+
         // A chunk based region consists of N chunks
         // A chunk consists of N elements with a maximum of 2048.
         // Note: Bitvector should be lazily initialized.
         // Size: 24 bytes (must be <= 24 bytes)
         struct chunk_t
         {
-            u16 m_capacity;         // max number of elements
-            u16 m_count;            // cur number of elements
-            u8  m_alloc_cfg_index;  // allocation configuration index for this chunk
-            u8  m_reserved1;        // reserved for future use
-            u16 m_reserved2;        // reserved for future use
-            u32 m_o_region;         // region this chunk belongs to (index into allocator->m_region_array)
-            u16 m_index;            // index into region->m_o_array
-            u16 m_free_item_index;  // index to first virgin item in the chunk
-            u32 m_bin0;             // bitvec level 0
-            u32 m_o_bin1;           // bitvec level 1 (offset into arena memory to u32[])
+            u16            m_capacity;         // max number of elements
+            u16            m_count;            // cur number of elements
+            u8             m_alloc_cfg_index;  // allocation configuration index for this chunk
+            u8             m_reserved1;        // reserved for future use
+            u16            m_reserved2;        // reserved for future use
+            arena_offset_t m_o_region;         // region this chunk belongs to (index into allocator->m_region_array)
+            u16            m_index;            // index into region->m_o_array
+            u16            m_free_item_index;  // index to first virgin item in the chunk
+            u32            m_bin0;             // bitvec level 0
+            arena_offset_t m_o_bin1;           // bitvec level 1 (offset into arena memory to u32[])
         };
 
         // A block based region consists of N blocks
@@ -65,14 +82,14 @@ namespace ncore
         // Size: 20 bytes (must be <= 24 bytes)
         struct block_t
         {
-            u32 m_pages;            // number of committed pages in the block
-            u8  m_alloc_cfg_index;  // allocation configuration index for this block
-            u8  m_reserved1;        // reserved for future use
-            u16 m_reserved2;        // reserved for future use
-            u32 m_o_region;         // region this block belongs to (offset into arena memory to a region_t)
-            u32 m_index;            // index into region->m_o_array
-            u32 m_tag;              // tag for the block (e.g., for tracking usage or type)
-            u32 m_o_next;           // next block in list (offset into arena memory)
+            u32            m_pages;            // number of committed pages in the block
+            u8             m_alloc_cfg_index;  // allocation configuration index for this block
+            u8             m_reserved1;        // reserved for future use
+            u16            m_reserved2;        // reserved for future use
+            arena_offset_t m_o_region;         // region this block belongs to (offset into arena memory to a region_t)
+            u32            m_index;            // index into region->m_o_array
+            u32            m_tag;              // tag for the block (e.g., for tracking usage or type)
+            arena_offset_t m_o_next;           // next block in list (offset into arena memory)
         };
 
         struct region_config_t
@@ -97,14 +114,14 @@ namespace ncore
         // Size: 20 bytes (must be <= 24 bytes)
         struct region_t
         {
-            u8  m_alloc_cfg_index;  // allocation configuration index for this region
-            u8  m_reserved1;        // reserved bits for alignment or future use
-            u16 m_reserved2;        // reserved for future use
-            u32 m_index;            // index into allocator->m_o_region_lookup_array
-            u16 m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
-            u16 m_free_list;        // index of first slot of the free list for chunks/blocks
-            u32 m_o_array;          // array of chunk/block offsets (offset into arena memory to a array_t)
-            u32 m_o_tags;           // array for handling tags (offset into arena memory to a array_t)
+            u8             m_alloc_cfg_index;  // allocation configuration index for this region
+            u8             m_reserved1;        // reserved bits for alignment or future use
+            u16            m_reserved2;        // reserved for future use
+            u32            m_index;            // index into allocator->m_o_region_lookup_array
+            u16            m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
+            u16            m_free_list;        // index of first slot of the free list for chunks/blocks
+            arena_offset_t m_o_array;          // array of chunk/block offsets (offset into arena memory to a array_t)
+            arena_offset_t m_o_tags;           // array for handling tags (offset into arena memory to a array_t)
         };
 
         // Size: 16 bytes
@@ -192,37 +209,38 @@ namespace ncore
         static const s32 cMaxBin           = cMinBin + cAllocConfigCount - 1;
 #endif
 
-        struct meta_arena_t
+        struct arena_pool_t
         {
-            u32   m_allocation_size;  // size of each allocation within the arena
-            byte* m_memory_base;      // For allocating regions/chunks/blocks
-            byte* m_memory_cursor;    // Current cursor position within the arena memory (aligned to 8 bytes)
-            u64   m_memory_size;      // Size of the arena memory for allocating regions/chunks/blocks
+            u8             m_id;               // identifier for the arena pool (e.g., type or category)
+            u8             m_reserved;         // reserved for future use or alignment
+            u16            m_reserved2;        // reserved for future use or alignment
+            u32            m_allocation_size;  // size of each allocation within the arena
+            arena_offset_t m_free_list;        // head of the free list within the arena
+            u32            m_memory_size;      // Size of the arena memory for allocating regions/chunks/blocks
+            byte*          m_memory_base;      // For allocating regions/chunks/blocks
+            byte*          m_memory_cursor;    // Current cursor position within the arena memory (aligned to 8 bytes)
         };
 
         // An allocator consists of N regions
         // Example size of an allocator: 128 GB or 256 GB
         struct allocator_t
         {
-            u32* m_active_chunks_per_alloc_index;        // array of active chunks per allocation index
-            u32* m_cached_empty_chunks_per_chunk_index;  // array of cached empty chunks per chunk index
-            u32* m_cached_empty_blocks_per_block_index;  // array of cached empty blocks per block index
-            u32* m_active_regions_per_region_size;       // array of active regions per region size
-            u32* m_unused_region_array;                  // free lists per region size, (nil = 0xffffffff), covers virtual memory range
+            arena_offset_t* m_active_chunks_per_alloc_index;        // array of active chunks per allocation index
+            arena_offset_t* m_cached_empty_chunks_per_chunk_index;  // array of cached empty chunks per chunk index
+            arena_offset_t* m_cached_empty_blocks_per_block_index;  // array of cached empty blocks per block index
+            arena_offset_t* m_active_regions_per_region_size;       // array of active regions per region size
+            arena_offset_t* m_unused_region_array;                  // free lists per region size, (nil = 0xffffffff), covers virtual memory range
 
             alloc_config_t* m_alloc_config_array;
 
-            u32  m_free_structs;  // free list of chunk_t/block_t/region_t (are the same size, <= 24 bytes)
-            u32* m_free_arrays;   // array of list-heads for unused/free arrays (power-of-2 sizes)
-
-            s8   m_min_region_sizeshift;   // shift value to calculate minimum region size
-            u16* m_o_region_lookup_array;  // (nil = 0xffff), covers virtual memory range
+            s8              m_min_region_sizeshift;   // shift value to calculate minimum region size
+            arena_offset_t* m_o_region_lookup_array;  // covers virtual memory range
 
             byte* m_memory_base;  // virtual memory base for the allocator (must be aligned to region size)
             u64   m_memory_size;  // size of the virtual memory address range for this allocator
 
-            meta_arena_t m_meta_arena;       // metadata arena (chunk_t/block_t/region_t)
-            meta_arena_t m_array_arenas[6];  // array arenas (for different array sizes, 8/16/32/64/128/256)
+            arena_pool_t m_meta_arena;       // metadata arena (chunk_t/block_t/region_t)
+            arena_pool_t m_array_arenas[6];  // array arenas (for different array sizes, 8/16/32/64/128/256)
         };
 
         static inline u32       s_region_to_offset(allocator_t* a, region_t* region) { return (u32)((byte*)region - a->m_meta_arena.m_memory_base); }
