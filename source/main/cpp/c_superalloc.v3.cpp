@@ -217,6 +217,7 @@ namespace ncore
                 // check if we have enough committed pages
                 if (current_page > arena->m_committed_pages)
                 {
+                    ASSERT(current_page <= arena->m_reserved_pages);
                     // TODO commit more pages
                     arena->m_committed_pages = current_page;
                 }
@@ -233,7 +234,7 @@ namespace ncore
 
         static void s_free(arena_pool_t* arena, void* ptr)
         {
-            ASSERT((uint_t)ptr & 0x7 == 0);  // Ensure the pointer is 8-byte aligned
+            ASSERT(((uint_t)ptr & 0x7) == 0);  // Ensure the pointer is 8-byte aligned
             *((u32*)ptr)       = arena->m_free_list;
             arena->m_free_list = (u32)((byte*)ptr - arena->m_memory_base);
         }
@@ -300,7 +301,7 @@ namespace ncore
         {
             ASSERT(ptr >= a->m_arena_memory_base && ptr < (a->m_arena_memory_base + a->m_arena_memory_size));
             const u8 arena_index = s_pointer_to_arena_index(a, ptr);
-            ASSERT(arena_index < 8);
+            ASSERT(arena_index < 12);
             s_free(&a->m_arenas[arena_index], ptr);
         }
         static void s_free_chunk(allocator_t* a, chunk_t* chunk) { s_free_pointer(a, (void*)chunk); }
