@@ -12,6 +12,11 @@ namespace ncore
 {
     namespace nsuperallocv3
     {
+        // Note:
+        // Thought, it seems a region of 16MB with Chunks of 64KB could both use
+        // chunks and blocks, nothing is preventing a region from being used in
+        // both ways, right? The only thing we need is to know the type when picking
+        // an item from the array in the region.
 
 #define D_CSUPERALLOC_V3_D2
 
@@ -45,13 +50,13 @@ namespace ncore
         // Size: 32 bytes (must be <= 32 bytes)
         struct chunk_t
         {
-            u64 m_bin0;             // bitvec level 0
-            u32 m_o_bin1;           // bitvec level 1 (offset into arena memory to u64[])
+            u8  m_type;             // 0, chunk type (e.g., fixed-size chunk)
+            u8  m_alloc_cfg_index;  // allocation configuration index for this chunk
+            u16 m_index;            // index into region->m_o_array
             u16 m_count;            // cur number of elements
             u16 m_free_item_index;  // index to first virgin item in the chunk
-            u8  m_alloc_cfg_index;  // allocation configuration index for this chunk
-            u8  m_reserved1;        // reserved for future use
-            u16 m_index;            // index into region->m_o_array
+            u64 m_bin0;             // bitvec level 0
+            u32 m_o_bin1;           // bitvec level 1 (offset into arena memory to u64[])
             u32 m_o_tags;           // array of tags (offset into arena memory to a array_t)
             u32 m_o_region;         // region this chunk belongs to (offset into arena memory to a region_t)
             u32 m_o_next;           // next chunk in list (offset into arena memory to a chunk_t)
@@ -64,10 +69,10 @@ namespace ncore
         // Size: 24 bytes (must be <= 32 bytes)
         struct block_t
         {
-            u32 m_pages;            // number of committed pages in the block
+            u8  m_type;             // 1, block type (e.g., fixed-size block)
             u8  m_alloc_cfg_index;  // allocation configuration index for this block
-            u8  m_reserved1;        // reserved for future use
             u16 m_reserved2;        // reserved for future use
+            u32 m_pages;            // number of committed pages in the block
             u32 m_o_region;         // region this block belongs to (offset into arena memory to a region_t)
             u32 m_index;            // index into region->m_o_array
             u32 m_tag;              // tag for the block (e.g., for tracking usage or type)
@@ -80,8 +85,8 @@ namespace ncore
         // Size: 24 bytes (must be <= 32 bytes)
         struct region_t
         {
+            u8  m_type;             // 2, region type (e.g., chunk-based or block-based)
             u8  m_alloc_cfg_index;  // allocation configuration index for this region
-            u8  m_reserved1;        // reserved bits for alignment or future use
             u16 m_reserved2;        // reserved for future use
             u32 m_index;            // index into allocator->m_o_region_lookup_array
             u32 m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
@@ -244,7 +249,7 @@ namespace ncore
         {
             u32* m_not_full_o_chunks_per_alloc_index;      // array of "not full" chunk list per allocation index
             u32* m_cached_empty_o_chunks_per_chunk_index;  // array of cached empty chunks/blocks per chunk index
-            u32* m_active_o_region_per_region_size;        // array of active regions per region size
+            u32* m_active_o_region_per_region_index;       // array of active regions per region index
             u32* m_unused_o_region_per_region_index;       // free lists per region index
 
             alloc_config_t* m_alloc_config_array;
