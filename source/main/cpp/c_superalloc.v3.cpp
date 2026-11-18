@@ -13,7 +13,7 @@ namespace ncore
     namespace nsuperallocv3
     {
 
-#define CSUPERALLOC_V3_D2
+#define D_CSUPERALLOC_V3_D2
 
         enum
         {
@@ -41,28 +41,27 @@ namespace ncore
         };
 
         // A chunk based region consists of N chunks
-        // A chunk consists of N elements with a maximum of 2048.
-        // Note: Bitvector should be lazily initialized.
-        // Size: 24 bytes (must be <= 24 bytes)
+        // A chunk consists of N elements with a maximum of 4096
+        // Size: 32 bytes (must be <= 32 bytes)
         struct chunk_t
         {
-            u16 m_capacity;         // max number of elements
+            u64 m_bin0;             // bitvec level 0
+            u32 m_o_bin1;           // bitvec level 1 (offset into arena memory to u64[])
             u16 m_count;            // cur number of elements
+            u16 m_free_item_index;  // index to first virgin item in the chunk
             u8  m_alloc_cfg_index;  // allocation configuration index for this chunk
             u8  m_reserved1;        // reserved for future use
-            u16 m_reserved2;        // reserved for future use
-            u32 m_o_region;         // region this chunk belongs to (index into allocator->m_region_array)
             u16 m_index;            // index into region->m_o_array
-            u16 m_free_item_index;  // index to first virgin item in the chunk
-            u32 m_bin0;             // bitvec level 0
-            u32 m_o_bin1;           // bitvec level 1 (offset into arena memory to u32[])
+            u32 m_o_tags;           // array of tags (offset into arena memory to a array_t)
+            u32 m_o_region;         // region this chunk belongs to (offset into arena memory to a region_t)
+            u32 m_o_next;           // next chunk in list (offset into arena memory to a chunk_t)
         };
 
         // A block based region consists of N blocks
         // A block is a fixed size number of pages (power-of-two number of pages).
         // But an allocation can use less pages than the block size, so we need to track
         // the number of committed pages per block.
-        // Size: 20 bytes (must be <= 24 bytes)
+        // Size: 24 bytes (must be <= 32 bytes)
         struct block_t
         {
             u32 m_pages;            // number of committed pages in the block
@@ -72,7 +71,23 @@ namespace ncore
             u32 m_o_region;         // region this block belongs to (offset into arena memory to a region_t)
             u32 m_index;            // index into region->m_o_array
             u32 m_tag;              // tag for the block (e.g., for tracking usage or type)
-            u32 m_o_next;           // next block in list (offset into arena memory)
+            u32 m_o_next;           // next block in list (offset into arena memory to a block_t)
+        };
+
+        // A region consists of N chunks/blocks
+        // Example size of a region: 16 MB
+        // Note: A region is locked to a specific region configuration
+        // Size: 24 bytes (must be <= 32 bytes)
+        struct region_t
+        {
+            u8  m_alloc_cfg_index;  // allocation configuration index for this region
+            u8  m_reserved1;        // reserved bits for alignment or future use
+            u16 m_reserved2;        // reserved for future use
+            u32 m_index;            // index into allocator->m_o_region_lookup_array
+            u32 m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
+            u32 m_free_list;        // index of first slot of the free list for chunks/blocks
+            u32 m_o_array;          // array of chunk/block offsets (offset into arena memory to a array_t)
+            u32 m_o_next;           // next region in list (offset into arena memory)
         };
 
         struct region_config_t
@@ -89,22 +104,6 @@ namespace ncore
             u8 m_config_index;    // index of the chunk configuration
             u8 m_size_shift;      // size of the chunk in power-of-two pages
             u8 m_item_cap_shift;  // capacity of items in the chunk in power-of-two
-        };
-
-        // A region consists of N chunks/blocks
-        // Example size of a region: 16 MB
-        // Note: A region is locked to a specific region configuration
-        // Size: 20 bytes (must be <= 24 bytes)
-        struct region_t
-        {
-            u8  m_alloc_cfg_index;  // allocation configuration index for this region
-            u8  m_reserved1;        // reserved bits for alignment or future use
-            u16 m_reserved2;        // reserved for future use
-            u32 m_index;            // index into allocator->m_o_region_lookup_array
-            u16 m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
-            u16 m_free_list;        // index of first slot of the free list for chunks/blocks
-            u32 m_o_array;          // array of chunk/block offsets (offset into arena memory to a array_t)
-            u32 m_o_tags;           // array for handling tags (offset into arena memory to a array_t)
         };
 
         // Size: 16 bytes
@@ -129,62 +128,62 @@ namespace ncore
     }
         // clang-format on
 
-#ifdef CSUPERALLOC_V3_D2
+#ifdef D_CSUPERALLOC_V3_D2
         // D == 2
         static alloc_config_t s_alloc_configs[] = {
-          D_ALLOC_CONFIG(0, 8, 0, 0, c16MiB, c16KiB, 2048),                 //
-          D_ALLOC_CONFIG(2, 12, 0, 0, c16MiB, c16KiB, 1024),                //
-          D_ALLOC_CONFIG(2, 16, 0, 0, c16MiB, c16KiB, 1024),                //
-          D_ALLOC_CONFIG(3, 24, 1, 0, c16MiB, c16KiB, 1024),                //
-          D_ALLOC_CONFIG(4, 32, 1, 0, c16MiB, c32KiB, 1024),                //
-          D_ALLOC_CONFIG(5, 48, 1, 0, c16MiB, c32KiB, 1024),                //
-          D_ALLOC_CONFIG(6, 64, 2, 0, c16MiB, c64KiB, 1024),                //
-          D_ALLOC_CONFIG(7, 96, 2, 0, c16MiB, c64KiB, 1024),                //
-          D_ALLOC_CONFIG(8, 128, 2, 0, c16MiB, c64KiB, 512),                //
-          D_ALLOC_CONFIG(9, 192, 2, 0, c16MiB, c64KiB, 512),                //
-          D_ALLOC_CONFIG(10, 256, 2, 0, c16MiB, c64KiB, 256),               //
-          D_ALLOC_CONFIG(11, 384, 2, 0, c16MiB, c64KiB, 256),               //
-          D_ALLOC_CONFIG(12, 512, 2, 0, c16MiB, c64KiB, 128),               //
-          D_ALLOC_CONFIG(13, 768, 2, 0, c16MiB, c64KiB, 128),               //
-          D_ALLOC_CONFIG(14, 1 * cKB, 2, 0, c16MiB, c64KiB, 64),            //
-          D_ALLOC_CONFIG(15, 1 * cKB + 512, 2, 0, c16MiB, c64KiB, 64),      //
-          D_ALLOC_CONFIG(16, 2 * cKB, 2, 0, c16MiB, c64KiB, 32),            //
-          D_ALLOC_CONFIG(17, 3 * cKB, 2, 0, c16MiB, c64KiB, 32),            //
-          D_ALLOC_CONFIG(18, 4 * cKB, 2, 0, c16MiB, c64KiB, 16),            //
-          D_ALLOC_CONFIG(19, 6 * cKB, 2, 0, c16MiB, c64KiB, 16),            //
-          D_ALLOC_CONFIG(20, 8 * cKB, 2, 0, c16MiB, c64KiB, 16),            //
-          D_ALLOC_CONFIG(21, 12 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(22, 16 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(23, 24 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(24, 32 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(25, 48 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(26, 64 * cKB, 3, 0, c16MiB, c64KiB, 0),            //
-          D_ALLOC_CONFIG(27, 96 * cKB, 4, 0, c16MiB, c128KiB, 0),           //
-          D_ALLOC_CONFIG(28, 128 * cKB, 4, 0, c16MiB, c128KiB, 0),          //
-          D_ALLOC_CONFIG(29, 192 * cKB, 5, 0, c16MiB, c256KiB, 0),          //
-          D_ALLOC_CONFIG(30, 256 * cKB, 5, 0, c16MiB, c256KiB, 0),          //
-          D_ALLOC_CONFIG(31, 384 * cKB, 6, 0, c16MiB, c512KiB, 0),          //
-          D_ALLOC_CONFIG(32, 512 * cKB, 6, 0, c16MiB, c512KiB, 0),          //
-          D_ALLOC_CONFIG(33, 768 * cKB, 7, 0, c32MiB, c1MiB, 0),            //
-          D_ALLOC_CONFIG(34, 1 * cMB, 7, 0, c32MiB, c1MiB, 0),              //
-          D_ALLOC_CONFIG(35, 1 * cMB + 512 * cKB, 8, 0, c32MiB, c2MiB, 0),  //
-          D_ALLOC_CONFIG(36, 2 * cMB, 8, 0, c32MiB, c2MiB, 0),              //
-          D_ALLOC_CONFIG(37, 3 * cMB, 9, 0, c32MiB, c4MiB, 0),              //
-          D_ALLOC_CONFIG(38, 4 * cMB, 9, 0, c32MiB, c4MiB, 0),              //
-          D_ALLOC_CONFIG(39, 6 * cMB, 10, 0, c32MiB, c8MiB, 0),             //
-          D_ALLOC_CONFIG(40, 8 * cMB, 10, 0, c32MiB, c8MiB, 0),             //
-          D_ALLOC_CONFIG(41, 12 * cMB, 11, 0, c256MiB, c16MiB, 0),          //
-          D_ALLOC_CONFIG(42, 16 * cMB, 11, 0, c256MiB, c16MiB, 0),          //
-          D_ALLOC_CONFIG(43, 24 * cMB, 12, 0, c256MiB, c32MiB, 0),          //
-          D_ALLOC_CONFIG(44, 32 * cMB, 12, 0, c256MiB, c32MiB, 0),          //
-          D_ALLOC_CONFIG(45, 48 * cMB, 13, 0, c256MiB, c64MiB, 0),          //
-          D_ALLOC_CONFIG(46, 64 * cMB, 13, 0, c256MiB, c64MiB, 0),          //
-          D_ALLOC_CONFIG(47, 96 * cMB, 14, 0, c256MiB, c128MiB, 0),         //
-          D_ALLOC_CONFIG(48, 128 * cMB, 14, 0, c256MiB, c128MiB, 0),        //
-          D_ALLOC_CONFIG(49, 192 * cMB, 15, 0, c512MiB, c256MiB, 0),        //
-          D_ALLOC_CONFIG(50, 256 * cMB, 15, 0, c512MiB, c256MiB, 0),        //
-          D_ALLOC_CONFIG(51, 384 * cMB, 16, 0, c1GiB, c512MiB, 0),          //
-          D_ALLOC_CONFIG(52, 512 * cMB, 16, 0, c1GiB, c512MiB, 0),          //
+          D_ALLOC_CONFIG(0, 8, 0, c16MiB, 0, c16KiB, 11),                    // bin1, u64[32], 256 bytes
+          D_ALLOC_CONFIG(2, 12, 0, c16MiB, 1, c16KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(2, 16, 0, c16MiB, 1, c16KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(3, 24, 1, c16MiB, 1, c16KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(4, 32, 1, c16MiB, 2, c32KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(5, 48, 1, c16MiB, 2, c32KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(6, 64, 2, c16MiB, 3, c64KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(7, 96, 2, c16MiB, 3, c64KiB, 10),                   // bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(8, 128, 2, c16MiB, 4, c64KiB, 9),                   // bin1, u64[8], 64 bytes
+          D_ALLOC_CONFIG(9, 192, 2, c16MiB, 4, c64KiB, 9),                   // bin1, u64[8], 64 bytes
+          D_ALLOC_CONFIG(10, 256, 2, c16MiB, 5, c64KiB, 8),                  // bin1, u64[4], 32 bytes
+          D_ALLOC_CONFIG(11, 384, 2, c16MiB, 5, c64KiB, 8),                  // bin1, u64[4], 32 bytes
+          D_ALLOC_CONFIG(12, 512, 2, c16MiB, 6, c64KiB, 7),                  // bin1, u64[2], 16 bytes
+          D_ALLOC_CONFIG(13, 768, 2, c16MiB, 6, c64KiB, 7),                  // bin1, u64[2], 16 bytes
+          D_ALLOC_CONFIG(14, 1 * cKB, 2, c16MiB, 7, c64KiB, 6),              // bin1 is unused
+          D_ALLOC_CONFIG(15, 1 * cKB + 512, 2, c16MiB, 7, c64KiB, 6),        // bin1 is unused
+          D_ALLOC_CONFIG(16, 2 * cKB, 2, c16MiB, 8, c64KiB, 5),              // bin1 is unused
+          D_ALLOC_CONFIG(17, 3 * cKB, 2, c16MiB, 8, c64KiB, 5),              // bin1 is unused
+          D_ALLOC_CONFIG(18, 4 * cKB, 2, c16MiB, 9, c64KiB, 4),              // bin1 is unused
+          D_ALLOC_CONFIG(19, 6 * cKB, 2, c16MiB, 9, c64KiB, 4),              // bin1 is unused
+          D_ALLOC_CONFIG(20, 8 * cKB, 2, c16MiB, 9, c64KiB, 3),              // bin1 is unused
+          D_ALLOC_CONFIG(21, 12 * cKB, 3, c16MiB, 10, c16KiB, 0),            // block based region
+          D_ALLOC_CONFIG(22, 16 * cKB, 3, c16MiB, 10, c16KiB, 0),            // block based region
+          D_ALLOC_CONFIG(23, 24 * cKB, 3, c16MiB, 11, c32KiB, 0),            // block based region
+          D_ALLOC_CONFIG(24, 32 * cKB, 3, c16MiB, 11, c32KiB, 0),            // block based region
+          D_ALLOC_CONFIG(25, 48 * cKB, 3, c16MiB, 12, c64KiB, 0),            // block based region
+          D_ALLOC_CONFIG(26, 64 * cKB, 3, c16MiB, 12, c64KiB, 0),            // block based region
+          D_ALLOC_CONFIG(27, 96 * cKB, 4, c16MiB, 13, c128KiB, 0),           // block based region
+          D_ALLOC_CONFIG(28, 128 * cKB, 4, c16MiB, 13, c128KiB, 0),          // block based region
+          D_ALLOC_CONFIG(29, 192 * cKB, 5, c16MiB, 14, c256KiB, 0),          // block based region
+          D_ALLOC_CONFIG(30, 256 * cKB, 5, c16MiB, 14, c256KiB, 0),          // block based region
+          D_ALLOC_CONFIG(31, 384 * cKB, 6, c16MiB, 15, c512KiB, 0),          // block based region
+          D_ALLOC_CONFIG(32, 512 * cKB, 6, c16MiB, 15, c512KiB, 0),          // block based region
+          D_ALLOC_CONFIG(33, 768 * cKB, 7, c32MiB, 16, c1MiB, 0),            // block based region
+          D_ALLOC_CONFIG(34, 1 * cMB, 7, c32MiB, 16, c1MiB, 0),              // block based region
+          D_ALLOC_CONFIG(35, 1 * cMB + 512 * cKB, 8, c32MiB, 17, c2MiB, 0),  // block based region
+          D_ALLOC_CONFIG(36, 2 * cMB, 8, c32MiB, 17, c2MiB, 0),              // block based region
+          D_ALLOC_CONFIG(37, 3 * cMB, 9, c32MiB, 18, c4MiB, 0),              // block based region
+          D_ALLOC_CONFIG(38, 4 * cMB, 9, c32MiB, 18, c4MiB, 0),              // block based region
+          D_ALLOC_CONFIG(39, 6 * cMB, 10, c32MiB, 19, c8MiB, 0),             // block based region
+          D_ALLOC_CONFIG(40, 8 * cMB, 10, c32MiB, 19, c8MiB, 0),             // block based region
+          D_ALLOC_CONFIG(41, 12 * cMB, 11, c256MiB, 20, c16MiB, 0),          // block based region
+          D_ALLOC_CONFIG(42, 16 * cMB, 11, c256MiB, 20, c16MiB, 0),          // block based region
+          D_ALLOC_CONFIG(43, 24 * cMB, 12, c256MiB, 21, c32MiB, 0),          // block based region
+          D_ALLOC_CONFIG(44, 32 * cMB, 12, c256MiB, 21, c32MiB, 0),          // block based region
+          D_ALLOC_CONFIG(45, 48 * cMB, 13, c256MiB, 22, c64MiB, 0),          // block based region
+          D_ALLOC_CONFIG(46, 64 * cMB, 13, c256MiB, 22, c64MiB, 0),          // block based region
+          D_ALLOC_CONFIG(47, 96 * cMB, 14, c256MiB, 23, c128MiB, 0),         // block based region
+          D_ALLOC_CONFIG(48, 128 * cMB, 14, c256MiB, 23, c128MiB, 0),        // block based region
+          D_ALLOC_CONFIG(49, 192 * cMB, 15, c512MiB, 24, c256MiB, 0),        // block based region
+          D_ALLOC_CONFIG(50, 256 * cMB, 15, c512MiB, 24, c256MiB, 0),        // block based region
+          D_ALLOC_CONFIG(51, 384 * cMB, 16, c1GiB, 25, c512MiB, 0),          // block based region
+          D_ALLOC_CONFIG(52, 512 * cMB, 16, c1GiB, 25, c512MiB, 0),          // block based region
         };
 
         static const s32 cAllocConfigCount = DARRAYSIZE(s_alloc_configs);
@@ -243,11 +242,10 @@ namespace ncore
         // Example size of an allocator: 128 GB or 256 GB
         struct allocator_t
         {
-            u32* m_active_o_chunks_per_alloc_index;        // array of active chunks per allocation index
-            u32* m_cached_empty_o_chunks_per_chunk_index;  // array of cached empty chunks per chunk index
-            u32* m_cached_empty_o_blocks_per_block_index;  // array of cached empty blocks per block index
+            u32* m_not_full_o_chunks_per_alloc_index;      // array of "not full" chunk list per allocation index
+            u32* m_cached_empty_o_chunks_per_chunk_index;  // array of cached empty chunks/blocks per chunk index
             u32* m_active_o_region_per_region_size;        // array of active regions per region size
-            u32* m_unused_o_region_array;                  // free lists per region size, (nil = 0xffffffff), covers virtual memory range
+            u32* m_unused_o_region_per_region_index;       // free lists per region index
 
             alloc_config_t* m_alloc_config_array;
 
@@ -309,7 +307,7 @@ namespace ncore
         static void s_free_region(allocator_t* a, region_t* region) { s_free_pointer(a, (void*)region); }
         static void s_free_array(allocator_t* a, void* array) { s_free_pointer(a, array); }
 
-#ifdef CSUPERALLOC_V3_D2
+#ifdef D_CSUPERALLOC_V3_D2
         static s32 s_size_to_bin(u32& alloc_size)
         {
             const s32 w   = math::countLeadingZeros(alloc_size);
@@ -322,7 +320,7 @@ namespace ncore
         }
 #endif
 
-#ifdef CSUPERALLOC_V3_D4
+#ifdef D_CSUPERALLOC_V3_D4
         static s32 s_size_to_bin(u32& alloc_size)
         {
             const s32 w   = math::countLeadingZeros(alloc_size);
