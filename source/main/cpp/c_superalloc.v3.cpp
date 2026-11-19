@@ -280,8 +280,11 @@ namespace ncore
 
         static void* s_allocate_array(allocator_t* a, u32 size)
         {
-            // 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192
             ASSERT(size >= 8 && size <= 8192);
+
+            // 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192
+            // TODO optimize this using bit manipulation (e.g., find the index using log2(size) - 3)
+
             switch (size)
             {
                 case 8: return s_allocate(&a->m_arenas[1]);
@@ -370,9 +373,11 @@ namespace ncore
             // - Is there an active chunk for this allocation config
             //   - If not, check if there is an active region for this allocation config
             //     - If not, allocate and initialize a new region for the allocation configuration
-            //     - If yes, allocate and initialize a new chunk within the active region, add it to the active chunks
-            //   - Allocate item from the active chunk
-            //   - If chunk is now full remove it from the active list
+            //       - Add the new region to the active region list
+            //     - If yes, allocate and initialize a new chunk within the active region
+            //       - Add the chunk to the active chunk list
+            // - Allocate item from the active chunk
+            // - If chunk is now full remove it from the active list
             // - return item
         }
 
@@ -384,8 +389,9 @@ namespace ncore
             // - Mark the item as free within the chunk, for a block we can add the element of the
             //   region block array to a list and free the block structure.
             // - If the chunk is now empty, release the bitvec array and tags array to the appropriate array free list.
-            //   Free the chunk structure.
-            //   Add the region chunk array slot to the free-list in the region
+            //   -> Free the chunk structure. 
+            //      Add the region chunk array slot to the free-list in the region
+            //   -> Or if we have a cache we can add the chunk to the cache list.
             // - If the chunk was full before this deallocation, add it back to the active list
         }
 
