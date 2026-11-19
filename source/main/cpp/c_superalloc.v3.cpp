@@ -17,6 +17,11 @@ namespace ncore
         // chunks and blocks, nothing is preventing a region from being used in
         // both ways, right? The only thing we need is to know the type when picking
         // an item from the array in the region.
+        // Each struct (chunk_t, block_t, region_t) now has the same initial layout:
+        //   - m_type
+        //   - m_alloc_cfg_index
+        // So we can identify the type of structure (chunk, block, or region) when
+        // obtaining it with an u32 offset.
 
 #define D_CSUPERALLOC_V3_D2
 
@@ -85,14 +90,17 @@ namespace ncore
         // Size: 24 bytes (must be <= 32 bytes)
         struct region_t
         {
-            u8  m_type;             // 2, region type (e.g., chunk-based or block-based)
-            u8  m_alloc_cfg_index;  // allocation configuration index for this region
-            u16 m_reserved2;        // reserved for future use
-            u32 m_index;            // index into allocator->m_o_region_lookup_array
-            u32 m_free_slot_index;  // index of the first virgin chunk/block slot in m_array
-            u32 m_free_list;        // index of first slot of the free list for chunks/blocks
-            u32 m_o_array;          // array of chunk/block offsets (offset into arena memory to a array_t)
-            u32 m_o_next;           // next region in list (offset into arena memory)
+            u8  m_type;              // 2, region type (e.g., chunk-based or block-based)
+            u8  m_alloc_cfg_index;   // allocation configuration index for this region
+            u8  m_region_cfg_index;  // region configuration index for this region
+            u8  m_region_sizeshift;  // size of the region in power-of-two size units
+            u16 m_count;             // number of chunks/blocks in the region
+            u16 m_capacity;          // capacity of chunks/blocks in the region
+            u32 m_index;             // index into allocator->m_o_region_lookup_array
+            u32 m_free_slot_index;   // index of the first virgin chunk/block slot in m_array
+            u32 m_free_list;         // index of first slot of the free list for chunks/blocks
+            u32 m_o_array;           // array of chunk/block offsets (offset into arena memory to a array_t)
+            u32 m_o_next;            // next region in list (offset into arena memory)
         };
 
         struct region_config_t
@@ -389,7 +397,7 @@ namespace ncore
             // - Mark the item as free within the chunk, for a block we can add the element of the
             //   region block array to a list and free the block structure.
             // - If the chunk is now empty, release the bitvec array and tags array to the appropriate array free list.
-            //   -> Free the chunk structure. 
+            //   -> Free the chunk structure.
             //      Add the region chunk array slot to the free-list in the region
             //   -> Or if we have a cache we can add the chunk to the cache list.
             // - If the chunk was full before this deallocation, add it back to the active list
