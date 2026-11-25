@@ -547,7 +547,7 @@ namespace ncore
         static inline void activate_region(calloc_t* c, region_t* region)
         {
             // set region properties
-            const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
+            //const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
 
             region->m_chunk_free_index = 0;
             region->m_chunk_count      = 0;
@@ -570,7 +570,7 @@ namespace ncore
             }
             else
             {
-                const u32 head_index                                       = c->m_active_regions_per_index[alloc_config.m_region_index];
+                //const u32 head_index                                       = c->m_active_regions_per_index[alloc_config.m_region_index];
                 region->m_next                                             = c->m_active_regions_per_index[alloc_config.m_region_index];
                 c->m_active_regions_per_index[alloc_config.m_region_index] = region_index;
             }
@@ -594,7 +594,7 @@ namespace ncore
             const u32  region_index         = get_region_index(c, region);
             const u32  segment_index        = region->m_segment_index;
             segment_t* segment              = get_segment_at_index(c, segment_index);
-            const u32  segment_region_index = region->m_local_index;
+            //const u32  segment_region_index = region->m_local_index;
             if (segment->m_region_free_list == 0xFFFFFFFF)
             {
                 segment->m_region_free_list = region_index;
@@ -768,7 +768,7 @@ namespace ncore
             const alloc_config_t& alloc_config = c->m_alloc_configs[region->m_alloc_index];
             if (alloc_config.m_block_size_shift > 0)
             {
-                const u32 block_index = ((const byte*)ptr - region_address) >> alloc_config.m_block_size_shift;
+                //const u32 block_index = ((const byte*)ptr - region_address) >> alloc_config.m_block_size_shift;
                 // TODO, deallocating from a block:
                 // - mark block as free
                 // - if required, decommit pages

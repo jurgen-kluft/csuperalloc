@@ -11,10 +11,18 @@ committed as needed. The allocator must be zero-initialized before use. Call
 `shutdown` after initialization, including after failure, to retry any reservations
 that could not be released. Individual allocation and deallocation remain unfinished.
 
+Initialization also takes a caller-owned array of `alloc_config_t` entries and its
+count. Entries must have consecutive allocation-size indices starting at zero; the
+input is used only during initialization. D must be 2 or 4, and the minimum
+allocation size and alignment must currently both be 8 bytes. The table may cover
+fewer size classes, but its final class must not exceed 2 GiB. Allocation sizes
+are aligned to 8 bytes before selecting a class.
+
 Configuration storage is reserved for its calculated maximum and committed as needed.
 It starts with 256 two-byte chunk slots and 256 two-byte region slots. During
 initialization, a 32 by 32 byte presence table at offset 2048 is reused for each
-configuration pass; its space is then reused for the remaining metadata.
+configuration pass; its space is then reused for the bin array and remaining
+metadata. Each bin stores indices into the deduplicated chunk and region arrays.
 
 Consideration: A region once setup cannot be teardown, also a chunk structure and its additional data when allocated cannot be deallocated anymore. In this way we can use an arena to allocate the meta-data and their size can be dynamic. When a chunk is suddenly empty we can free the associated virtual memory pages but not the meta-data, since the meta-data is locked to a certain allocation range, we should add this empty chunk to the appropriate free-list.
 

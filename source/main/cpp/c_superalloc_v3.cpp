@@ -23,8 +23,6 @@ namespace ncore
         // So we can identify the type of structure (chunk, block, or region) when
         // obtaining it with an u32 offset.
 
-#define D_CSUPERALLOC_V3_D2
-
         enum
         {
             c4KiB   = 12,
@@ -101,88 +99,16 @@ namespace ncore
             u32 m_o_next;            // next region in list (offset into arena memory)
         };
 
-        // clang-format off
-#define D_ALLOC_CONFIG(index, region_size_shift, chunk_size_shift, chunk_item_cap_shift) \
-        {                                                                                \
-          (index),                                                                       \
-          (region_size_shift),                                                           \
-          (chunk_size_shift),                                                            \
-          (chunk_item_cap_shift)                                                         \
-        }
-        // clang-format on
-
-#ifdef D_CSUPERALLOC_V3_D2
-        // D == 2
-        static alloc_config_t s_alloc_configs[] = {
-          D_ALLOC_CONFIG(6, c16MiB, c16KiB, 11),    // 8, bin1, u64[32], 256 bytes
-          D_ALLOC_CONFIG(7, c16MiB, c16KiB, 10),    // 12, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(8, c16MiB, c16KiB, 10),    // 16, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(9, c16MiB, c16KiB, 10),    // 24, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(10, c16MiB, c32KiB, 10),   // 32, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(11, c16MiB, c32KiB, 10),   // 48, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(12, c16MiB, c64KiB, 10),   // 64, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(13, c16MiB, c64KiB, 10),   // 96, bin1, u64[16], 128 bytes
-          D_ALLOC_CONFIG(14, c16MiB, c64KiB, 9),    // 128, bin1, u64[8], 64 bytes
-          D_ALLOC_CONFIG(15, c16MiB, c64KiB, 9),    // 192, bin1, u64[8], 64 bytes
-          D_ALLOC_CONFIG(16, c16MiB, c64KiB, 8),    // 256, bin1, u64[4], 32 bytes
-          D_ALLOC_CONFIG(17, c16MiB, c64KiB, 8),    // 384, bin1, u64[4], 32 bytes
-          D_ALLOC_CONFIG(18, c16MiB, c64KiB, 7),    // 512, bin1, u64[2], 16 bytes
-          D_ALLOC_CONFIG(19, c16MiB, c64KiB, 7),    // 768, bin1, u64[2], 16 bytes
-          D_ALLOC_CONFIG(20, c16MiB, c64KiB, 6),    // 1 KiB, bin1 is unused
-          D_ALLOC_CONFIG(21, c16MiB, c64KiB, 6),    // 1.5 KiB, bin1 is unused
-          D_ALLOC_CONFIG(22, c16MiB, c64KiB, 5),    // 2 KiB, bin1 is unused
-          D_ALLOC_CONFIG(23, c16MiB, c64KiB, 5),    // 3 KiB, bin1 is unused
-          D_ALLOC_CONFIG(24, c16MiB, c64KiB, 4),    // 4 KiB, bin1 is unused
-          D_ALLOC_CONFIG(25, c16MiB, c64KiB, 4),    // 6 KiB, bin1 is unused
-          D_ALLOC_CONFIG(26, c16MiB, c64KiB, 3),    // 8 KiB, bin1 is unused
-          D_ALLOC_CONFIG(27, c16MiB, c16KiB, 0),    // 12 KiB, block based region
-          D_ALLOC_CONFIG(28, c16MiB, c16KiB, 0),    // 16 KiB, block based region
-          D_ALLOC_CONFIG(29, c16MiB, c32KiB, 0),    // 24 KiB, block based region
-          D_ALLOC_CONFIG(30, c16MiB, c32KiB, 0),    // 32 KiB, block based region
-          D_ALLOC_CONFIG(31, c16MiB, c64KiB, 0),    // 48 KiB, block based region
-          D_ALLOC_CONFIG(32, c16MiB, c64KiB, 0),    // 64 KiB, block based region
-          D_ALLOC_CONFIG(33, c16MiB, c128KiB, 0),   // 96 KiB, block based region
-          D_ALLOC_CONFIG(34, c16MiB, c128KiB, 0),   // 128 KiB, block based region
-          D_ALLOC_CONFIG(35, c16MiB, c256KiB, 0),   // 192 KiB, block based region
-          D_ALLOC_CONFIG(36, c16MiB, c256KiB, 0),   // 256 KiB, block based region
-          D_ALLOC_CONFIG(37, c16MiB, c512KiB, 0),   // 384 KiB, block based region
-          D_ALLOC_CONFIG(38, c16MiB, c512KiB, 0),   // 512 KiB, block based region
-          D_ALLOC_CONFIG(39, c32MiB, c1MiB, 0),     // 768 KiB, block based region
-          D_ALLOC_CONFIG(40, c32MiB, c1MiB, 0),     // 1 MiB, block based region
-          D_ALLOC_CONFIG(41, c32MiB, c2MiB, 0),     // 1.5 MiB, block based region
-          D_ALLOC_CONFIG(42, c32MiB, c2MiB, 0),     // 2 MiB, block based region
-          D_ALLOC_CONFIG(43, c32MiB, c4MiB, 0),     // 3 MiB, block based region
-          D_ALLOC_CONFIG(44, c32MiB, c4MiB, 0),     // 4 MiB, block based region
-          D_ALLOC_CONFIG(45, c32MiB, c8MiB, 0),     // 6 MiB, block based region
-          D_ALLOC_CONFIG(46, c32MiB, c8MiB, 0),     // 8 MiB, block based region
-          D_ALLOC_CONFIG(47, c256MiB, c16MiB, 0),   // 12 MiB, block based region
-          D_ALLOC_CONFIG(48, c256MiB, c16MiB, 0),   // 16 MiB, block based region
-          D_ALLOC_CONFIG(49, c256MiB, c32MiB, 0),   // 24 MiB, block based region
-          D_ALLOC_CONFIG(50, c256MiB, c32MiB, 0),   // 32 MiB, block based region
-          D_ALLOC_CONFIG(51, c256MiB, c64MiB, 0),   // 48 MiB, block based region
-          D_ALLOC_CONFIG(52, c256MiB, c64MiB, 0),   // 64 MiB, block based region
-          D_ALLOC_CONFIG(53, c256MiB, c128MiB, 0),  // 96 MiB, block based region
-          D_ALLOC_CONFIG(54, c256MiB, c128MiB, 0),  // 128 MiB, block based region
-          D_ALLOC_CONFIG(55, c512MiB, c256MiB, 0),  // 192 MiB, block based region
-          D_ALLOC_CONFIG(56, c512MiB, c256MiB, 0),  // 256 MiB, block based region
-          D_ALLOC_CONFIG(57, c1GiB, c512MiB, 0),    // 384 MiB, block based region
-          D_ALLOC_CONFIG(58, c1GiB, c512MiB, 0),    // 512 MiB, block based region
-        };
-
-        static const s32 cAllocConfigCount = DARRAYSIZE(s_alloc_configs);
-        static const s32 cMinBin           = 6;
-        static const s32 cMaxBin           = cMinBin + cAllocConfigCount - 1;
-#endif
-
         static const u32 cConfigSlots       = 256;
         static const u32 cMaxConfigs        = 255;
         static const u32 cShiftValues       = 32;
         static const u32 cPresenceBytes     = cShiftValues * cShiftValues;
         static const u32 cConfigArraysBytes = 4 * cConfigSlots * 2;
 
-        bool s_build_chunk_configs(const alloc_config_t* configs, u32 count, chunk_config_t* chunks, u8* presence, u16& chunk_count)
+        bool s_build_chunk_configs(const alloc_config_t* configs, u32 count, chunk_config_t* chunks, u8* presence, u8& chunk_count)
         {
-            nmem::memset(presence, 0, cPresenceBytes);
+            for (u32 i = 0; i < cPresenceBytes; ++i)
+                presence[i] = 0xFF;
 
             chunk_count = 0;
             for (u32 i = 0; i < count; ++i)
@@ -191,11 +117,11 @@ namespace ncore
                 if (config.m_chunk_size_shift >= cShiftValues || config.m_item_cap_shift >= cShiftValues)
                     return false;
                 u8& present = presence[config.m_chunk_size_shift * cShiftValues + config.m_item_cap_shift];
-                if (present == 0)
+                if (present == 0xFF)
                 {
                     if (chunk_count == cMaxConfigs)
                         return false;
-                    present             = 1;
+                    present             = chunk_count;
                     chunks[chunk_count] = {config.m_chunk_size_shift, config.m_item_cap_shift};
                     ++chunk_count;
                 }
@@ -203,27 +129,50 @@ namespace ncore
             return true;
         }
 
-        bool s_build_region_configs(const alloc_config_t* configs, u32 count, region_config_t* regions, u8* presence, u16& region_count)
+        void s_build_bin_config_chunks(const alloc_config_t* configs, u32 count, bin_config_t* bins, u8* presence)
         {
-            nmem::memset(presence, 0, cPresenceBytes);
+            for (u32 i = 0; i < count; ++i)
+            {
+                // The presence array is used to obtain the index of the chunk configuration corresponding to this bin.
+                const alloc_config_t& config          = configs[i];
+                const u8              chunk_cfg_index = presence[config.m_chunk_size_shift * cShiftValues + config.m_item_cap_shift];
+                bins[i].m_chunk_cfg_index             = chunk_cfg_index;
+            }
+        }
+
+        bool s_build_region_configs(const alloc_config_t* configs, u32 count, region_config_t* regions, u8* presence, u8& region_count)
+        {
+            for (u32 i = 0; i < cPresenceBytes; ++i)
+                presence[i] = 0xFF;
 
             region_count = 0;
             for (u32 i = 0; i < count; ++i)
             {
                 const alloc_config_t& config = configs[i];
-                if (config.m_region_size_shift >= cShiftValues)
+                if (config.m_region_size_shift >= cShiftValues || config.m_chunk_size_shift >= cShiftValues)
                     return false;
                 u8& present = presence[config.m_region_size_shift * cShiftValues + config.m_chunk_size_shift];
-                if (present == 0)
+                if (present == 0xFF)
                 {
                     if (region_count == cMaxConfigs)
                         return false;
-                    present               = 1;
+                    present               = region_count;
                     regions[region_count] = {config.m_region_size_shift, config.m_chunk_size_shift};
                     ++region_count;
                 }
             }
             return true;
+        }
+
+        static void s_build_bin_config_regions(const alloc_config_t* configs, u32 count, bin_config_t* bins, u8* presence)
+        {
+            for (u32 i = 0; i < count; ++i)
+            {
+                // The presence array is used to obtain the index of the region configuration corresponding to this bin.
+                const alloc_config_t& config           = configs[i];
+                const u8              region_cfg_index = presence[config.m_region_size_shift * cShiftValues + config.m_chunk_size_shift];
+                bins[i].m_region_cfg_index             = region_cfg_index;
+            }
         }
 
         void* s_allocate(arena_pool_t* arena)
@@ -298,10 +247,24 @@ namespace ncore
             return success;
         }
 
-        bool initialize(allocator_t* a, u64 managed_size, u32 pool_size)
+        template <typename T>
+        static T* s_advance_cursor(byte*& cursor, u32 count)
         {
-            if (a == nullptr || a->m_memory_base != nullptr || a->m_arena_memory_base != nullptr || a->m_config_memory_base != nullptr)
-                return false;
+            T* result = (T*)cursor;
+            cursor += sizeof(T) * count;
+            return result;
+        }
+
+        allocator_t* create_v3(u64 managed_size, u32 pool_size, const alloc_config_t* configs, u32 count, u32 minimum_size, u32 alignment, u32 D)
+        {
+            if (configs == nullptr || count == 0 || minimum_size != 8 || alignment != 8 || (D != 2 && D != 4) || count > D * (c2GiB - 3) + 1)
+                return nullptr;
+
+            for (u32 i = 0; i < count; ++i)
+            {
+                if (configs[i].m_alloc_size_index != i || configs[i].m_region_size_shift >= cShiftValues || configs[i].m_chunk_size_shift >= cShiftValues || configs[i].m_item_cap_shift >= cShiftValues)
+                    return nullptr;
+            }
 
             const u32 page_size       = v_alloc_get_page_size();
             const u8  page_shift      = v_alloc_get_page_size_shift();
@@ -309,100 +272,117 @@ namespace ncore
             const u64 pool_total      = (u64)pool_size * 12;
             if (page_size == 0 || (page_size & (page_size - 1)) != 0 || page_size > ((u32)1 << c16KiB) || page_shift >= 32 || ((u32)1 << page_shift) != page_size || managed_size < min_region_size || (managed_size & (min_region_size - 1)) != 0 ||
                 (u64)(uint_t)managed_size != managed_size || pool_size < 8192 || pool_size < page_size || (pool_size & (pool_size - 1)) != 0 || pool_total > 0xffffffffu || (u64)(uint_t)pool_total != pool_total)
-                return false;
+                return nullptr;
 
             const u64 lookup_count = managed_size >> c16MiB;
             if (lookup_count > 0xffffffffu / sizeof(u32))
-                return false;
+                return nullptr;
 
-            const u64 max_config_bytes     = cConfigArraysBytes + (u64)cAllocConfigCount * sizeof(alloc_config_t) + ((u64)cMaxBin + 1 + cMaxConfigs * 3 + lookup_count) * sizeof(u32);
-            const u64 scratch_end          = cConfigArraysBytes + cPresenceBytes;
+            const u64 max_config_bytes     = cConfigArraysBytes + (u64)count * sizeof(bin_config_t) + ((u64)count + cMaxConfigs * 3 + lookup_count) * sizeof(u32);
+            const u64 scratch_end          = sizeof(allocator_t) + cConfigArraysBytes + cPresenceBytes;
             const u64 required_reservation = max_config_bytes > scratch_end ? max_config_bytes : scratch_end;
             const u64 config_size          = (required_reservation + page_size - 1) & ~((u64)page_size - 1);
             const u64 initial_commit       = (scratch_end + page_size - 1) & ~((u64)page_size - 1);
             if (config_size > 0xffffffffu || (u64)(uint_t)config_size != config_size)
-                return false;
+                return nullptr;
 
-            a->m_memory_size = managed_size;
-            a->m_memory_base = (byte*)v_alloc_reserve((uint_t)managed_size);
-            if (a->m_memory_base == nullptr)
+            const u64 managed_memory_size = managed_size;
+            byte*     managed_memory_base = (byte*)v_alloc_reserve((uint_t)managed_size);
+            if (managed_memory_base == nullptr)
+                return nullptr;
+
+            u64   arena_memory_size = pool_total;
+            byte* arena_memory_base = (byte*)v_alloc_reserve((uint_t)pool_total);
+            if (arena_memory_base == nullptr)
+                return nullptr;
+
+            u64   config_memory_size = config_size;
+            byte* config_memory_base = (byte*)v_alloc_reserve((uint_t)config_size);
+            if (config_memory_base == nullptr || !v_alloc_commit(config_memory_base, (uint_t)initial_commit))
             {
-                *a = allocator_t{};
-                return false;
-            }
-            a->m_arena_memory_size = pool_total;
-            a->m_arena_memory_base = (byte*)v_alloc_reserve((uint_t)pool_total);
-            if (a->m_arena_memory_base == nullptr)
-            {
-                if (!shutdown(a))
-                    ASSERTS(false, "Failed to release v3 allocator reservations");
-                return false;
-            }
-            a->m_config_memory_size = config_size;
-            a->m_config_memory_base = (byte*)v_alloc_reserve((uint_t)config_size);
-            if (a->m_config_memory_base == nullptr || !v_alloc_commit(a->m_config_memory_base, (uint_t)initial_commit))
-            {
-                if (!shutdown(a))
-                    ASSERTS(false, "Failed to release v3 allocator reservations");
-                return false;
+                return nullptr;
             }
 
-            a->m_chunk_config_array  = (chunk_config_t*)a->m_config_memory_base;
-            a->m_region_config_array = (region_config_t*)(a->m_config_memory_base + cConfigSlots * sizeof(chunk_config_t));
-            u8* presence             = a->m_config_memory_base + cConfigArraysBytes;
-            u16 chunk_count          = 0;
-            u16 region_count         = 0;
-            if (!s_build_configs(s_alloc_configs, cAllocConfigCount, a->m_chunk_config_array, a->m_region_config_array, presence, chunk_count, region_count))
+            allocator_t* a = (allocator_t*)config_memory_base;
+
+            byte*            cursor              = (byte*)(a + 1);
+            chunk_config_t*  chunk_config_array  = s_advance_cursor<chunk_config_t>(cursor, cConfigSlots);
+            region_config_t* region_config_array = s_advance_cursor<region_config_t>(cursor, cConfigSlots);
+            bin_config_t*    bin_config_array    = s_advance_cursor<bin_config_t>(cursor, cConfigSlots);
+            u8*              presence            = s_advance_cursor<u8>(cursor, cConfigSlots);
+
+            for (i32 i = 0; i < count; ++i)
             {
-                if (!shutdown(a))
-                    ASSERTS(false, "Failed to release v3 allocator reservations");
-                return false;
+                const alloc_config_t& config           = configs[i];
+                bin_config_array[i].m_alloc_size_index = config.m_alloc_size_index;
+                bin_config_array[i].m_chunk_cfg_index  = 0xff;
+                bin_config_array[i].m_region_cfg_index = 0xff;
+                bin_config_array[i].m_reserved         = 0;
             }
 
-            const u64 config_bytes = cConfigArraysBytes + (u64)cAllocConfigCount * sizeof(alloc_config_t) + ((u64)cMaxBin + 1 + chunk_count + 2 * region_count + lookup_count) * sizeof(u32);
+            u8 chunk_count = 0;
+            if (!s_build_chunk_configs(configs, count, chunk_config_array, presence, chunk_count))
+                return nullptr;
+            s_build_bin_config_chunks(configs, count, bin_config_array, presence);
+
+            u8 region_count = 0;
+            if (!s_build_region_configs(configs, count, region_config_array, presence, region_count))
+                return nullptr;
+            s_build_bin_config_regions(configs, count, bin_config_array, presence);
+
+            const u64 config_bytes = cConfigArraysBytes + (u64)count * sizeof(bin_config_t) + ((u64)count + chunk_count + 2 * region_count + lookup_count) * sizeof(u32);
             const u64 final_commit = (config_bytes + page_size - 1) & ~((u64)page_size - 1);
-            if (final_commit > initial_commit && !v_alloc_commit(a->m_config_memory_base + initial_commit, (uint_t)(final_commit - initial_commit)))
-            {
-                if (!shutdown(a))
-                    ASSERTS(false, "Failed to release v3 allocator reservations");
-                return false;
-            }
+            if (final_commit > initial_commit && !v_alloc_commit(config_memory_base + initial_commit, (uint_t)(final_commit - initial_commit)))
+                return nullptr;
 
-            a->m_num_alloc_configs    = (u16)cAllocConfigCount;
+            nmem::memset(a, 0, sizeof(allocator_t));
+            a->m_chunk_config_array   = chunk_config_array;
+            a->m_region_config_array  = region_config_array;
+            a->m_bin_config_array     = bin_config_array;
+            a->m_num_bin_configs      = (u16)count;
             a->m_num_chunk_configs    = chunk_count;
             a->m_num_region_configs   = region_count;
+            a->m_size_class_divisor   = (u8)D;
             a->m_min_region_sizeshift = c16MiB;
-            u8 pool_shift             = 0;
-            for (u32 size = pool_size; size > 1; size >>= 1)
-                ++pool_shift;
-            a->m_arena_size_sizeshift = (s8)pool_shift;
+            a->m_arena_size_sizeshift = math::ilog2(pool_size);
 
-            byte* cursor            = a->m_config_memory_base + cConfigArraysBytes;
-            a->m_alloc_config_array = (alloc_config_t*)cursor;
-            cursor += cAllocConfigCount * sizeof(alloc_config_t);
-            a->m_not_full_o_chunks_per_alloc_index = (u32*)cursor;
-            cursor += (cMaxBin + 1) * sizeof(u32);
-            a->m_cached_empty_o_chunks_per_chunk_index = (u32*)cursor;
-            cursor += chunk_count * sizeof(u32);
-            a->m_active_o_region_per_region_index = (u32*)cursor;
-            cursor += region_count * sizeof(u32);
-            a->m_unused_o_region_per_region_index = (u32*)cursor;
-            cursor += region_count * sizeof(u32);
-            a->m_o_region_lookup_array = (u32*)cursor;
+            cursor                                     = presence;
+            a->m_not_full_o_chunks_per_alloc_index     = s_advance_cursor<u32>(cursor, count);
+            a->m_cached_empty_o_chunks_per_chunk_index = s_advance_cursor<u32>(cursor, chunk_count);
+            a->m_active_o_region_per_region_index      = s_advance_cursor<u32>(cursor, region_count);
+            a->m_unused_o_region_per_region_index      = s_advance_cursor<u32>(cursor, region_count);
+            a->m_o_region_lookup_array                 = s_advance_cursor<u32>(cursor, lookup_count);
 
-            for (s32 i = 0; i < cAllocConfigCount; ++i)
-                a->m_alloc_config_array[i] = s_alloc_configs[i];
-            for (s32 i = 0; i <= cMaxBin; ++i)
-                a->m_not_full_o_chunks_per_alloc_index[i] = 0xffffffffu;
-            for (u16 i = 0; i < chunk_count; ++i)
+            // This should be done when building the chunk config array and the region config array.
+            // Currently this here is inefficient as it performs a linear search for each config.
+            for (u32 i = 0; i < count; ++i)
             {
-                a->m_cached_empty_o_chunks_per_chunk_index[i] = 0xffffffffu;
+                const alloc_config_t& config      = configs[i];
+                u16                   chunk_index = 0;
+                while (chunk_index < chunk_count && (a->m_chunk_config_array[chunk_index].m_chunk_size_shift != config.m_chunk_size_shift || a->m_chunk_config_array[chunk_index].m_item_cap_shift != config.m_item_cap_shift))
+                    ++chunk_index;
+                u16 region_index = 0;
+                while (region_index < region_count && (a->m_region_config_array[region_index].m_region_size_shift != config.m_region_size_shift || a->m_region_config_array[region_index].m_chunk_size_shift != config.m_chunk_size_shift))
+                    ++region_index;
+                if (chunk_index == chunk_count || region_index == region_count)
+                {
+                    return nullptr;
+                }
+                a->m_bin_config_array[i] = {config.m_alloc_size_index, (u8)chunk_index, (u8)region_index, 0};
             }
+
+            for (u32 i = 0; i < count; ++i)
+                a->m_not_full_o_chunks_per_alloc_index[i] = 0xffffffffu;
+
+            for (u16 i = 0; i < chunk_count; ++i)
+                a->m_cached_empty_o_chunks_per_chunk_index[i] = 0xffffffffu;
+
             for (u16 i = 0; i < region_count; ++i)
             {
                 a->m_active_o_region_per_region_index[i] = 0xffffffffu;
                 a->m_unused_o_region_per_region_index[i] = 0xffffffffu;
             }
+
             for (u64 i = 0; i < lookup_count; ++i)
                 a->m_o_region_lookup_array[i] = 0xffffffffu;
 
@@ -418,7 +398,8 @@ namespace ncore
                 pool.m_memory_base     = a->m_arena_memory_base + (u64)i * pool_size;
                 pool.m_memory_cursor   = pool.m_memory_base;
             }
-            return true;
+
+            return a;
         }
 
         static inline u8        s_pointer_to_arena_index(allocator_t* a, void* ptr) { return (u8)(((byte*)ptr - a->m_arena_memory_base) >> a->m_arena_size_sizeshift); }
@@ -470,62 +451,32 @@ namespace ncore
         static void s_free_region(allocator_t* a, region_t* region) { s_free_pointer(a, (void*)region); }
         static void s_free_array(allocator_t* a, void* array) { s_free_pointer(a, array); }
 
-#ifdef D_CSUPERALLOC_V3_D2
-        static s32 s_size_to_bin(u32& alloc_size)
+        const bin_config_t* s_get_bin_config_for_size(const allocator_t* a, u32 alloc_size)
         {
-            const s32 w   = math::countLeadingZeros(alloc_size);
-            const u32 f   = (u32)0x80000000 >> w;
-            const u32 r   = 0xFFFFFFFF << (30 - w);
-            const u32 t   = ((f - 1) >> 1);
-            alloc_size    = (alloc_size + t) & ~t;
-            const s32 bin = (s32)((alloc_size & r) >> (30 - w)) + ((30 - w) * 2);
-            return bin;
-        }
-#endif
-
-#ifdef D_CSUPERALLOC_V3_D4
-        static s32 s_size_to_bin(u32& alloc_size)
-        {
-            const s32 w   = math::countLeadingZeros(alloc_size);
-            const u32 f   = (u32)0x80000000 >> w;
-            const u32 r   = 0xFFFFFFFF << (29 - w);
-            const u32 t   = ((f - 1) >> 2);
-            alloc_size    = (alloc_size + t) & ~t;
-            const s32 bin = (s32)((alloc_size & r) >> (29 - w)) + ((29 - w) * 4);
-            return bin;
-        }
-#endif
-
-        static alloc_config_t* s_get_alloc_config_for_size(allocator_t* a, u32 alloc_size)
-        {
-            // Between every power-of-2 and the next power-of-2 we want D sizes.
-            // If D is 2, then we want the following:
-            //    - step = (next power-of-2 - current power-of-2) / 2
-            //    - sizes = current-power-of-2, current-power-of-2 + step
-            // If D is 4, then we want the following:
-            //    - step = (next power-of-2 - current power-of-2) / 4
-            //    - sizes = current-power-of-2, current-power-of-2 + step, current-power-of-2 + 2 * step, current-power-of-2 + 3 * step
-
-            // Additional requirements:
-            // - Any size below 8 should act as 'size = 8'
-            // - Every size should be a multiple of 8
-
-            ASSERT(alloc_size > 0);
-            alloc_size = ((alloc_size + 7) / 8) * 8;
-            s32 bin    = s_size_to_bin(alloc_size);
-            if (bin > cMaxBin)
+            if (a == nullptr || a->m_bin_config_array == nullptr || alloc_size == 0 || (a->m_size_class_divisor != 2 && a->m_size_class_divisor != 4))
                 return nullptr;
-            if (bin < cMinBin)
-                bin = cMinBin;
-            alloc_config_t* config     = &s_alloc_configs[bin - cMinBin];
-            const u32       class_size = ((u32)1 << (bin / 2)) + ((bin & 1) ? ((u32)1 << ((bin / 2) - 1)) : 0);
-            ASSERT(alloc_size <= class_size);
-            return config;
+
+            const u64 size = ((u64)alloc_size + 7) & ~(u64)7;
+            if (size > ((u64)1 << c2GiB))
+                return nullptr;
+
+            u32 exponent = 3;
+            u64 base     = 8;
+            while (base * 2 <= size)
+            {
+                base *= 2;
+                ++exponent;
+            }
+            const u32 divisor = a->m_size_class_divisor;
+            const u64 step    = base / divisor;
+            const u32 offset  = size <= base ? 0 : (u32)((size - base + step - 1) / step);
+            const u32 bin     = (exponent - 3) * divisor + offset;
+            return bin < a->m_num_bin_configs ? &a->m_bin_config_array[bin] : nullptr;
         }
 
         void* allocate(allocator_t* a, u32 size)
         {
-            // - alloc_config_t* ac = get_alloc_config_for_size(a, size);
+            // - const bin_config_t* bc = s_get_bin_config_for_size(a, size);
             // - Is there an active chunk for this allocation config
             //   - If not, check if there is an active region for this allocation config
             //     - If not, allocate and initialize a new region for the allocation configuration
