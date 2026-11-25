@@ -1,12 +1,12 @@
 #include "ccore/c_target.h"
-#include "ccore/c_allocator.h"
-#include "ccore/c_arena.h"
 #include "ccore/c_bitvec.h"
 #include "ccore/c_statevec.h"
 #include "ccore/c_debug.h"
 #include "ccore/c_limits.h"
 #include "ccore/c_memory.h"
 #include "ccore/c_math.h"
+
+#include "csuperalloc/c_superalloc_v3.h"
 
 namespace ncore
 {
@@ -71,15 +71,14 @@ namespace ncore
         // A block is a fixed size number of pages (power-of-two number of pages).
         // But an allocation can use less pages than the block size, so we need to track
         // the number of committed pages per block.
-        // Size: 24 bytes (must be <= 32 bytes)
+        // Size: 20 bytes (must be <= 32 bytes)
         struct block_t
         {
             u8  m_type;             // 1, block type (e.g., fixed-size block)
             u8  m_alloc_cfg_index;  // allocation configuration index for this block
-            u16 m_reserved2;        // reserved for future use
+            u16 m_index;            // index into region->m_o_array
             u32 m_pages;            // number of committed pages in the block
             u32 m_o_region;         // region this block belongs to (offset into arena memory to a region_t)
-            u32 m_index;            // index into region->m_o_array
             u32 m_tag;              // tag for the block (e.g., for tracking usage or type)
             u32 m_o_next;           // next block in list (offset into arena memory to a block_t)
         };
@@ -102,31 +101,6 @@ namespace ncore
             u32 m_o_next;            // next region in list (offset into arena memory)
         };
 
-        struct region_config_t
-        {
-            u8 m_config_index;       // index of the region configuration
-            u8 m_region_size_shift;  // size of the region in power-of-two pages
-            u8 m_chunk_size_shift;   // size of the chunk/block in power-of-two pages
-            u8 m_reserved;           // reserved for future use
-        };
-
-        struct chunk_config_t
-        {
-            u8 m_config_index;    // index of the chunk configuration
-            u8 m_size_shift;      // size of the chunk in power-of-two pages
-            u8 m_item_cap_shift;  // capacity of items in the chunk in power-of-two
-            u8 m_reserved;        // reserved for future use
-        };
-
-        // Size: 16 bytes
-        struct alloc_config_t
-        {
-            u8 m_index;              // index value of the allocation configuration
-            u8 m_region_size_shift;  // size of the region in power-of-two pages
-            u8 m_chunk_size_shift;   // size of the chunk/block in power-of-two pages
-            u8 m_item_cap_shift;     // capacity of items in the chunk in power-of-two
-        };
-
         // clang-format off
 #define D_ALLOC_CONFIG(index, region_size_shift, chunk_size_shift, chunk_item_cap_shift) \
         {                                                                                \
@@ -141,7 +115,7 @@ namespace ncore
         // D == 2
         static alloc_config_t s_alloc_configs[] = {
           D_ALLOC_CONFIG(6, c16MiB, c16KiB, 11),    // 8, bin1, u64[32], 256 bytes
-          D_ALLOC_CONFIG(8, c16MiB, c16KiB, 10),    // 12, bin1, u64[16], 128 bytes
+          D_ALLOC_CONFIG(7, c16MiB, c16KiB, 10),    // 12, bin1, u64[16], 128 bytes
           D_ALLOC_CONFIG(8, c16MiB, c16KiB, 10),    // 16, bin1, u64[16], 128 bytes
           D_ALLOC_CONFIG(9, c16MiB, c16KiB, 10),    // 24, bin1, u64[16], 128 bytes
           D_ALLOC_CONFIG(10, c16MiB, c32KiB, 10),   // 32, bin1, u64[16], 128 bytes
@@ -200,36 +174,81 @@ namespace ncore
         static const s32 cMaxBin           = cMinBin + cAllocConfigCount - 1;
 #endif
 
-        struct arena_pool_t
-        {
-            u8    m_reserved;         // reserved for future use
-            u8    m_page_sizeshift;   // shift value to calculate the page size within the arena
-            u16   m_allocation_size;  // size of each allocation within the arena
-            u32   m_free_list;        // head of the free list within the arena
-            u32   m_committed_pages;  // number of current committed pages within the arena
-            u32   m_reserved_pages;   // number of reserved pages within the arena
-            byte* m_memory_base;      // For allocating regions/chunks/blocks
-            byte* m_memory_cursor;    // Current cursor position within the arena memory (aligned to 8 bytes)
-        };
+        static const u32 cConfigSlots       = 256;
+        static const u32 cMaxConfigs        = 255;
+        static const u32 cShiftValues       = 32;
+        static const u32 cPresenceBytes     = cShiftValues * cShiftValues;
+        static const u32 cConfigArraysBytes = 4 * cConfigSlots * 2;
 
-        static void* s_allocate(arena_pool_t* arena)
+        bool s_build_chunk_configs(const alloc_config_t* configs, u32 count, chunk_config_t* chunks, u8* presence, u16& chunk_count)
+        {
+            nmem::memset(presence, 0, cPresenceBytes);
+
+            chunk_count = 0;
+            for (u32 i = 0; i < count; ++i)
+            {
+                const alloc_config_t& config = configs[i];
+                if (config.m_chunk_size_shift >= cShiftValues || config.m_item_cap_shift >= cShiftValues)
+                    return false;
+                u8& present = presence[config.m_chunk_size_shift * cShiftValues + config.m_item_cap_shift];
+                if (present == 0)
+                {
+                    if (chunk_count == cMaxConfigs)
+                        return false;
+                    present             = 1;
+                    chunks[chunk_count] = {config.m_chunk_size_shift, config.m_item_cap_shift};
+                    ++chunk_count;
+                }
+            }
+            return true;
+        }
+
+        bool s_build_region_configs(const alloc_config_t* configs, u32 count, region_config_t* regions, u8* presence, u16& region_count)
+        {
+            nmem::memset(presence, 0, cPresenceBytes);
+
+            region_count = 0;
+            for (u32 i = 0; i < count; ++i)
+            {
+                const alloc_config_t& config = configs[i];
+                if (config.m_region_size_shift >= cShiftValues)
+                    return false;
+                u8& present = presence[config.m_region_size_shift * cShiftValues + config.m_chunk_size_shift];
+                if (present == 0)
+                {
+                    if (region_count == cMaxConfigs)
+                        return false;
+                    present               = 1;
+                    regions[region_count] = {config.m_region_size_shift, config.m_chunk_size_shift};
+                    ++region_count;
+                }
+            }
+            return true;
+        }
+
+        void* s_allocate(arena_pool_t* arena)
         {
             if (arena->m_free_list == 0xffffffff)
             {
-                void* ptr = arena->m_memory_cursor;
+                const u64 used     = (u64)(arena->m_memory_cursor - arena->m_memory_base);
+                const u64 end      = used + arena->m_allocation_size;
+                const u64 reserved = (u64)arena->m_reserved_pages << arena->m_page_sizeshift;
+                if (end > reserved)
+                    return nullptr;
 
-                arena->m_memory_cursor += arena->m_allocation_size;
-
-                const u32 current_page = (arena->m_memory_cursor - arena->m_memory_base) >> arena->m_page_sizeshift;
-
-                // check if we have enough committed pages
-                if (current_page > arena->m_committed_pages)
+                const u64 page_size      = (u64)1 << arena->m_page_sizeshift;
+                const u32 required_pages = (u32)((end + page_size - 1) >> arena->m_page_sizeshift);
+                if (required_pages > arena->m_committed_pages)
                 {
-                    ASSERT(current_page <= arena->m_reserved_pages);
-                    // TODO commit more pages
-                    arena->m_committed_pages = current_page;
+                    byte*     commit_base = arena->m_memory_base + ((u64)arena->m_committed_pages << arena->m_page_sizeshift);
+                    const u64 commit_size = (u64)(required_pages - arena->m_committed_pages) << arena->m_page_sizeshift;
+                    if (!v_alloc_commit(commit_base, (uint_t)commit_size))
+                        return nullptr;
+                    arena->m_committed_pages = required_pages;
                 }
 
+                void* ptr = arena->m_memory_cursor;
+                arena->m_memory_cursor += arena->m_allocation_size;
                 return ptr;
             }
             else
@@ -240,40 +259,167 @@ namespace ncore
             }
         }
 
-        static void s_free(arena_pool_t* arena, void* ptr)
+        void s_free(arena_pool_t* arena, void* ptr)
         {
             ASSERT(((uint_t)ptr & 0x7) == 0);  // Ensure the pointer is 8-byte aligned
             *((u32*)ptr)       = arena->m_free_list;
             arena->m_free_list = (u32)((byte*)ptr - arena->m_memory_base);
         }
 
-        // An allocator consists of N regions
-        // Example size of an allocator: 128 GB or 256 GB
-        struct allocator_t
+        bool shutdown(allocator_t* a)
         {
-            u32* m_not_full_o_chunks_per_alloc_index;      // array of "not full" chunk list per allocation index
-            u32* m_cached_empty_o_chunks_per_chunk_index;  // array of cached empty chunks/blocks per chunk index
-            u32* m_active_o_region_per_region_index;       // array of active regions per region index
-            u32* m_unused_o_region_per_region_index;       // free lists per region index
+            if (a == nullptr)
+                return false;
 
-            u16              m_num_alloc_configs;    // number of allocation configurations
-            u16              m_num_chunk_configs;    // number of chunk configurations
-            u16              m_num_region_configs;   // number of region configurations
-            alloc_config_t*  m_alloc_config_array;   // array of allocation configurations
-            chunk_config_t*  m_chunk_config_array;   // Constructed from the array of alloc_config_t
-            region_config_t* m_region_config_array;  // Constructed from the array of alloc_config_t
+            bool success = true;
+            if (a->m_memory_base != nullptr)
+            {
+                if (v_alloc_release(a->m_memory_base, (uint_t)a->m_memory_size))
+                    a->m_memory_base = nullptr;
+                else
+                    success = false;
+            }
+            if (a->m_arena_memory_base != nullptr)
+            {
+                if (v_alloc_release(a->m_arena_memory_base, (uint_t)a->m_arena_memory_size))
+                    a->m_arena_memory_base = nullptr;
+                else
+                    success = false;
+            }
+            if (a->m_config_memory_base != nullptr)
+            {
+                if (v_alloc_release(a->m_config_memory_base, (uint_t)a->m_config_memory_size))
+                    a->m_config_memory_base = nullptr;
+                else
+                    success = false;
+            }
+            if (success)
+                *a = allocator_t{};
+            return success;
+        }
 
-            s8   m_min_region_sizeshift;   // shift value to calculate minimum region size
-            s8   m_arena_size_sizeshift;   // m_arena_memory_size / 8 (shift value to calculate arena size)
-            u32* m_o_region_lookup_array;  // covers virtual memory range
+        bool initialize(allocator_t* a, u64 managed_size, u32 pool_size)
+        {
+            if (a == nullptr || a->m_memory_base != nullptr || a->m_arena_memory_base != nullptr || a->m_config_memory_base != nullptr)
+                return false;
 
-            byte* m_memory_base;  // virtual memory base for the allocator (must be aligned to region size)
-            u64   m_memory_size;  // size of the virtual memory address range for this allocator
+            const u32 page_size       = v_alloc_get_page_size();
+            const u8  page_shift      = v_alloc_get_page_size_shift();
+            const u64 min_region_size = (u64)1 << c16MiB;
+            const u64 pool_total      = (u64)pool_size * 12;
+            if (page_size == 0 || (page_size & (page_size - 1)) != 0 || page_size > ((u32)1 << c16KiB) || page_shift >= 32 || ((u32)1 << page_shift) != page_size || managed_size < min_region_size || (managed_size & (min_region_size - 1)) != 0 ||
+                (u64)(uint_t)managed_size != managed_size || pool_size < 8192 || pool_size < page_size || (pool_size & (pool_size - 1)) != 0 || pool_total > 0xffffffffu || (u64)(uint_t)pool_total != pool_total)
+                return false;
 
-            byte*        m_arena_memory_base;  // contiguous virtual memory base for all arenas
-            u64          m_arena_memory_size;  // size of the contiguous virtual memory address range for arenas
-            arena_pool_t m_arenas[12];         // array arenas (for meta-data, and array sizes (8/16/32/64/128/256/512/1024/2048/4096/8192))
-        };
+            const u64 lookup_count = managed_size >> c16MiB;
+            if (lookup_count > 0xffffffffu / sizeof(u32))
+                return false;
+
+            const u64 max_config_bytes     = cConfigArraysBytes + (u64)cAllocConfigCount * sizeof(alloc_config_t) + ((u64)cMaxBin + 1 + cMaxConfigs * 3 + lookup_count) * sizeof(u32);
+            const u64 scratch_end          = cConfigArraysBytes + cPresenceBytes;
+            const u64 required_reservation = max_config_bytes > scratch_end ? max_config_bytes : scratch_end;
+            const u64 config_size          = (required_reservation + page_size - 1) & ~((u64)page_size - 1);
+            const u64 initial_commit       = (scratch_end + page_size - 1) & ~((u64)page_size - 1);
+            if (config_size > 0xffffffffu || (u64)(uint_t)config_size != config_size)
+                return false;
+
+            a->m_memory_size = managed_size;
+            a->m_memory_base = (byte*)v_alloc_reserve((uint_t)managed_size);
+            if (a->m_memory_base == nullptr)
+            {
+                *a = allocator_t{};
+                return false;
+            }
+            a->m_arena_memory_size = pool_total;
+            a->m_arena_memory_base = (byte*)v_alloc_reserve((uint_t)pool_total);
+            if (a->m_arena_memory_base == nullptr)
+            {
+                if (!shutdown(a))
+                    ASSERTS(false, "Failed to release v3 allocator reservations");
+                return false;
+            }
+            a->m_config_memory_size = config_size;
+            a->m_config_memory_base = (byte*)v_alloc_reserve((uint_t)config_size);
+            if (a->m_config_memory_base == nullptr || !v_alloc_commit(a->m_config_memory_base, (uint_t)initial_commit))
+            {
+                if (!shutdown(a))
+                    ASSERTS(false, "Failed to release v3 allocator reservations");
+                return false;
+            }
+
+            a->m_chunk_config_array  = (chunk_config_t*)a->m_config_memory_base;
+            a->m_region_config_array = (region_config_t*)(a->m_config_memory_base + cConfigSlots * sizeof(chunk_config_t));
+            u8* presence             = a->m_config_memory_base + cConfigArraysBytes;
+            u16 chunk_count          = 0;
+            u16 region_count         = 0;
+            if (!s_build_configs(s_alloc_configs, cAllocConfigCount, a->m_chunk_config_array, a->m_region_config_array, presence, chunk_count, region_count))
+            {
+                if (!shutdown(a))
+                    ASSERTS(false, "Failed to release v3 allocator reservations");
+                return false;
+            }
+
+            const u64 config_bytes = cConfigArraysBytes + (u64)cAllocConfigCount * sizeof(alloc_config_t) + ((u64)cMaxBin + 1 + chunk_count + 2 * region_count + lookup_count) * sizeof(u32);
+            const u64 final_commit = (config_bytes + page_size - 1) & ~((u64)page_size - 1);
+            if (final_commit > initial_commit && !v_alloc_commit(a->m_config_memory_base + initial_commit, (uint_t)(final_commit - initial_commit)))
+            {
+                if (!shutdown(a))
+                    ASSERTS(false, "Failed to release v3 allocator reservations");
+                return false;
+            }
+
+            a->m_num_alloc_configs    = (u16)cAllocConfigCount;
+            a->m_num_chunk_configs    = chunk_count;
+            a->m_num_region_configs   = region_count;
+            a->m_min_region_sizeshift = c16MiB;
+            u8 pool_shift             = 0;
+            for (u32 size = pool_size; size > 1; size >>= 1)
+                ++pool_shift;
+            a->m_arena_size_sizeshift = (s8)pool_shift;
+
+            byte* cursor            = a->m_config_memory_base + cConfigArraysBytes;
+            a->m_alloc_config_array = (alloc_config_t*)cursor;
+            cursor += cAllocConfigCount * sizeof(alloc_config_t);
+            a->m_not_full_o_chunks_per_alloc_index = (u32*)cursor;
+            cursor += (cMaxBin + 1) * sizeof(u32);
+            a->m_cached_empty_o_chunks_per_chunk_index = (u32*)cursor;
+            cursor += chunk_count * sizeof(u32);
+            a->m_active_o_region_per_region_index = (u32*)cursor;
+            cursor += region_count * sizeof(u32);
+            a->m_unused_o_region_per_region_index = (u32*)cursor;
+            cursor += region_count * sizeof(u32);
+            a->m_o_region_lookup_array = (u32*)cursor;
+
+            for (s32 i = 0; i < cAllocConfigCount; ++i)
+                a->m_alloc_config_array[i] = s_alloc_configs[i];
+            for (s32 i = 0; i <= cMaxBin; ++i)
+                a->m_not_full_o_chunks_per_alloc_index[i] = 0xffffffffu;
+            for (u16 i = 0; i < chunk_count; ++i)
+            {
+                a->m_cached_empty_o_chunks_per_chunk_index[i] = 0xffffffffu;
+            }
+            for (u16 i = 0; i < region_count; ++i)
+            {
+                a->m_active_o_region_per_region_index[i] = 0xffffffffu;
+                a->m_unused_o_region_per_region_index[i] = 0xffffffffu;
+            }
+            for (u64 i = 0; i < lookup_count; ++i)
+                a->m_o_region_lookup_array[i] = 0xffffffffu;
+
+            for (u32 i = 0; i < 12; ++i)
+            {
+                arena_pool_t& pool     = a->m_arenas[i];
+                pool.m_reserved        = 0;
+                pool.m_page_sizeshift  = page_shift;
+                pool.m_allocation_size = (u16)(i == 0 ? 32 : (u32)1 << (i + 2));
+                pool.m_free_list       = 0xffffffffu;
+                pool.m_committed_pages = 0;
+                pool.m_reserved_pages  = pool_size >> page_shift;
+                pool.m_memory_base     = a->m_arena_memory_base + (u64)i * pool_size;
+                pool.m_memory_cursor   = pool.m_memory_base;
+            }
+            return true;
+        }
 
         static inline u8        s_pointer_to_arena_index(allocator_t* a, void* ptr) { return (u8)(((byte*)ptr - a->m_arena_memory_base) >> a->m_arena_size_sizeshift); }
         static inline u32       s_region_to_offset(allocator_t* a, region_t* region) { return (u32)((byte*)region - a->m_arena_memory_base); }
@@ -371,8 +517,9 @@ namespace ncore
                 return nullptr;
             if (bin < cMinBin)
                 bin = cMinBin;
-            alloc_config_t* config = &s_alloc_configs[bin - cMinBin];
-            ASSERT(alloc_size <= config->m_alloc_size);
+            alloc_config_t* config     = &s_alloc_configs[bin - cMinBin];
+            const u32       class_size = ((u32)1 << (bin / 2)) + ((bin & 1) ? ((u32)1 << ((bin / 2) - 1)) : 0);
+            ASSERT(alloc_size <= class_size);
             return config;
         }
 

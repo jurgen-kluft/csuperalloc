@@ -2,6 +2,20 @@
 
 Goal: more simplified logic.
 
+The v3 allocator is under development and is separate from the existing public allocator.
+Its initialization accepts a managed virtual-address range (a multiple of 16 MiB)
+and a per-pool reservation size. The pool size must be a power of two, at least
+8192 bytes and one system page, with twelve pools fitting within 32-bit offsets.
+Initialization uses `v_alloc_*` directly; physical pages for metadata pools are
+committed as needed. The allocator must be zero-initialized before use. Call
+`shutdown` after initialization, including after failure, to retry any reservations
+that could not be released. Individual allocation and deallocation remain unfinished.
+
+Configuration storage is reserved for its calculated maximum and committed as needed.
+It starts with 256 two-byte chunk slots and 256 two-byte region slots. During
+initialization, a 32 by 32 byte presence table at offset 2048 is reused for each
+configuration pass; its space is then reused for the remaining metadata.
+
 Consideration: A region once setup cannot be teardown, also a chunk structure and its additional data when allocated cannot be deallocated anymore. In this way we can use an arena to allocate the meta-data and their size can be dynamic. When a chunk is suddenly empty we can free the associated virtual memory pages but not the meta-data, since the meta-data is locked to a certain allocation range, we should add this empty chunk to the appropriate free-list.
 
 Note: Actually we can re-use the meta-data of chunk_t and block_t since a region has an array of indices to the chunks/blocks it contains.
