@@ -47,12 +47,53 @@ namespace ncore
             byte* m_memory_cursor;
         };
 
+        struct region_t
+        {
+            u8  m_type;              // 2, region
+            u8  m_region_cfg_index;
+            u16 m_reserved0;
+            u16 m_count;
+            u16 m_capacity;
+            u16 m_free_slot_index;   // index of the first never-used slot
+            u16 m_free_list;         // 0xffff when empty
+            u32 m_index;             // index in the 16 MiB region lookup table
+            u32 m_o_array;           // arena offset of the slot array
+            u32 m_o_next;            // arena offset of the next active region
+        };
+
+        struct chunk_t
+        {
+            u8  m_type;
+            u8  m_alloc_cfg_index;
+            u16 m_index;
+            u16 m_count;
+            u16 m_free_item_index;
+            u64 m_bin0;
+            u32 m_o_bin1;
+            u32 m_o_tags;
+            u32 m_o_region;
+            u32 m_o_next;
+        };
+
+        struct block_t
+        {
+            u8  m_type;
+            u8  m_alloc_cfg_index;
+            u16 m_index;
+            u32 m_pages;
+            u32 m_o_region;
+            u32 m_tag;
+            u32 m_o_next;
+        };
+
         struct allocator_t
         {
             u32* m_not_full_o_chunks_per_alloc_index;  // Indexed by zero-based allocation size class.
             u32* m_cached_empty_o_chunks_per_chunk_index;
             u32* m_active_o_region_per_region_index;
             u32* m_unused_o_region_per_region_index;
+            u32* m_item_size_per_alloc_index;
+            u32* m_item_capacity_per_alloc_index;
 
             u16              m_num_bin_configs;
             u16              m_num_chunk_configs;
@@ -68,6 +109,7 @@ namespace ncore
 
             byte* m_memory_base;
             u64   m_memory_size;
+            u32   m_next_region_index;
 
             byte*        m_arena_memory_base;
             u64          m_arena_memory_size;
@@ -77,18 +119,40 @@ namespace ncore
             u64   m_config_memory_size;
         };
 
-        // The allocator must be zero-initialized. managed_size is a nonzero multiple
-        // of 16 MiB; pool_size is a power of two, at least 8192 and one system page.
+        // managed_size is a nonzero multiple of 16 MiB; pool_size is a power of two,
+        // at least 8192 and one system page.
         // configs are used only during initialization and must contain consecutive
         // indices starting at zero. D must be 2 or 4; minimum_size and alignment
         // must both be 8. The largest configured class must not exceed 2 GiB.
-        // On failure, call shutdown to retry releasing any remaining reservation.
+        // Each region is at least 16 MiB, with page-sized or larger slots and
+        // at most 2048 slots. Its size and slot shifts must be below 32;
+        // item capacity shifts must be at most 12, and each aligned item size
+        // must fit in its configured chunk/block size.
+        // A successful shutdown invalidates the allocator pointer. If shutdown fails,
+        // the allocator remains valid only for retrying shutdown.
         allocator_t* create_v3(u64 managed_size, u32 pool_size, const alloc_config_t* configs, u32 count, u32 minimum_size, u32 alignment, u32 D);
         bool         shutdown(allocator_t* allocator);
 
-        bool                s_build_chunk_configs(const alloc_config_t* configs, u32 count, chunk_config_t* chunks, u8* presence, u16& chunk_count);
-        bool                s_build_region_configs(const alloc_config_t* configs, u32 count, region_config_t* regions, u8* presence, u16& region_count);
+        bool                s_build_chunk_configs(const alloc_config_t* configs, u32 count, chunk_config_t* chunks, u8* presence, u8& chunk_count);
+        bool                s_build_region_configs(const alloc_config_t* configs, u32 count, region_config_t* regions, u8* presence, u8& region_count);
         const bin_config_t* s_get_bin_config_for_size(const allocator_t* allocator, u32 alloc_size);
+        // allocator and region_config_index must identify a valid configuration.
+        region_t*           s_create_region(allocator_t* allocator, u8 region_config_index);
+        // Slot helpers do not change the region's count or active-list membership.
+        // Pop returns -1 when no virgin or recycled slot remains.
+        s32                 s_pop_region_slot(allocator_t* allocator, region_t* region);
+        void                s_push_region_slot(allocator_t* allocator, region_t* region, u16 index);
+        // region must be the active-list head for the bin's region configuration
+        // and have an available slot.
+        // Chunk creation commits the whole chunk before publishing it.
+        chunk_t*            s_create_chunk(allocator_t* allocator, region_t* region, u8 bin_index);
+        block_t*            s_create_block(allocator_t* allocator, region_t* region, u8 bin_index);
+        // block must be live. On decommit failure, its metadata remains allocated.
+        bool                s_free_block(allocator_t* allocator, block_t* block);
+        // chunk must be the not-full-list head for its allocation bin.
+        void*               s_allocate_chunk_item(allocator_t* allocator, chunk_t* chunk);
+        // item must be a live allocation belonging to chunk.
+        void                s_free_chunk_item(allocator_t* allocator, chunk_t* chunk, void* item);
 
         void* s_allocate(arena_pool_t* arena);
         void  s_free(arena_pool_t* arena, void* ptr);
