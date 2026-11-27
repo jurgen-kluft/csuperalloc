@@ -3,31 +3,13 @@
 Goal: more simplified logic.
 
 The v3 allocator is under development and is separate from the existing public allocator.
-Its initialization accepts a managed virtual-address range (a multiple of 16 MiB)
-and a per-pool reservation size. The pool size must be a power of two, at least
-8192 bytes and one system page, with twelve pools fitting within 32-bit offsets.
-Initialization uses `v_alloc_*` directly; physical pages for metadata pools are
-committed as needed. `create_v3` returns an allocator owned by its configuration
-reservation. Call `shutdown` when finished; on success the pointer is invalid.
-If shutdown fails, retry it with the same pointer. Top-level allocation and
-deallocation remain unfinished.
+Its initialization accepts a managed virtual-address range (a multiple of 16 MiB) and a per-pool reservation size. The pool size must be a power of two, at least 8192 bytes and one system page, with twelve pools fitting within 32-bit offsets. Initialization uses `v_alloc_*` directly; physical pages for metadata pools are committed as needed. `create_allocator` returns an allocator owned by its configuration reservation. Call `shutdown` when finished; on success the pointer is invalid. If shutdown fails, retry it with the same pointer. Top-level allocation and deallocation remain unfinished.
 
-Initialization also takes a caller-owned array of `alloc_config_t` entries and its
-count. Entries must have consecutive allocation-size indices starting at zero; the
-input is used only during initialization. D must be 2 or 4, and the minimum
-allocation size and alignment must currently both be 8 bytes. The table may cover
-fewer size classes, but its final class must not exceed 2 GiB. Allocation sizes
-are aligned to 8 bytes before selecting a class.
+Initialization also takes a caller-owned array of `alloc_config_t` entries and its count. Entries must have consecutive allocation-size indices starting at zero; the input is used only during initialization. D must be 2 or 4, and the minimum allocation size and alignment must currently both be 8 bytes. The table may cover fewer size classes, but its final class must not exceed 2 GiB. Allocation sizes are aligned to 8 bytes before selecting a class.
 
-The failing legacy allocator stress test is disabled by default; define
-`D_ENABLE_LEGACY_SUPERALLOC_STRESS_TEST` to run it.
+The failing legacy allocator stress test is disabled by default; define `D_ENABLE_LEGACY_SUPERALLOC_STRESS_TEST` to run it.
 
-Configuration storage is reserved for its calculated maximum and committed as needed.
-After the allocator object it contains 256 two-byte chunk slots, 256 two-byte
-region slots and 256 four-byte bin slots. During initialization, a 32 by 32 byte
-presence table follows these arrays and is reused for each configuration pass;
-its space is then reused for the remaining metadata. Each bin stores indices
-into the deduplicated chunk and region arrays.
+Configuration storage reserves generous fixed space plus the region lookup table. Initialization commits the allocator first, then commits additional pages as the configuration cursor advances. Unused reserved pages remain uncommitted. After the allocator object it contains 256 two-byte chunk slots, 256 two-byte region slots and 256 four-byte bin slots. During initialization, a 32 by 32 byte presence table follows these arrays and is reused for each configuration pass; its space is then reused for the remaining metadata. Each bin stores indices into the deduplicated chunk and region arrays. A per-bin `item_info_t` stores the aligned item size and usable capacity as 32-bit values.
 
 Consideration: A region once setup cannot be teardown, also a chunk structure and its additional data when allocated cannot be deallocated anymore. In this way we can use an arena to allocate the meta-data and their size can be dynamic. When a chunk is suddenly empty we can free the associated virtual memory pages but not the meta-data, since the meta-data is locked to a certain allocation range, we should add this empty chunk to the appropriate free-list.
 
@@ -41,6 +23,7 @@ Note: Actually we can re-use the meta-data of chunk_t and block_t since a region
 - A region can hold N chunks/blocks
 
 Allocation sizes are computed based on a divisor (D is 4 or 8), and an allocation range is defined as (1 << N, 1 << (N+1)). There are thus D number of sizes in an allocation range.
+
 Example: If D is 4, then an allocation range (64, 128) will have 4 allocation sizes: 64, 80, 96, 112.
 A chunk is allocated for an allocation range, this means that the maximum number of allocations it can hold is determined by the size of the chunk and the smallest allocation size within that range, (chunk-size / (1 << N)). So the bitvec data should have enough bits to track all possible allocations within the chunk.
 
@@ -51,33 +34,13 @@ The allocator also has an array of list heads to hold regions of particular size
 To allocate a new region, the allocator simply uses the address space and advances the pointer by the necessary size of the region, e.g. 16 MB, 32, 64, 128, 256 MB, etc.. 
 A region size is a multiple of 16 MB, e.g. 16 MB << N, and it needs to fill (1 << N) items in the region array pointing to the same region, this is to make sure that a deallocation can find the correct region entry in the array.
 
-Region creation advances in 16 MiB units relative to the managed base, allocates
-the region's slot array and adds it to its configuration's active list. The array
-is not initialized; `m_free_slot_index` marks the first never-used slot. Allocator
-creation validates region sizes, page-sized or larger slots and the 2048-slot
-limit, and requires each aligned item size to fit its configured slot; region
-creation assumes these configuration invariants. Allocation failures
-do not consume address space. The slot-pop helper returns -1 when neither a
-recycled nor a virgin slot is available.
+Region creation advances in 16 MiB units relative to the managed base, allocates the region's slot array and adds it to its configuration's active list. The array is not initialized; `m_free_slot_index` marks the first never-used slot. Allocator creation validates region sizes, page-sized or larger slots and the 2048-slot limit, and requires each aligned item size to fit its configured slot; region creation assumes these configuration invariants. Allocation failures do not consume address space. The slot-pop helper returns -1 when neither a recycled nor a virgin slot is available. Active-region list push and pop use LIFO order per region configuration; pop returns null when the list is empty.
 
-Chunk and block creation use a virgin slot or a recycled slot from the active
-region. Chunk creation assumes that region has an available slot. A full
-region is removed from the active-list head. Chunk metadata is
-added to the bin's not-full list; its free bitmap is initialized lazily, with
-secondary storage only above 64 items. Item capacity is limited to 4096.
-The item stride and usable item capacity are computed for each bin at allocator
-creation, capped by both the bitmap capacity and the space in a chunk.
-Chunk creation commits the entire chunk before publishing it; failure leaves the
-region and lists unchanged. Allocation reuses freed bitmap entries before virgin
-indices and removes a full chunk from the not-full-list head. Freeing an item
-returns it to the bitmap and puts a previously full chunk back on the not-full
-list. Empty chunks remain committed and available for reuse. Chunk decommit on
-free, tags, block allocation and the top-level allocation and deallocation
-functions remain unfinished.
+Chunk and block creation use a virgin slot or a recycled slot from the active region. Chunk creation assumes that region has an available slot. A full region is removed from the active-list head. Chunk metadata is added to the bin's not-full list; its free bitmap is initialized lazily, with secondary storage only above 64 items. Item capacity is limited to 4096.
+The item stride and usable item capacity are computed for each bin at allocator creation, capped by both the bitmap capacity and the space in a chunk. Chunk metadata uses two 24-byte pool slots: its second part stores the bitmap, count, 16-bit item stride and capacity. Chunk items must be at most 65535 bytes; larger items must use blocks. Metadata pool slots are 8-byte aligned, and any tail shorter than a slot remains unused.
+Chunk creation commits the entire chunk before publishing it; failure leaves the region and lists unchanged. Allocation reuses freed bitmap entries before virgin indices and removes a full chunk from the not-full-list head. Freeing an item returns it to the bitmap and puts a previously full chunk back on the not-full list. Chunk-list push and pop operate on the appropriate bin in LIFO order; pop returns null for an empty list. Empty chunks remain committed and available for reuse. Chunk decommit on free, tags, block allocation and the top-level allocation and deallocation functions remain unfinished.
 
-Freeing a block decommits its committed pages, returns its metadata and slot
-to their free lists, and makes a previously full region active again. If
-decommit fails, the block and its region metadata remain allocated for retry.
+Freeing a block decommits its committed pages, returns its metadata and slot to their free lists, and makes a previously full region active again. If decommit fails, the block and its region metadata remain allocated for retry.
 
 Note: We make array's of u32[] reusable, this should make the reusability of chunks and regions a lot more likely.
       We make an array of power-of-two sized reusable arrays, which would allow us to efficiently manage and recycle memory for chunks and regions of different sizes.

@@ -40,7 +40,12 @@ static const alloc_config_t s_test_configs[] = {
 
 static allocator_t* initialize_test(u64 managed_size, u32 pool_size)
 {
-    return create_v3(managed_size, pool_size, s_test_configs, DARRAYSIZE(s_test_configs), 8, 8, 2);
+    return create_allocator(managed_size, pool_size, s_test_configs, DARRAYSIZE(s_test_configs), 8, 8, 2);
+}
+
+static chunk2_t* chunk_info(allocator_t* a, chunk_t* chunk)
+{
+    return (chunk2_t*)(a->m_arena_memory_base + chunk->m_o_chunk2);
 }
 
 static const bin_config_t* reference_bin(const allocator_t* a, u32 request)
@@ -96,6 +101,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             CHECK_TRUE((byte*)a->m_chunk_config_array == (byte*)(a + 1));
             CHECK_TRUE((byte*)a->m_region_config_array == (byte*)(a + 1) + 256 * sizeof(chunk_config_t));
             CHECK_TRUE((byte*)a->m_bin_config_array == (byte*)(a + 1) + 256 * (sizeof(chunk_config_t) + sizeof(region_config_t)));
+            CHECK_TRUE((byte*)(a->m_item_info_per_alloc_index + a->m_num_bin_configs) == (byte*)a->m_o_region_lookup_array);
             CHECK_EQUAL((u32)0xffffffff, a->m_o_region_lookup_array[0]);
             CHECK_EQUAL((u32)0xffffffff, a->m_o_region_lookup_array[1]);
 
@@ -170,7 +176,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 const arena_pool_t& pool = a->m_arenas[i];
                 CHECK_TRUE(pool.m_memory_base == a->m_arena_memory_base + i * pool_size);
                 CHECK_TRUE(pool.m_memory_cursor == pool.m_memory_base);
-                CHECK_EQUAL((u16)(i == 0 ? 32 : (u32)1 << (i + 2)), pool.m_allocation_size);
+                CHECK_EQUAL((u16)(i == 0 ? 24 : (u32)1 << (i + 2)), pool.m_allocation_size);
                 CHECK_EQUAL((u32)0, pool.m_committed_pages);
                 CHECK_EQUAL((u32)(pool_size / v_alloc_get_page_size()), pool.m_reserved_pages);
                 CHECK_EQUAL((u32)0xffffffff, pool.m_free_list);
@@ -232,37 +238,37 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         {
             alloc_config_t configs[114] = {{0, 24, 14, 11}, {1, 24, 14, 10}};
             const u64 size = (u64)1 << 24;
-            CHECK_NULL(create_v3(size, 32768, nullptr, 1, 8, 8, 2));
-            CHECK_NULL(create_v3(size, 32768, configs, 0, 8, 8, 2));
-            CHECK_NULL(create_v3(size, 32768, configs, 58, 8, 8, 2));
-            CHECK_NULL(create_v3(size, 32768, configs, 114, 8, 8, 4));
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 16, 8, 2));
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 16, 2));
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 3));
+            CHECK_NULL(create_allocator(size, 32768, nullptr, 1, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 0, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 58, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 114, 8, 8, 4));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 16, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 16, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 3));
             configs[1].m_alloc_size_index = 2;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_alloc_size_index = 1;
             configs[1].m_region_size_shift = 32;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_region_size_shift = 24;
             configs[1].m_chunk_size_shift = 32;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_chunk_size_shift = 14;
             configs[1].m_item_cap_shift = 32;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_item_cap_shift = 13;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_item_cap_shift = 10;
             configs[1].m_region_size_shift = 23;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_region_size_shift = 24;
             configs[1].m_chunk_size_shift = v_alloc_get_page_size_shift() - 1;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_chunk_size_shift = 25;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
             configs[1].m_region_size_shift = 28;
             configs[1].m_chunk_size_shift = 16;
-            CHECK_NULL(create_v3(size, 32768, configs, 2, 8, 8, 2));
+            CHECK_NULL(create_allocator(size, 32768, configs, 2, 8, 8, 2));
         }
 
         UNITTEST_TEST(rejects_item_sizes_larger_than_configured_slots)
@@ -274,23 +280,23 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             for (u32 D = 2; D <= 4; D += 2)
             {
                 const u32 boundary_index = 11 * D;
-                allocator_t* a = create_v3((u64)1 << 24, 32768, configs, boundary_index + 1, 8, 8, D);
+                allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, boundary_index + 1, 8, 8, D);
                 CHECK_TRUE(a != nullptr);
                 if (a != nullptr)
                 {
-                    CHECK_EQUAL((u32)1 << 14, a->m_item_size_per_alloc_index[boundary_index]);
-                    CHECK_EQUAL((u32)1, a->m_item_capacity_per_alloc_index[boundary_index]);
+                    CHECK_EQUAL((u32)1 << 14, a->m_item_info_per_alloc_index[boundary_index].m_item_size);
+                    CHECK_EQUAL((u32)1, a->m_item_info_per_alloc_index[boundary_index].m_item_capacity);
                     CHECK_TRUE(shutdown(a));
                 }
 
-                CHECK_NULL(create_v3((u64)1 << 24, 32768, configs, boundary_index + 2, 8, 8, D));
+                CHECK_NULL(create_allocator((u64)1 << 24, 32768, configs, boundary_index + 2, 8, 8, D));
                 configs[boundary_index + 1].m_chunk_size_shift = 15;
-                a = create_v3((u64)1 << 24, 32768, configs, boundary_index + 2, 8, 8, D);
+                a = create_allocator((u64)1 << 24, 32768, configs, boundary_index + 2, 8, 8, D);
                 CHECK_TRUE(a != nullptr);
                 if (a != nullptr)
                 {
-                    CHECK_EQUAL((u32)((1 << 14) + (1 << 14) / D), a->m_item_size_per_alloc_index[boundary_index + 1]);
-                    CHECK_EQUAL((u32)1, a->m_item_capacity_per_alloc_index[boundary_index + 1]);
+                    CHECK_EQUAL((u32)((1 << 14) + (1 << 14) / D), a->m_item_info_per_alloc_index[boundary_index + 1].m_item_size);
+                    CHECK_EQUAL((u32)1, a->m_item_info_per_alloc_index[boundary_index + 1].m_item_capacity);
                     CHECK_TRUE(shutdown(a));
                 }
                 configs[boundary_index + 1].m_chunk_size_shift = 14;
@@ -306,7 +312,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             for (u32 D = 2; D <= 4; D += 2)
             {
                 const u32 count = D * 28 + 1;
-                allocator_t* a = create_v3((u64)1 << 24, 32768, configs, count, 8, 8, D);
+                allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, count, 8, 8, D);
                 CHECK_TRUE(a != nullptr);
                 if (a == nullptr)
                     continue;
@@ -318,6 +324,8 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_TRUE(s_get_bin_config_for_size(a, ((u32)1 << 31) - 1) == &a->m_bin_config_array[count - 1]);
                 CHECK_TRUE(s_get_bin_config_for_size(a, (u32)1 << 31) == &a->m_bin_config_array[count - 1]);
                 CHECK_TRUE(s_get_bin_config_for_size(a, ((u32)1 << 31) + 1) == nullptr);
+                CHECK_EQUAL((u32)1 << 31, a->m_item_info_per_alloc_index[count - 1].m_item_size);
+                CHECK_EQUAL((u32)1, a->m_item_info_per_alloc_index[count - 1].m_item_capacity);
                 CHECK_TRUE(s_get_bin_config_for_size(a, 0xffffffffu) == nullptr);
                 CHECK_TRUE(s_get_bin_config_for_size(a, 0) == nullptr);
                 configs[0].m_item_cap_shift = 7;
@@ -326,7 +334,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_TRUE(shutdown(a));
             }
 
-            allocator_t* a = create_v3((u64)1 << 24, 32768, configs, 1, 8, 8, 4);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, 1, 8, 8, 4);
             CHECK_TRUE(a != nullptr);
             if (a != nullptr)
             {
@@ -344,7 +352,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
 
             for (u32 D = 2; D <= 4; D += 2)
             {
-                allocator_t* a = create_v3((u64)1 << 24, 32768, configs, D * 28 + 1, 8, 8, D);
+                allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, D * 28 + 1, 8, 8, D);
                 CHECK_TRUE(a != nullptr);
                 if (a == nullptr)
                     continue;
@@ -354,7 +362,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                     const u32 exponent = 3 + i / D;
                     const u64 base = (u64)1 << exponent;
                     const u64 boundary = base + (base / D) * (i % D);
-                    CHECK_EQUAL((u32)((boundary + 7) & ~(u64)7), a->m_item_size_per_alloc_index[i]);
+                    CHECK_EQUAL((u32)((boundary + 7) & ~(u64)7), a->m_item_info_per_alloc_index[i].m_item_size);
                     for (s32 delta = -8; delta <= 8; ++delta)
                     {
                         const u64 candidate = boundary + delta;
@@ -386,8 +394,34 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             CHECK_TRUE((byte*)(a->m_o_region_lookup_array + lookup_count) > a->m_config_memory_base + initial_commit);
             CHECK_EQUAL((u32)0xffffffff, a->m_o_region_lookup_array[0]);
             CHECK_EQUAL((u32)0xffffffff, a->m_o_region_lookup_array[lookup_count - 1]);
+#if defined(TARGET_MAC) || defined(TARGET_LINUX)
+            const u64 lookup_end = (u64)((byte*)(a->m_o_region_lookup_array + lookup_count) - a->m_config_memory_base);
+            const u64 committed = ((lookup_end > initial_commit ? lookup_end : initial_commit) + page_size - 1) & ~(page_size - 1);
+            CHECK_TRUE(committed < a->m_config_memory_size);
+            if (committed < a->m_config_memory_size)
+                CHECK_TRUE(page_is_inaccessible(a->m_config_memory_base + committed));
+#endif
             CHECK_TRUE(shutdown(a));
         }
+
+#if defined(TARGET_MAC) || defined(TARGET_LINUX)
+        UNITTEST_TEST(configuration_reserves_without_committing_unused_pages)
+        {
+            allocator_t* a = initialize_test((u64)1 << 24, 32768);
+            CHECK_TRUE(a != nullptr);
+            if (a == nullptr)
+                return;
+            const u64 page_size = v_alloc_get_page_size();
+            const u64 scratch_end = sizeof(allocator_t) + 2048 + 32 * 32;
+            const u64 lookup_end = (u64)((byte*)(a->m_o_region_lookup_array + 1) - a->m_config_memory_base);
+            const u64 committed = ((scratch_end > lookup_end ? scratch_end : lookup_end) + page_size - 1) & ~(page_size - 1);
+            CHECK_TRUE(committed < a->m_config_memory_size);
+            if (committed < a->m_config_memory_size)
+                CHECK_TRUE(page_is_inaccessible(a->m_config_memory_base + committed));
+            CHECK_EQUAL((u32)0xffffffff, a->m_o_region_lookup_array[0]);
+            CHECK_TRUE(shutdown(a));
+        }
+#endif
 
         UNITTEST_TEST(maximum_bins_with_distinct_configurations)
         {
@@ -399,7 +433,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 configs[i] = {(u8)i, region_shift, chunk_shift, (u8)(i / 80)};
             }
 
-            allocator_t* a = create_v3((u64)1 << 24, 32768, configs, DARRAYSIZE(configs), 8, 8, 4);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, DARRAYSIZE(configs), 8, 8, 4);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -483,10 +517,45 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             CHECK_TRUE(shutdown(a));
         }
 
+        UNITTEST_TEST(active_region_list_push_pop)
+        {
+            allocator_t* a = initialize_test((u64)4 << 24, 32768);
+            CHECK_TRUE(a != nullptr);
+            if (a == nullptr)
+                return;
+            const u8 small_config = a->m_bin_config_array[0].m_region_cfg_index;
+            const u8 large_config = a->m_bin_config_array[7].m_region_cfg_index;
+            CHECK_TRUE(s_pop_active_region(a, small_config) == nullptr);
+            region_t* first = s_create_region(a, small_config);
+            region_t* other = first == nullptr ? nullptr : s_create_region(a, large_config);
+            region_t* second = other == nullptr ? nullptr : s_create_region(a, small_config);
+            CHECK_TRUE(second != nullptr);
+            if (second != nullptr)
+            {
+                CHECK_TRUE(s_pop_active_region(a, small_config) == second);
+                CHECK_TRUE(s_pop_active_region(a, large_config) == other);
+                CHECK_TRUE(s_pop_active_region(a, large_config) == nullptr);
+                CHECK_TRUE(s_pop_active_region(a, small_config) == first);
+                CHECK_TRUE(s_pop_active_region(a, small_config) == nullptr);
+                s_push_active_region(a, first);
+                s_push_active_region(a, second);
+                s_push_active_region(a, other);
+                CHECK_TRUE(s_pop_active_region(a, small_config) == second);
+                CHECK_TRUE(s_pop_active_region(a, small_config) == first);
+                CHECK_TRUE(s_pop_active_region(a, small_config) == nullptr);
+                CHECK_TRUE(s_pop_active_region(a, large_config) == other);
+                CHECK_TRUE(s_pop_active_region(a, large_config) == nullptr);
+                CHECK_EQUAL((u16)0, first->m_count);
+                CHECK_EQUAL((u16)0, second->m_count);
+                CHECK_EQUAL((u16)0, other->m_count);
+            }
+            CHECK_TRUE(shutdown(a));
+        }
+
         UNITTEST_TEST(region_slot_capacity_limits)
         {
             const alloc_config_t configs[] = {{0, 24, 24, 0}, {1, 25, 14, 0}};
-            allocator_t* a = create_v3((u64)3 << 24, 32768, configs, 2, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)3 << 24, 32768, configs, 2, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -504,7 +573,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(region_slot_pop_reports_exhaustion_and_reuses_slots)
         {
             const alloc_config_t config[] = {{0, 24, 23, 0}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -593,7 +662,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(creates_chunks_and_blocks_in_active_region)
         {
             const alloc_config_t configs[] = {{0, 24, 23, 7}, {1, 24, 23, 6}};
-            allocator_t* a = create_v3((u64)2 << 24, 32768, configs, 2, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)2 << 24, 32768, configs, 2, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -619,12 +688,15 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                         const u32 region_offset = (u32)((byte*)region - a->m_arena_memory_base);
                         u32* slots = (u32*)(a->m_arena_memory_base + region->m_o_array);
                         CHECK_EQUAL((u8)0, chunk->m_type);
-                        CHECK_EQUAL((u8)0, chunk->m_alloc_cfg_index);
+                        chunk2_t* info = chunk_info(a, chunk);
+                        CHECK_EQUAL((u8)0, chunk->m_bin_index);
                         CHECK_EQUAL((u16)0, chunk->m_index);
-                        CHECK_EQUAL((u16)0, chunk->m_count);
-                        CHECK_EQUAL((u16)0, chunk->m_free_item_index);
-                        CHECK_EQUAL((u64)0, chunk->m_bin0);
-                        CHECK_TRUE(a->m_arena_memory_base + chunk->m_o_bin1 == (byte*)recycled);
+                        CHECK_EQUAL((u16)0, info->m_item_count);
+                        CHECK_EQUAL((u16)0, info->m_item_free_index);
+                        CHECK_EQUAL((u16)8, info->m_item_size);
+                        CHECK_EQUAL((u16)128, info->m_item_capacity);
+                        CHECK_EQUAL((u64)0, info->m_bin0);
+                        CHECK_TRUE(a->m_arena_memory_base + info->m_o_bin1 == (byte*)recycled);
                         CHECK_EQUAL((u64)0x123456789abcdef0ull, recycled[1]);
                         CHECK_EQUAL((u32)0xffffffff, chunk->m_o_tags);
                         CHECK_EQUAL(region_offset, chunk->m_o_region);
@@ -639,7 +711,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                         if (block != nullptr)
                         {
                             CHECK_EQUAL((u8)1, block->m_type);
-                            CHECK_EQUAL((u8)1, block->m_alloc_cfg_index);
+                            CHECK_EQUAL((u8)1, block->m_bin_index);
                             CHECK_EQUAL((u16)1, block->m_index);
                             CHECK_EQUAL((u32)0, block->m_pages);
                             CHECK_EQUAL(region_offset, block->m_o_region);
@@ -654,7 +726,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 chunk_t* small = s_create_chunk(a, older, 1);
                 CHECK_TRUE(small != nullptr);
                 if (small != nullptr)
-                    CHECK_EQUAL((u32)0xffffffff, small->m_o_bin1);
+                    CHECK_EQUAL((u32)0xffffffff, chunk_info(a, small)->m_o_bin1);
             }
             CHECK_TRUE(shutdown(a));
         }
@@ -662,7 +734,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(chunk_creation_rolls_back_when_bitmap_pool_is_full)
         {
             const alloc_config_t config[] = {{0, 24, 23, 7}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -677,11 +749,50 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_EQUAL((u16)0, region->m_count);
                 CHECK_EQUAL((u16)0, region->m_free_slot_index);
                 CHECK_EQUAL((u32)0xffffffff, a->m_not_full_o_chunks_per_alloc_index[0]);
+                byte* cursor = a->m_arenas[0].m_memory_cursor;
                 pool.m_reserved_pages = reserved;
                 chunk_t* chunk = s_create_chunk(a, region, 0);
                 CHECK_TRUE(chunk != nullptr);
                 if (chunk != nullptr)
+                {
                     CHECK_TRUE((byte*)chunk == a->m_arenas[0].m_memory_base + a->m_arenas[0].m_allocation_size);
+                    CHECK_TRUE((byte*)chunk_info(a, chunk) == (byte*)chunk + a->m_arenas[0].m_allocation_size);
+                    CHECK_TRUE(a->m_arenas[0].m_memory_cursor == cursor);
+                }
+            }
+            CHECK_TRUE(shutdown(a));
+        }
+
+        UNITTEST_TEST(chunk_creation_rolls_back_when_second_metadata_slot_is_unavailable)
+        {
+            const alloc_config_t config[] = {{0, 24, 23, 6}};
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            CHECK_TRUE(a != nullptr);
+            if (a == nullptr)
+                return;
+            region_t* region = s_create_region(a, 0);
+            CHECK_TRUE(region != nullptr);
+            if (region != nullptr)
+            {
+                arena_pool_t& pool = a->m_arenas[0];
+                void* slot = s_allocate(&pool);
+                CHECK_TRUE(slot != nullptr);
+                if (slot != nullptr)
+                {
+                    s_free(&pool, slot);
+                    const u32 reserved = pool.m_reserved_pages;
+                    pool.m_reserved_pages = 0;
+                    CHECK_TRUE(s_create_chunk(a, region, 0) == nullptr);
+                    CHECK_EQUAL((u16)0, region->m_count);
+                    CHECK_EQUAL((u16)0, region->m_free_slot_index);
+                    CHECK_EQUAL((u32)0xffffffff, a->m_not_full_o_chunks_per_alloc_index[0]);
+                    CHECK_EQUAL((u32)((byte*)slot - pool.m_memory_base), pool.m_free_list);
+                    pool.m_reserved_pages = reserved;
+                    chunk_t* chunk = s_create_chunk(a, region, 0);
+                    CHECK_TRUE((void*)chunk == slot);
+                    if (chunk != nullptr)
+                        CHECK_TRUE((byte*)chunk_info(a, chunk) == (byte*)slot + pool.m_allocation_size);
+                }
             }
             CHECK_TRUE(shutdown(a));
         }
@@ -689,7 +800,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(creation_reuses_a_freed_region_slot)
         {
             const alloc_config_t config[] = {{0, 24, 23, 6}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -718,7 +829,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(freeing_blocks_reactivates_full_region_and_reuses_slots)
         {
             const alloc_config_t config[] = {{0, 24, 23, 6}};
-            allocator_t* a = create_v3((u64)2 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)2 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -770,7 +881,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(freeing_block_decommits_only_its_committed_pages)
         {
             const alloc_config_t config[] = {{0, 24, 16, 6}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -827,7 +938,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(block_decommit_failure_preserves_region_and_block)
         {
             const alloc_config_t config[] = {{0, 24, 24, 6}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -864,7 +975,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(chunk_list_and_metadata_exhaustion)
         {
             const alloc_config_t config[] = {{0, 24, 22, 12}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -888,9 +999,42 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 {
                     CHECK_EQUAL((u32)((byte*)first - a->m_arena_memory_base), second->m_o_next);
                     CHECK_EQUAL((u32)((byte*)second - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[0]);
-                    CHECK_TRUE(a->m_arena_memory_base + first->m_o_bin1 == a->m_arenas[7].m_memory_base);
-                    CHECK_TRUE(a->m_arena_memory_base + second->m_o_bin1 == a->m_arenas[7].m_memory_base + 512);
+                    CHECK_TRUE(a->m_arena_memory_base + chunk_info(a, first)->m_o_bin1 == a->m_arenas[7].m_memory_base);
+                    CHECK_TRUE(a->m_arena_memory_base + chunk_info(a, second)->m_o_bin1 == a->m_arenas[7].m_memory_base + 512);
                 }
+            }
+            CHECK_TRUE(shutdown(a));
+        }
+
+        UNITTEST_TEST(not_full_chunk_list_push_pop)
+        {
+            const alloc_config_t configs[] = {{0, 24, 14, 1}, {1, 24, 14, 1}};
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, 2, 8, 8, 2);
+            CHECK_TRUE(a != nullptr);
+            if (a == nullptr)
+                return;
+            CHECK_TRUE(s_pop_not_full_chunk(a, 0) == nullptr);
+            region_t* region = s_create_region(a, 0);
+            chunk_t* first = region == nullptr ? nullptr : s_create_chunk(a, region, 0);
+            chunk_t* second = first == nullptr ? nullptr : s_create_chunk(a, region, 0);
+            chunk_t* other = second == nullptr ? nullptr : s_create_chunk(a, region, 1);
+            CHECK_TRUE(other != nullptr);
+            if (other != nullptr)
+            {
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == second);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 1) == other);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 1) == nullptr);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == first);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == nullptr);
+                s_push_not_full_chunk(a, first);
+                s_push_not_full_chunk(a, second);
+                s_push_not_full_chunk(a, other);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == second);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == first);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 0) == nullptr);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 1) == other);
+                CHECK_TRUE(s_pop_not_full_chunk(a, 1) == nullptr);
+                CHECK_EQUAL((u16)3, region->m_count);
             }
             CHECK_TRUE(shutdown(a));
         }
@@ -898,7 +1042,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(allocates_chunk_items_and_reuses_bitmap_entries)
         {
             const alloc_config_t configs[] = {{0, 24, 14, 10}, {1, 24, 14, 10}, {2, 24, 14, 10}, {3, 24, 14, 10}};
-            allocator_t* a = create_v3((u64)2 << 24, 32768, configs, 4, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)2 << 24, 32768, configs, 4, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -912,8 +1056,11 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_TRUE(first != nullptr && chunk != nullptr);
                 if (first != nullptr && chunk != nullptr)
                 {
-                    CHECK_EQUAL((u32)24, a->m_item_size_per_alloc_index[3]);
-                    CHECK_EQUAL((u32)682, a->m_item_capacity_per_alloc_index[3]);
+                    chunk2_t* info = chunk_info(a, chunk);
+                    CHECK_EQUAL((u32)24, a->m_item_info_per_alloc_index[3].m_item_size);
+                    CHECK_EQUAL((u32)682, a->m_item_info_per_alloc_index[3].m_item_capacity);
+                    CHECK_EQUAL((u16)24, info->m_item_size);
+                    CHECK_EQUAL((u16)682, info->m_item_capacity);
                     byte* expected = a->m_memory_base + ((u64)1 << 24) + ((u64)1 << 14);
                     for (u32 i = 0; i < 67; ++i)
                     {
@@ -927,7 +1074,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                     }
                     s_free_chunk_item(a, chunk, expected + 64 * 24);
                     CHECK_TRUE(s_allocate_chunk_item(a, chunk) == expected + 64 * 24);
-                    CHECK_EQUAL((u16)67, chunk->m_free_item_index);
+                    CHECK_EQUAL((u16)67, info->m_item_free_index);
                     for (u32 i = 67; i < 682; ++i)
                     {
                         byte* item = (byte*)s_allocate_chunk_item(a, chunk);
@@ -941,18 +1088,18 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                     CHECK_EQUAL((u8)1, expected[23]);
                     CHECK_EQUAL((u8)67, expected[66 * 24 + 23]);
                     CHECK_EQUAL((u8)(682 & 0xff), expected[681 * 24 + 23]);
-                    CHECK_EQUAL((u16)682, chunk->m_count);
+                    CHECK_EQUAL((u16)682, info->m_item_count);
                     CHECK_TRUE(s_allocate_chunk_item(a, chunk) == nullptr);
                     CHECK_EQUAL((u32)((byte*)first - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[3]);
                     s_free_chunk_item(a, chunk, expected + 681 * 24);
                     s_free_chunk_item(a, chunk, expected + 64 * 24);
-                    CHECK_EQUAL((u16)680, chunk->m_count);
-                    CHECK_EQUAL((u16)682, chunk->m_free_item_index);
+                    CHECK_EQUAL((u16)680, info->m_item_count);
+                    CHECK_EQUAL((u16)682, info->m_item_free_index);
                     CHECK_EQUAL((u32)((byte*)chunk - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[3]);
                     CHECK_EQUAL((u32)((byte*)first - a->m_arena_memory_base), chunk->m_o_next);
                     CHECK_TRUE(s_allocate_chunk_item(a, chunk) == expected + 64 * 24);
                     CHECK_TRUE(s_allocate_chunk_item(a, chunk) == expected + 681 * 24);
-                    CHECK_EQUAL((u16)682, chunk->m_count);
+                    CHECK_EQUAL((u16)682, info->m_item_count);
                     CHECK_EQUAL((u32)((byte*)first - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[3]);
                 }
             }
@@ -962,7 +1109,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(allocates_and_reuses_single_level_chunk_items)
         {
             const alloc_config_t config[] = {{0, 24, 14, 1}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -971,6 +1118,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             CHECK_TRUE(chunk != nullptr);
             if (chunk != nullptr)
             {
+                chunk2_t* info = chunk_info(a, chunk);
                 byte* first = (byte*)s_allocate_chunk_item(a, chunk);
                 CHECK_TRUE(first == a->m_memory_base);
                 byte* second = (byte*)s_allocate_chunk_item(a, chunk);
@@ -980,15 +1128,15 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                     first[0] = 42;
                     second[7] = 43;
                 }
-                CHECK_EQUAL((u16)2, chunk->m_count);
+                CHECK_EQUAL((u16)2, info->m_item_count);
                 CHECK_EQUAL((u32)0xffffffff, a->m_not_full_o_chunks_per_alloc_index[0]);
                 CHECK_TRUE(s_allocate_chunk_item(a, chunk) == nullptr);
                 if (first != nullptr && second != nullptr)
                 {
                     s_free_chunk_item(a, chunk, first);
                     s_free_chunk_item(a, chunk, second);
-                    CHECK_EQUAL((u16)0, chunk->m_count);
-                    CHECK_EQUAL((u16)2, chunk->m_free_item_index);
+                    CHECK_EQUAL((u16)0, info->m_item_count);
+                    CHECK_EQUAL((u16)2, info->m_item_free_index);
                     CHECK_EQUAL((u32)((byte*)chunk - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[0]);
                     CHECK_EQUAL((u32)0xffffffff, chunk->m_o_next);
                     CHECK_EQUAL((u8)42, first[0]);
@@ -1004,7 +1152,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(freeing_nonfull_chunk_preserves_list_order)
         {
             const alloc_config_t config[] = {{0, 24, 14, 1}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -1016,7 +1164,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             if (second != nullptr)
             {
                 s_free_chunk_item(a, first, item);
-                CHECK_EQUAL((u16)0, first->m_count);
+                CHECK_EQUAL((u16)0, chunk_info(a, first)->m_item_count);
                 CHECK_EQUAL((u32)((byte*)second - a->m_arena_memory_base), a->m_not_full_o_chunks_per_alloc_index[0]);
                 CHECK_EQUAL((u32)((byte*)first - a->m_arena_memory_base), second->m_o_next);
                 CHECK_EQUAL((u32)0xffffffff, first->m_o_next);
@@ -1027,7 +1175,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(chunk_creation_commits_every_page_before_item_allocation)
         {
             const alloc_config_t config[] = {{0, 24, 16, 1}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, config, 1, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, config, 1, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -1085,12 +1233,15 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_EQUAL((u32)0x12345678, slots[0]);
                 CHECK_EQUAL((u32)0xffffffff, a->m_not_full_o_chunks_per_alloc_index[0]);
                 CHECK_EQUAL((u32)((byte*)region - a->m_arena_memory_base), a->m_active_o_region_per_region_index[region->m_region_cfg_index]);
+                byte* cursor = a->m_arenas[0].m_memory_cursor;
                 chunk_t* chunk = s_create_chunk(a, region, 0);
                 CHECK_TRUE(chunk != nullptr);
                 if (chunk != nullptr)
                 {
                     CHECK_TRUE((byte*)chunk == a->m_arenas[0].m_memory_base + a->m_arenas[0].m_allocation_size);
-                    CHECK_TRUE(a->m_arena_memory_base + chunk->m_o_bin1 == a->m_arenas[6].m_memory_base);
+                    CHECK_TRUE((byte*)chunk_info(a, chunk) == (byte*)chunk + a->m_arenas[0].m_allocation_size);
+                    CHECK_TRUE(a->m_arenas[0].m_memory_cursor == cursor);
+                    CHECK_TRUE(a->m_arena_memory_base + chunk_info(a, chunk)->m_o_bin1 == a->m_arenas[6].m_memory_base);
                     CHECK_TRUE(s_allocate_chunk_item(a, chunk) == managed_base);
                     block_t* block = s_create_block(a, region, 0);
                     CHECK_TRUE(block != nullptr);
@@ -1119,7 +1270,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
         UNITTEST_TEST(chunk_item_stride_preserves_alignment)
         {
             const alloc_config_t configs[] = {{0, 24, 14, 12}, {1, 24, 14, 12}};
-            allocator_t* a = create_v3((u64)1 << 24, 32768, configs, 2, 8, 8, 2);
+            allocator_t* a = create_allocator((u64)1 << 24, 32768, configs, 2, 8, 8, 2);
             CHECK_TRUE(a != nullptr);
             if (a == nullptr)
                 return;
@@ -1128,8 +1279,8 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
             CHECK_TRUE(chunk != nullptr);
             if (chunk != nullptr)
             {
-                CHECK_EQUAL((u32)16, a->m_item_size_per_alloc_index[1]);
-                CHECK_EQUAL((u32)1024, a->m_item_capacity_per_alloc_index[1]);
+                CHECK_EQUAL((u32)16, a->m_item_info_per_alloc_index[1].m_item_size);
+                CHECK_EQUAL((u32)1024, a->m_item_info_per_alloc_index[1].m_item_capacity);
                 CHECK_TRUE(s_allocate_chunk_item(a, chunk) == a->m_memory_base);
                 CHECK_TRUE(s_allocate_chunk_item(a, chunk) == a->m_memory_base + 16);
             }
@@ -1170,7 +1321,7 @@ UNITTEST_SUITE_BEGIN(superalloc_v3)
                 CHECK_EQUAL((u32)(((i + 1) * pool->m_allocation_size + page_size - 1) / page_size), pool->m_committed_pages);
             }
             CHECK_TRUE(s_allocate(pool) == nullptr);
-            CHECK_TRUE(pool->m_memory_cursor == pool->m_memory_base + pool_size);
+            CHECK_TRUE(pool->m_memory_cursor == pool->m_memory_base + count * pool->m_allocation_size);
             if (first != nullptr)
             {
                 s_free(pool, first);
